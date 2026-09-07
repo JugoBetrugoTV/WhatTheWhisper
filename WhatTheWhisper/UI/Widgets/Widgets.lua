@@ -10,6 +10,8 @@ local Draw, Theme, Pixel, Anim = ns.Draw, ns.Theme, ns.Pixel, ns.Anim
 local W = {}
 ns.Widgets = W
 
+local max = math.max
+
 --------------------------------------------------------------------------------
 -- Surfaces
 --------------------------------------------------------------------------------
@@ -112,6 +114,14 @@ end
 
 function SurfaceMT:Layout()
 	self.rect:Layout()
+end
+
+-- Call after changing the owning frame's strata or level; the shadow sits in a
+-- sibling frame and does not follow on its own.
+function SurfaceMT:SyncShadow()
+	if not self.shadow then return end
+	self.shadow.frame:SetFrameStrata(self.frame:GetFrameStrata())
+	self.shadow:SetFrameLevel(max(0, (self.frame:GetFrameLevel() or 1) - 1))
 end
 
 function SurfaceMT:SetShown(shown)

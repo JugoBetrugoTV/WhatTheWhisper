@@ -169,6 +169,7 @@ function Expose.Open()
 
 		win:SetFrameStrata("FULLSCREEN")
 		win:SetFrameLevel(10 + i * 4)
+		if win.surface then win.surface:SyncShadow() end
 		win:ClearAllPoints()
 		-- SetPoint offsets are expressed in the frame's own scaled space.
 		win:SetScale(scale)
@@ -210,6 +211,7 @@ function Expose.Close(focusWindow, convID)
 			end
 			win:SetFrameStrata(saved.strata or "HIGH")
 			win:SetFrameLevel(saved.level or 1)
+			if win.surface then win.surface:SyncShadow() end
 			win.__wtwExpose = nil
 		end
 	end
