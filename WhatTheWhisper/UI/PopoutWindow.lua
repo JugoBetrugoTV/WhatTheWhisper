@@ -127,22 +127,21 @@ local function create(conv)
 	end)
 
 	-- The header doubles as the drag handle.
-	local header = win.view.header
-	header:EnableMouse(true)
-	header:SetScript("OnMouseDown", function(_, button)
-		if button ~= "LeftButton" then return end
-		if win.locked or ns.db.profile.layout.locked then return end
-		win:StartMoving()
-		win.moving = true
-	end)
-	header:SetScript("OnMouseUp", function()
-		if not win.moving then return end
-		win.moving = false
-		win:StopMovingOrSizing()
-		applySnap(win)
-		win:SaveGeometry()
-	end)
-	header:SetScript("OnDoubleClick", function() win:ToggleMinimized() end)
+	W.MakeWindowHandle(win.view.header, {
+		canMove = function() return not (win.locked or ns.db.profile.layout.locked) end,
+		onStartMove = function()
+			win:StartMoving()
+			win.moving = true
+		end,
+		onStopMove = function()
+			if not win.moving then return end
+			win.moving = false
+			win:StopMovingOrSizing()
+			applySnap(win)
+			win:SaveGeometry()
+		end,
+		onDoubleClick = function() win:ToggleMinimized() end,
+	})
 
 	win.grip = CreateFrame("Frame", nil, win)
 	win.grip:SetSize(GRIP, GRIP)

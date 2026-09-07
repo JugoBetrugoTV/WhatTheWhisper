@@ -453,6 +453,36 @@ function Compat.InviteUnit(name)
 	return false
 end
 
+-- Number of results from the last /who.
+function Compat.GetNumWhoResults()
+	if type(_G.C_FriendList) == "table" and _G.C_FriendList.GetNumWhoResults then
+		local ok, n = pcall(_G.C_FriendList.GetNumWhoResults)
+		return (ok and n) or 0
+	end
+	if type(_G.GetNumWhoResults) == "function" then
+		local ok, n = pcall(_G.GetNumWhoResults)
+		return (ok and n) or 0
+	end
+	return 0
+end
+
+-- Returns fullName, level, classFile, guild, zone for one /who result.
+-- The modern API hands back a table; the legacy one a positional list.
+function Compat.GetWhoInfo(index)
+	if type(_G.C_FriendList) == "table" and _G.C_FriendList.GetWhoInfo then
+		local ok, info = pcall(_G.C_FriendList.GetWhoInfo, index)
+		if ok and info then
+			return info.fullName, info.level, info.filename, info.fullGuildName, info.area
+		end
+		return nil
+	end
+	if type(_G.GetWhoInfo) == "function" then
+		local ok, name, guild, level, _, _, zone = pcall(_G.GetWhoInfo, index)
+		if ok and name then return name, level, nil, guild, zone end
+	end
+	return nil
+end
+
 -- Only ever called straight from a click so any hardware-event requirement holds.
 function Compat.SendWho(name)
 	if type(_G.C_FriendList) == "table" and _G.C_FriendList.SendWho then
@@ -686,6 +716,16 @@ end
 --------------------------------------------------------------------------------
 -- Misc
 --------------------------------------------------------------------------------
+
+-- C_Timer exists on all four clients, but routing it here keeps the rule that
+-- nothing outside this file touches a C_ namespace.
+function Compat.After(delay, fn)
+	if type(_G.C_Timer) == "table" and type(_G.C_Timer.After) == "function" then
+		_G.C_Timer.After(delay, fn)
+		return true
+	end
+	return false
+end
 
 function Compat.GetServerTime()
 	if type(_G.GetServerTime) == "function" then

@@ -43,10 +43,12 @@ local function makeDialog(globalName, width, height)
 	d.header:EnableMouse(true)
 	d.header.divider = W.Hairline(d.header, "horizontal",
 		{ anchor = "BOTTOM", color = "borderSubtle" })
-	d.header:SetScript("OnMouseDown", function() d:StartMoving() d.moving = true end)
-	d.header:SetScript("OnMouseUp", function()
-		if d.moving then d.moving = false d:StopMovingOrSizing() end
-	end)
+	W.MakeWindowHandle(d.header, {
+		onStartMove = function() d:StartMoving() d.moving = true end,
+		onStopMove = function()
+			if d.moving then d.moving = false d:StopMovingOrSizing() end
+		end,
+	})
 
 	d.title = W.Text(d.header, "TITLE", "textPrimary")
 	d.title:SetPoint("LEFT", d.header, "LEFT", ns.S.LG, 0)

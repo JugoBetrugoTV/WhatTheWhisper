@@ -361,12 +361,49 @@ function frameMethods:CreateAnimationGroup()
 	return setmetatable({ _kind = "AnimationGroup", _parent = self }, agMT)
 end
 
+-- Script handlers are frame-type specific. Setting OnDoubleClick on a plain
+-- Frame, for instance, silently does nothing in the real client, so the mock
+-- refuses it instead of letting a dead feature pass the suite.
+local FRAME_SCRIPTS = {}
+for _, name in ipairs({
+	"OnLoad", "OnUpdate", "OnEvent", "OnShow", "OnHide", "OnEnter", "OnLeave",
+	"OnMouseDown", "OnMouseUp", "OnMouseWheel", "OnDragStart", "OnDragStop",
+	"OnSizeChanged", "OnAttributeChanged", "OnKeyDown", "OnKeyUp", "OnChar",
+	"OnHyperlinkClick", "OnHyperlinkEnter", "OnHyperlinkLeave", "OnReceiveDrag",
+}) do FRAME_SCRIPTS[name] = true end
+
+local TYPE_SCRIPTS = {
+	Button = { OnClick = true, OnDoubleClick = true },
+	CheckButton = { OnClick = true, OnDoubleClick = true },
+	EditBox = {
+		OnEnterPressed = true, OnEscapePressed = true, OnTextChanged = true,
+		OnTextSet = true, OnCursorChanged = true, OnEditFocusGained = true,
+		OnEditFocusLost = true, OnSpacePressed = true, OnTabPressed = true,
+		OnInputLanguageChanged = true,
+	},
+	ScrollFrame = {
+		OnScrollRangeChanged = true, OnHorizontalScroll = true, OnVerticalScroll = true,
+	},
+	Slider = { OnValueChanged = true, OnMinMaxChanged = true },
+	StatusBar = { OnValueChanged = true, OnMinMaxChanged = true },
+}
+
+local function assertScript(frame, name)
+	if FRAME_SCRIPTS[name] then return end
+	local extra = TYPE_SCRIPTS[frame._kind]
+	if extra and extra[name] then return end
+	error(("%s has no %s script (frame type %s)")
+		:format(frame._name or "<anonymous>", name, tostring(frame._kind)), 3)
+end
+
 function frameMethods:SetScript(name, fn)
+	assertScript(self, name)
 	self._scripts = self._scripts or {}
 	self._scripts[name] = fn
 end
 function frameMethods:GetScript(name) return self._scripts and self._scripts[name] end
 function frameMethods:HookScript(name, fn)
+	assertScript(self, name)
 	local existing = self._scripts and self._scripts[name]
 	self:SetScript(name, function(...)
 		if existing then existing(...) end

@@ -125,8 +125,6 @@ ns.defaults = {
 -- History container
 --------------------------------------------------------------------------------
 
-ns.HISTORY_VERSION = 1
-
 -- Shape of WhatTheWhisperHistoryDB:
 --
 --   version = 1

@@ -52,10 +52,13 @@ function History.Init()
 		root = {}
 		_G.WhatTheWhisperHistoryDB = root
 	end
-	if root.version ~= ns.HISTORY_VERSION then
-		History.Migrate(root)
+	-- Structural repair first: a file damaged mid-write must not take the
+	-- migration runner (or the first render) down with it.
+	local repaired = ns.Migrations.Repair(root)
+	if repaired > 0 then
+		ns.SoftError("History", ("repaired %d damaged entries"):format(repaired))
 	end
-	root.chars = root.chars or {}
+	ns.Migrations.Run(ns.db, root)
 
 	local key = Compat.PlayerFullName()
 	local store = root.chars[key]
@@ -68,16 +71,6 @@ function History.Init()
 	charStore = store
 
 	History.Prune()
-end
-
--- Nothing to migrate from yet, but the hook exists so a future format change can
--- upgrade instead of dropping people's history on the floor.
-function History.Migrate(db)
-	if db.version == nil and db.chars == nil then
-		db.version = ns.HISTORY_VERSION
-		return
-	end
-	db.version = ns.HISTORY_VERSION
 end
 
 function History.GetCharStore()

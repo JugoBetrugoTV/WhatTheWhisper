@@ -27,6 +27,7 @@
 	<Script file="Core\Util\EventBus.lua"/>
 	<Script file="Core\Util\Format.lua"/>
 	<Script file="Core\Defaults.lua"/>
+	<Script file="Core\Migrations.lua"/>
 	<Script file="Core\Options.lua"/>
 
 	<!-- Generated art coordinates -->

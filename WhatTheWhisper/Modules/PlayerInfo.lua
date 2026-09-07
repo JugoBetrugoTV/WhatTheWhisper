@@ -178,37 +178,14 @@ function PlayerInfo.HandleWhoResults()
 	local target = pendingWho
 	pendingWho = nil
 
-	local getNum = _G.C_FriendList and _G.C_FriendList.GetNumWhoResults
-	local getInfo = _G.C_FriendList and _G.C_FriendList.GetWhoInfo
-	local count = 0
-	if getNum then
-		local ok, n = pcall(getNum)
-		count = (ok and n) or 0
-	elseif _G.GetNumWhoResults then
-		count = _G.GetNumWhoResults() or 0
-	end
-
-	for i = 1, count do
-		local name, level, classFile, guild, zone
-		if getInfo then
-			local ok, info = pcall(getInfo, i)
-			if ok and info then
-				name, level, classFile, guild, zone =
-					info.fullName, info.level, info.filename, info.fullGuildName, info.area
-			end
-		elseif _G.GetWhoInfo then
-			local ok, n, g, l, _, _, z = pcall(_G.GetWhoInfo, i)
-			if ok then name, guild, level, zone = n, g, l, z end
-		end
-		if name then
-			local full = Compat.NormalizeName(name)
-			if full == target then
-				PlayerInfo.Set(full, {
-					level = level, class = classFile, guild = guild,
-					zone = zone, online = true, source = "who",
-				})
-				return
-			end
+	for i = 1, Compat.GetNumWhoResults() do
+		local name, level, classFile, guild, zone = Compat.GetWhoInfo(i)
+		if name and Compat.NormalizeName(name) == target then
+			PlayerInfo.Set(target, {
+				level = level, class = classFile, guild = guild,
+				zone = zone, online = true, source = "who",
+			})
+			return
 		end
 	end
 end

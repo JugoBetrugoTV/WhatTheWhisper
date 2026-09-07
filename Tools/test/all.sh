@@ -17,6 +17,15 @@ python3 Tools/test/check_icons.py
 echo "== locales =="
 python3 Tools/test/check_locales.py
 
+echo "== structure =="
+python3 Tools/test/check_structure.py
+
+echo "== whisper pipeline =="
+lua5.1 Tools/test/whisper.lua | tail -1
+
+echo "== history and saved variables =="
+lua5.1 Tools/test/history.lua | tail -1
+
 echo "== mock client =="
 for flavor in retail mop tbc classic; do
 	printf '%-9s ' "$flavor"

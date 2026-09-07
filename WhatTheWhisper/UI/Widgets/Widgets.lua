@@ -366,6 +366,40 @@ function W.FadeSurfaceTo(surface, key, role, duration)
 	end)
 end
 
+--------------------------------------------------------------------------------
+-- Window handles
+--------------------------------------------------------------------------------
+
+-- OnDoubleClick is a Button script: a plain Frame never receives it, so a title
+-- bar that wants double-click-to-minimise has to time the presses itself.
+local DOUBLE_CLICK = 0.30
+
+-- opts: canMove() -> bool, onStartMove(), onStopMove(), onDoubleClick()
+function W.MakeWindowHandle(handle, opts)
+	local lastDown = 0
+	handle:EnableMouse(true)
+
+	handle:SetScript("OnMouseDown", function(_, button)
+		if button ~= "LeftButton" then return end
+		local now = GetTime()
+		if opts.onDoubleClick and (now - lastDown) <= DOUBLE_CLICK then
+			lastDown = 0
+			if opts.onStopMove then ns.Guard("Window.stopMove", opts.onStopMove) end
+			ns.Guard("Window.doubleClick", opts.onDoubleClick)
+			return
+		end
+		lastDown = now
+		if opts.canMove and not opts.canMove() then return end
+		if opts.onStartMove then ns.Guard("Window.startMove", opts.onStartMove) end
+	end)
+
+	local function stop()
+		if opts.onStopMove then ns.Guard("Window.stopMove", opts.onStopMove) end
+	end
+	handle:SetScript("OnMouseUp", stop)
+	handle:HookScript("OnHide", stop)
+end
+
 function W.ClampSize(frame, minW, minH, maxW, maxH)
 	ns.Compat.SetResizeBounds(frame, minW, minH, maxW, maxH)
 end

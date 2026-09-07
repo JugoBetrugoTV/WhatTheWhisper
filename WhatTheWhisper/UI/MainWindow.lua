@@ -88,19 +88,20 @@ function MainWindow.Get()
 	title.expose = titleButton("grid", L["Overview"], function() ns.Expose.Toggle() end)
 	title.expose:SetPoint("RIGHT", title.settings, "LEFT", -2, 0)
 
-	title:SetScript("OnMouseDown", function(_, button)
-		if button ~= "LeftButton" then return end
-		if ns.db.profile.layout.locked then return end
-		frame:StartMoving()
-		frame.moving = true
-	end)
-	title:SetScript("OnMouseUp", function()
-		if not frame.moving then return end
-		frame.moving = false
-		frame:StopMovingOrSizing()
-		frame:SavePosition()
-	end)
-	title:SetScript("OnDoubleClick", function() ns.UI.Minimize() end)
+	W.MakeWindowHandle(title, {
+		canMove = function() return not ns.db.profile.layout.locked end,
+		onStartMove = function()
+			frame:StartMoving()
+			frame.moving = true
+		end,
+		onStopMove = function()
+			if not frame.moving then return end
+			frame.moving = false
+			frame:StopMovingOrSizing()
+			frame:SavePosition()
+		end,
+		onDoubleClick = function() ns.UI.Minimize() end,
+	})
 
 	-------------------------------------------------------------------- body
 	frame.sidebar = ns.Sidebar.New(frame)

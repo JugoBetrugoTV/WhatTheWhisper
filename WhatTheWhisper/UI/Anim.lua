@@ -336,10 +336,7 @@ end
 --------------------------------------------------------------------------------
 
 function Anim.After(delay, fn)
-	if _G.C_Timer and _G.C_Timer.After then
-		_G.C_Timer.After(delay, function() ns.Guard("Anim.After", fn) end)
-		return
-	end
+	if ns.Compat.After(delay, function() ns.Guard("Anim.After", fn) end) then return end
 	-- Should not happen on any supported client, but never leave a caller hanging.
 	ns.Guard("Anim.After", fn)
 end

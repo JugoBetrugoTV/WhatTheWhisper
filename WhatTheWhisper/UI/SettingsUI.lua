@@ -297,10 +297,12 @@ local function build()
 	header:SetPoint("TOPRIGHT")
 	header:EnableMouse(true)
 	header.divider = W.Hairline(header, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
-	header:SetScript("OnMouseDown", function() frame:StartMoving() frame.moving = true end)
-	header:SetScript("OnMouseUp", function()
-		if frame.moving then frame.moving = false frame:StopMovingOrSizing() end
-	end)
+	W.MakeWindowHandle(header, {
+		onStartMove = function() frame:StartMoving() frame.moving = true end,
+		onStopMove = function()
+			if frame.moving then frame.moving = false frame:StopMovingOrSizing() end
+		end,
+	})
 	frame.header = header
 
 	header.title = W.Text(header, "TITLE", "textPrimary")
