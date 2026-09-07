@@ -41,6 +41,11 @@ ns.R = {
 -- Component metrics
 --------------------------------------------------------------------------------
 
+-- The smallest thing a mouse should have to hit. Roughly 5mm on a 1080p 24"
+-- display at scale 1.0. Controls drawn smaller than this keep their look and
+-- grow their hit rect to match.
+ns.MIN_HIT = 20
+
 ns.SZ = {
 	WINDOW_W          = 940,
 	WINDOW_H          = 580,
@@ -119,6 +124,9 @@ ns.SZ = {
 
 	SLIDER_TRACK      = 4,
 	SLIDER_THUMB      = 14,
+	-- The value readout to the right of the track, and the gap before it.
+	SLIDER_VALUE_W    = 42,
+	SLIDER_VALUE_GAP  = 4,
 
 	POPOUT_W          = 380,
 	POPOUT_H          = 460,

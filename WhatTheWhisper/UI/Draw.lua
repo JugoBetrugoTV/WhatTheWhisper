@@ -59,6 +59,9 @@ end
 function Draw.Hairline(parent, layer, subLevel)
 	local tex = parent:CreateTexture(nil, layer or "BORDER", nil, subLevel)
 	tex:SetColorTexture(1, 1, 1, 1)
+	-- Marked so a divider can be told apart from any other one-pixel strip; the
+	-- audit uses it to prove no boundary ends up with two borders drawn on it.
+	tex.__wtwHairline = true
 	return tex
 end
 

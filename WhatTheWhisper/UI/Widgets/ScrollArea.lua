@@ -54,6 +54,10 @@ function Scroll.New(parent, opts)
 		sa.clipper = clipper
 	end
 	viewport:EnableMouseWheel(true)
+	-- Content taller than this frame is the point of a scroll area, not a layout
+	-- fault; the marker lets an audit tell the two apart. The client clips here
+	-- either way, so nothing actually draws outside it.
+	viewport.__wtwViewport = true
 	sa.viewport = viewport
 
 	-- Track and thumb.

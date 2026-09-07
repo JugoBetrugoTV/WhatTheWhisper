@@ -160,7 +160,8 @@ function Controls.Slider(parent, opts)
 	s.track = CreateFrame("Frame", nil, s)
 	s.track:SetHeight(ns.SZ.SLIDER_TRACK)
 	s.track:SetPoint("LEFT", s, "LEFT", ns.SZ.SLIDER_THUMB / 2, 0)
-	s.track:SetPoint("RIGHT", s, "RIGHT", -(ns.SZ.SLIDER_THUMB / 2 + 46), 0)
+	s.track:SetPoint("RIGHT", s, "RIGHT",
+		-(ns.SZ.SLIDER_THUMB / 2 + ns.SZ.SLIDER_VALUE_W + ns.SZ.SLIDER_VALUE_GAP), 0)
 	s.track.surface = W.Surface(s.track, { color = "hover", radius = ns.SZ.SLIDER_TRACK / 2 })
 
 	s.fill = CreateFrame("Frame", nil, s.track)
@@ -180,7 +181,7 @@ function Controls.Slider(parent, opts)
 	s.valueLabel = W.Text(s, "SMALL", "textSecondary")
 	s.valueLabel:SetPoint("RIGHT", s, "RIGHT", 0, 0)
 	s.valueLabel:SetJustifyH("RIGHT")
-	s.valueLabel:SetWidth(42)
+	s.valueLabel:SetWidth(ns.SZ.SLIDER_VALUE_W)
 
 	local function snap(value)
 		value = min(max(value, s.minValue), s.maxValue)
@@ -230,6 +231,19 @@ function Controls.Slider(parent, opts)
 		region:SetScript("OnMouseUp", endDrag)
 		region:SetScript("OnHide", endDrag)
 	end
+
+	-- The track is drawn 4px high because a fat bar looks clumsy, but clicking
+	-- to jump along it has to be possible without taking aim. Negative insets
+	-- grow the hit rect to the thumb's height, which is the size the whole
+	-- control reads as.
+	local trackGrow = (ns.SZ.SLIDER_THUMB - ns.SZ.SLIDER_TRACK) / 2
+	s.track:SetHitRectInsets(0, 0, -trackGrow, -trackGrow)
+
+	-- The thumb is a 14px dot, which is the right size to look at and too small
+	-- to grab. Its hit rect is grown to a comfortable target without changing
+	-- what is drawn.
+	local thumbGrow = (ns.MIN_HIT - ns.SZ.SLIDER_THUMB) / 2
+	s.thumb:SetHitRectInsets(-thumbGrow, -thumbGrow, -thumbGrow, -thumbGrow)
 
 	s:EnableMouseWheel(true)
 	s:SetScript("OnMouseWheel", function(_, delta)

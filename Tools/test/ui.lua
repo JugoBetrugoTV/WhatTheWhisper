@@ -131,12 +131,16 @@ end
 -- Shadows and glows are drawn deliberately outside their frame, and scroll
 -- viewports hold content taller than themselves. Both are legitimate.
 local function allowedOverflow(node)
-	if node._kind ~= "Frame" and node._layer == "BACKGROUND" then return 40 end
+	-- Checked before anything else: inside a scroll viewport the client clips,
+	-- so content taller than the window is the mechanism working rather than
+	-- something spilling out.
 	local parent = node._parent
 	while parent do
-		if parent._wtwScrollContent or parent._wtwViewport then return math.huge end
+		if parent.__wtwViewport then return math.huge end
 		parent = parent._parent
 	end
+	-- Shadows and glows are drawn deliberately outside the frame they belong to.
+	if node._kind ~= "Frame" and node._layer == "BACKGROUND" then return 40 end
 	return 2
 end
 
@@ -450,6 +454,130 @@ for i = 1, #durations do
 end
 
 --------------------------------------------------------------------------------
+-- Truncation: constrained text must be ellipsized, never drawn past its box
+--------------------------------------------------------------------------------
+
+-- A font string given an explicit width or anchored on both sides has agreed to
+-- fit. If its natural text is wider than that box the client clips it, so the
+-- addon has to shorten the string itself -- which is what Text.Ellipsize is for.
+local function checkTruncation(label, root)
+	local overflowing, sample = 0, nil
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= "" then
+			local points = node._points or {}
+			local bounded = node._w ~= nil
+			local hasLeft, hasRight = false, false
+			for p = 1, #points do
+				local anchor = points[p][1]
+				if anchor:find("LEFT") or anchor == "LEFT" then hasLeft = true end
+				if anchor:find("RIGHT") or anchor == "RIGHT" then hasRight = true end
+			end
+			if bounded or (hasLeft and hasRight) then
+				local box = select(3, rect(node))
+				local natural = node:GetStringWidth()
+				-- Word wrap is a legitimate answer to not fitting on one line.
+				if node._wordWrap == false and natural > box + 1 then
+					overflowing = overflowing + 1
+					sample = sample or (describe(node)
+						.. (" needs %.1f but has %.1f"):format(natural, box))
+				end
+			end
+		end
+	end
+	check(label, overflowing == 0, sample)
+end
+
+checkTruncation("no single-line text is drawn wider than its box", window)
+
+--------------------------------------------------------------------------------
+-- Scrollbar: the track lives in its gutter, never over the content
+--------------------------------------------------------------------------------
+
+local scroll = view.list
+if scroll and scroll.track then
+	local trackLeft, _, trackW = rect(scroll.track)
+	local trackRight = trackLeft + trackW
+	check("the scrollbar track sits at the right edge of the list",
+		math.abs(trackRight - select(5, rect(scroll))) <= ns.S.SM + EPS,
+		("track ends %.2f, list ends %.2f"):format(trackRight, select(5, rect(scroll))))
+	check("the scrollbar track is the full grab width",
+		math.abs(trackW - ns.SZ.SCROLLBAR_HIT) < EPS,
+		("%.2f, want %d"):format(trackW, ns.SZ.SCROLLBAR_HIT))
+	if #outgoing > 0 then
+		-- The gutter is reserved: no bubble may run under the scrollbar.
+		check("no bubble reaches into the scrollbar gutter",
+			select(5, rect(outgoing[1])) <= trackLeft + EPS,
+			("bubble ends %.2f, gutter starts %.2f"):format(
+				select(5, rect(outgoing[1])), trackLeft))
+	end
+	if scroll.thumb then
+		local thumbLeft, _, thumbW = rect(scroll.thumb)
+		check("the scrollbar thumb is centred in its track",
+			math.abs((thumbLeft + thumbW / 2) - (trackLeft + trackW / 2)) < EPS,
+			("thumb centre %.2f, track centre %.2f"):format(
+				thumbLeft + thumbW / 2, trackLeft + trackW / 2))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Hover hitboxes must match what they highlight
+--------------------------------------------------------------------------------
+
+-- A row that accepts the mouse outside its own bounds steals hovers from its
+-- neighbour, and the highlight then appears under the wrong row.
+if #rows > 1 then
+	local overlapping, sample = 0, nil
+	for i = 1, #rows - 1 do
+		local aBottom, aTop = select(2, rect(rows[i])), select(6, rect(rows[i]))
+		local bBottom, bTop = select(2, rect(rows[i + 1])), select(6, rect(rows[i + 1]))
+		-- Rows are stacked; whichever is above, their spans must not overlap.
+		local overlap = math.min(aTop, bTop) - math.max(aBottom, bBottom)
+		if overlap > EPS then
+			overlapping = overlapping + 1
+			sample = sample or ("rows %d and %d overlap by %.2f"):format(i, i + 1, overlap)
+		end
+	end
+	check("no two sidebar rows overlap each other's hover area",
+		overlapping == 0, sample)
+end
+
+--------------------------------------------------------------------------------
+-- Seams: a hairline divider is exactly one hairline
+--------------------------------------------------------------------------------
+
+-- Two panels that each draw their own border at the same boundary produce a
+-- two-pixel seam that reads as a mistake. Every hairline the addon draws is one
+-- physical pixel; anything thicker at the same place is a doubled border.
+do
+	local px = ns.Pixel.Size(_G.UIParent)
+	local hairlines = {}
+	-- Straight off the descendant list rather than through `auditable`: that
+	-- filter drops anything under a pixel tall, which is every hairline.
+	local nodes = M.Descendants(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.__wtwHairline and M.EffectivelyShown(node, window) then
+			local _, _, w, h = rect(node)
+			local thickness = math.min(w, h)
+			hairlines[#hairlines + 1] = { node = node, thickness = thickness }
+		end
+	end
+	local thick, sample = 0, nil
+	for i = 1, #hairlines do
+		local entry = hairlines[i]
+		if entry.thickness > px * 1.51 then
+			thick = thick + 1
+			sample = sample or (describe(entry.node)
+				.. (" is %.3f thick, one pixel is %.3f"):format(entry.thickness, px))
+		end
+	end
+	check("every hairline is one physical pixel", thick == 0, sample)
+	check("the window draws hairline dividers at all", #hairlines > 0)
+end
+
+--------------------------------------------------------------------------------
 -- Contrast
 --------------------------------------------------------------------------------
 
@@ -619,7 +747,10 @@ M.RunFrames(6)
 
 ns.SettingsUI.Show()
 M.RunFrames(8)
-local settings = ns.SettingsUI.Frame and ns.SettingsUI.Frame()
+-- The settings window is a globally named frame, which is how the audit reaches
+-- it without the module having to expose an accessor just for the tests.
+local settings = _G.WhatTheWhisperSettings
+check("the settings window was built", settings ~= nil and settings:IsShown())
 if settings then
 	local schema = ns.Options.BuildSchema()
 	for i = 1, #schema do
@@ -627,6 +758,30 @@ if settings then
 		M.RunFrames(4)
 		checkContainment("settings: " .. schema[i].id, settings)
 		checkTargets("settings: " .. schema[i].id .. " targets", settings)
+		checkTruncation("settings: " .. schema[i].id .. " text fits", settings)
+		checkIconCentring("settings: " .. schema[i].id .. " icons are centred", settings)
+
+		-- Every control in a category shares one right column; a ragged edge
+		-- down a settings list is the loudest thing on the screen.
+		local controls = {}
+		for control in settings.rowPool:EnumerateActive() do
+			if control.control and M.EffectivelyShown(control.control, settings) then
+				controls[#controls + 1] = control.control
+			end
+		end
+		if #controls > 1 then
+			local first = select(5, rect(controls[1]))
+			local ragged, worst = 0, nil
+			for k = 2, #controls do
+				local edge = select(5, rect(controls[k]))
+				if math.abs(edge - first) > EPS then
+					ragged = ragged + 1
+					worst = worst or ("%.2f vs %.2f"):format(edge, first)
+				end
+			end
+			check("settings: " .. schema[i].id .. " controls share a right column",
+				ragged == 0, worst)
+		end
 	end
 end
 ns.SettingsUI.Hide()
@@ -638,6 +793,8 @@ check("a popout window exists", popout ~= nil)
 if popout then
 	checkContainment("popout", popout)
 	checkTargets("popout targets", popout)
+	checkTruncation("popout text fits", popout)
+	checkIconCentring("popout icons are centred", popout)
 end
 ns.UI.DockConversation(thrall)
 M.RunFrames(6)
