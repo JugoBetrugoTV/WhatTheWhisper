@@ -142,7 +142,7 @@ end
 --------------------------------------------------------------------------------
 
 function Toast.Show(conv, msg, isMention)
-	if not pool then pool = Pool.New(createToast, resetToast) end
+	if not pool then pool = Pool.New(createToast, resetToast, "toast") end
 	local existing = byConversation[conv.id]
 
 	local t = existing

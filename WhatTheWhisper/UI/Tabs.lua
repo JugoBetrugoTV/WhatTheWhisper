@@ -115,7 +115,7 @@ function Tabs.New(parent)
 
 	strip.surface = W.Surface(strip, { color = "bg1" })
 	strip.divider = W.Hairline(strip, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
-	strip.pool = Pool.New(function() return createTab(strip) end, resetTab)
+	strip.pool = Pool.New(function() return createTab(strip) end, resetTab, "tab")
 	strip.rendered = {}
 
 	strip.overflow = ns.Button.Icon(strip, {

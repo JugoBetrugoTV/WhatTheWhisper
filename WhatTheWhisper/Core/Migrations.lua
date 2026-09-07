@@ -26,7 +26,7 @@ local function historyIsEmpty(history)
 	if type(history) ~= "table" or type(history.chars) ~= "table" then return true end
 	for _, store in pairs(history.chars) do
 		if type(store) == "table" and type(store.conv) == "table" then
-			for _ in pairs(store.conv) do return false end
+			if next(store.conv) ~= nil then return false end
 		end
 	end
 	return true

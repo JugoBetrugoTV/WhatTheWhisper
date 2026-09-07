@@ -82,7 +82,7 @@ local function build()
 	hint:SetPoint("TOP", scrim, "TOP", 0, -ns.S.HUGE)
 	hint:SetJustifyH("CENTER")
 
-	overlayPool = Pool.New(createOverlay, resetOverlay)
+	overlayPool = Pool.New(createOverlay, resetOverlay, "expose.overlay")
 
 	if type(_G.UISpecialFrames) == "table" then
 		local found

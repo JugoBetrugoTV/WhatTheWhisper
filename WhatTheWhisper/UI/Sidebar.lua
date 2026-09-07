@@ -126,7 +126,7 @@ function Sidebar.New(parent)
 	sb.list:SetPoint("BOTTOM", sb, "BOTTOM", 0, 0)
 	sb.list.OnScrollChanged = function() sb:UpdateVisible() end
 
-	sb.rowPool = Pool.New(function() return createRow(sb) end, resetRow)
+	sb.rowPool = Pool.New(function() return createRow(sb) end, resetRow, "sidebar.row")
 	sb.filtered = {}
 	sb.filter = ""
 
@@ -211,7 +211,7 @@ end
 -- Rendering
 --------------------------------------------------------------------------------
 
-local function layoutRow(sb, row, compact)
+local function layoutRow(row, compact)
 	local pad = ns.S.LG
 	local avatarSize = compact and ns.SZ.AVATAR_MD or ns.SZ.AVATAR_LG
 
@@ -268,7 +268,7 @@ function S:RenderRow(conv, index)
 	row:SetHeight(rowHeight)
 	self:PositionRow(row, index)
 
-	layoutRow(self, row, compact)
+	layoutRow(row, compact)
 
 	row.avatar:SetConversation(conv)
 	row:SetSelectedState(CM.SelectedID() == conv.id)

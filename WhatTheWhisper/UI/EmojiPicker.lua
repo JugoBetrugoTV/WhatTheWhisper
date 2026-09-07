@@ -79,7 +79,7 @@ local function build()
 	})
 
 	frame:SetWidth(COLS * CELL + PAD * 2)
-	cellPool = Pool.New(createCell, resetCell)
+	cellPool = Pool.New(createCell, resetCell, "emoji.cell")
 
 	-- Category tabs
 	tabButtons = {}

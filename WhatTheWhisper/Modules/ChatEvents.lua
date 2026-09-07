@@ -10,6 +10,7 @@
 
 local _, ns = ...
 local Compat, CM, PlayerInfo = ns.Compat, ns.ConversationManager, ns.PlayerInfo
+local Debug = ns.Debug
 
 local ChatEvents = {}
 ns.ChatEvents = ChatEvents
@@ -153,6 +154,7 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 	if flags == "GM" or flags == "DEV" then kind = ns.MSG_SYSTEM end
 
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind)
+	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
 end
 
@@ -161,9 +163,13 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 	local id = Compat.NormalizeName(target)
 	PlayerInfo.Observe(id, guid)
 
-	if resolvePending(id, text) then return end
+	if resolvePending(id, text) then
+		Debug.Log("dedupe", "inform matched a pending message to %s", id)
+		return
+	end
 
 	-- Sent from the default chat frame or another addon: adopt it.
+	Debug.Log("dedupe", "adopting foreign outgoing whisper to %s", id)
 	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, nil, ns.SEND_OK)
 	if ns.db.profile.messages.openOnSend then
 		ns.UI.EnsureConversationOpen(id, true)
@@ -178,13 +184,18 @@ local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSe
 	})
 	conv.bnetAccountID = bnSenderID
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET)
+	Debug.Log("events", "bnet whisper in on %s", id)
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
 end
 
 local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
 	if not bnSenderID then return end
 	local id = select(1, bnConversationID(bnSenderID, accountName))
-	if resolvePending(id, text) then return end
+	if resolvePending(id, text) then
+		Debug.Log("dedupe", "bnet inform matched a pending message on %s", id)
+		return
+	end
+	Debug.Log("dedupe", "adopting foreign outgoing bnet whisper on %s", id)
 	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, nil, ns.SEND_OK)
 end
 
@@ -219,6 +230,7 @@ local function onSystem(text)
 	name = name:gsub("^['\"]", ""):gsub("['\"%.]$", "")
 	local id = Compat.NormalizeName(name)
 	if failPendingFor(id) then
+		Debug.Log("events", "server reports no player named %s", id)
 		local conv = CM.Get(id)
 		if conv then
 			PlayerInfo.Set(id, { online = false })
@@ -233,7 +245,12 @@ end
 
 local function shouldHide()
 	local db = ns.db
-	return db and db.profile and db.profile.enabled and db.profile.messages.hideFromChatFrame
+	if not db or not db.profile then return false end
+	if not db.profile.enabled then return false end
+	-- Failsafe: if the addon has been erroring, it stops taking whispers out of
+	-- the chat frame. Better a duplicate than a message the player never sees.
+	if ns.Debug.IsDegraded() then return false end
+	return db.profile.messages.hideFromChatFrame
 end
 
 local function suppressFilter()
@@ -282,6 +299,8 @@ function ChatEvents.Init()
 	for event in pairs(handlers) do
 		if not Compat.RegisterEventSafe(frame, event) then
 			ns.SoftError("ChatEvents", "event unavailable: " .. event)
+		else
+			Debug.Log("compat", "registered %s", event)
 		end
 	end
 	for event in pairs(rosterHandlers) do

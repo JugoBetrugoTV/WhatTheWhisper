@@ -58,7 +58,9 @@ function History.Init()
 	if repaired > 0 then
 		ns.SoftError("History", ("repaired %d damaged entries"):format(repaired))
 	end
-	ns.Migrations.Run(ns.db, root)
+	local stored, current, migrated = ns.Migrations.Run(ns.db, root)
+	ns.Debug.Log("history", "schema %s -> %s (migrated=%s)",
+		tostring(stored), tostring(current), tostring(migrated))
 
 	local key = Compat.PlayerFullName()
 	local store = root.chars[key]
@@ -70,7 +72,10 @@ function History.Init()
 	store.lastLogin = time()
 	charStore = store
 
-	History.Prune()
+	local removedMessages, removedConversations = History.Prune()
+	ns.Debug.Log("history",
+		"init for %s: pruned %d messages and %d conversations, retention=%s",
+		key, removedMessages, removedConversations, tostring(setting("retention")))
 end
 
 function History.GetCharStore()

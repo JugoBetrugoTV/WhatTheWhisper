@@ -8,6 +8,7 @@
 
 	<!-- Foundation -->
 	<Script file="Core\Namespace.lua"/>
+	<Script file="Core\Debug.lua"/>
 	<Script file="Core\Compat\Compat.lua"/>
 	<Script file="Core\Compat\Retail.lua"/>
 	<Script file="Core\Compat\Mists.lua"/>

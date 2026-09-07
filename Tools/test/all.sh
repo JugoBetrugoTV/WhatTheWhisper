@@ -32,6 +32,15 @@ lua5.1 Tools/test/history.lua | tail -1
 echo "== leaks and churn =="
 lua5.1 Tools/test/perf.lua | tail -1
 
+echo "== combat lockdown =="
+lua5.1 Tools/test/combat.lua | tail -1
+
+echo "== settings =="
+lua5.1 Tools/test/settings.lua | tail -1
+
+echo "== commands, debug and failsafe =="
+lua5.1 Tools/test/commands.lua | tail -1
+
 echo "== mock client =="
 for flavor in retail mop tbc classic; do
 	printf '%-9s ' "$flavor"

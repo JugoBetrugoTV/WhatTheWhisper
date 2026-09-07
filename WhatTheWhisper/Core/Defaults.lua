@@ -19,7 +19,6 @@ ns.defaults = {
 			locked        = false,
 			remember      = true,
 			snap          = true,
-			density       = "comfortable", -- comfortable | compact
 			tabAutoClose  = 0,           -- minutes; 0 = never
 			tabBlink      = true,
 			tabAutoOpen   = true,
@@ -33,6 +32,7 @@ ns.defaults = {
 			opacity        = 0.97,
 			bubbleOpacity  = 1,
 			radius         = 1,          -- 0 square, 1 normal, 2 round
+			density        = "comfortable", -- comfortable | compact
 			classColors    = true,
 			timestamps     = true,
 			clock24        = true,
@@ -118,6 +118,12 @@ ns.defaults = {
 
 		-- Per-conversation popout geometry, keyed by conversation id.
 		popouts = {},
+	},
+
+	-- Account wide, deliberately outside the profile: a first-run hint that
+	-- reappeared every time somebody made a new profile would not be a hint.
+	global = {
+		seenWelcome = false,
 	},
 }
 

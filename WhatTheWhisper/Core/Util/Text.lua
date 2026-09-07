@@ -212,7 +212,7 @@ function Text.Strip(s)
 	local out = {}
 	Text.Walk(s,
 		function(chunk) out[#out + 1] = chunk end,
-		function(chunk, kind, _, display)
+		function(_, kind, _, display)
 			if kind == "link" and display then
 				out[#out + 1] = (gsub(display, "|c%x%x%x%x%x%x%x%x", ""))
 			elseif kind == "escape" then

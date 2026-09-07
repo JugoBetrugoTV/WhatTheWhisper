@@ -191,9 +191,9 @@ function MessageList.New(parent)
 	list.totalHeight = 0
 	list.pendingNew = 0
 
-	list.sepPool = Pool.New(function() return createSeparator(list) end, resetElement)
-	list.headerPool = Pool.New(function() return createHeader(list) end, resetElement)
-	list.bubblePool = Pool.New(function() return createBubble(list) end, resetElement)
+	list.sepPool = Pool.New(function() return createSeparator(list) end, resetElement, "list.separator")
+	list.headerPool = Pool.New(function() return createHeader(list) end, resetElement, "list.header")
+	list.bubblePool = Pool.New(function() return createBubble(list) end, resetElement, "list.bubble")
 	list.visible = {}
 
 	list.OnScrollChanged = function(self)
@@ -652,7 +652,7 @@ function ML:UpdateEmptyState()
 end
 
 -- Incremental append: one message costs one layout entry, not a full rebuild.
-function ML:OnMessageAdded(conv, msg, index)
+function ML:OnMessageAdded(conv, _, index)
 	if conv ~= self.conv then return end
 	local atBottom = self:IsAtBottom(8)
 	self:AppendEntries(index, self.maxContentW or (self:MaxBubbleWidth() - ns.SZ.BUBBLE_PAD_X * 2))

@@ -104,6 +104,15 @@ end
 local hasOldGradient = has(probeTex, "SetGradientAlpha")
 Compat.hasGradient = hasNewGradient or hasOldGradient
 
+-- Recorded at load, before any setting exists, so the ring buffer already holds
+-- the client's real capabilities by the time anyone types /wtw debug.
+ns.Debug.Log("compat",
+	"%s toc %s build %s: masks=%s clip=%s gradient=%s(new=%s) hyperlinks=%s resize=%s",
+	flavor, tostring(tocVersion), tostring(buildVersion),
+	tostring(Compat.hasMasks), tostring(Compat.hasClipsChildren),
+	tostring(Compat.hasGradient), tostring(hasNewGradient),
+	tostring(Compat.hasHyperlinks), tostring(Compat.hasResizeBounds))
+
 --------------------------------------------------------------------------------
 -- Drawing helpers that differ between clients
 --------------------------------------------------------------------------------

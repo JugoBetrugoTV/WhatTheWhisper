@@ -61,6 +61,18 @@ function addon:OnEnteringWorld()
 	-- class colours resolve for guildmates.
 	Compat.RequestGuildRoster()
 	ns.PlayerInfo.ScanFriends()
+	self:ShowWelcome()
+end
+
+-- First run: one line, once, account wide. Not a popup, not a tour, not a
+-- window that steals the screen while somebody is reading a whisper -- the
+-- addon only has to say that it is there and how to open it.
+function addon:ShowWelcome()
+	local global = ns.db and ns.db.global
+	if not global or global.seenWelcome then return end
+	global.seenWelcome = true
+	ns.Print(L["WhatTheWhisper is ready. Type /wtw to open it."])
+	ns.Debug.Log("ui", "first run welcome shown")
 end
 
 function addon:OnScaleChanged()
@@ -121,21 +133,32 @@ function addon:HandleCommand(input)
 
 	if command == "" then
 		ns.UI.Toggle()
+	elseif command == "show" or command == "open" then
+		ns.UI.Show()
+	elseif command == "hide" or command == "close" then
+		ns.UI.Hide()
 	elseif command == "config" or command == "options" or command == "settings" then
 		ns.SettingsUI.Toggle()
 	elseif command == "clear" then
 		ns.UI.ConfirmClearAll()
+	elseif command == "reset" then
+		ns.UI.ConfirmResetSettings()
 	elseif command == "expose" or command == "overview" then
 		ns.Expose.Toggle()
+	elseif command == "debug" then
+		self:HandleDebugCommand(input:match("^%S*%s+(.*)$"))
 	elseif command == "diag" then
 		self:PrintDiagnostics()
 	elseif command == "help" or command == "?" then
 		ns.Print(L["Commands:"])
 		ns.Print(L["/wtw - toggle the messenger"])
+		ns.Print(L["/wtw show / hide - open or close the messenger"])
 		ns.Print(L["/wtw config - open settings"])
 		ns.Print(L["/wtw <name> - open a conversation"])
 		ns.Print(L["/wtw clear - clear all history"])
+		ns.Print(L["/wtw reset - restore default settings"])
 		ns.Print(L["/wtw diag - print client diagnostics"])
+		ns.Print(L["/wtw debug - toggle developer logging"])
 	else
 		local name = input
 		local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
@@ -144,6 +167,36 @@ function addon:HandleCommand(input)
 		ns.ConversationManager.Select(id)
 		ns.UI.EnsureConversationOpen(id, true)
 	end
+end
+
+-- /wtw debug            toggle
+-- /wtw debug on|off     set explicitly
+-- /wtw debug log        dump the recent ring buffer, whether or not logging is on
+function addon:HandleDebugCommand(argument)
+	argument = (argument or ""):lower():match("^%s*(%S*)") or ""
+	if argument == "log" or argument == "dump" then
+		local recent = ns.Debug.Recent(30)
+		if #recent == 0 then
+			ns.Print(L["Nothing logged yet."])
+			return
+		end
+		for i = 1, #recent do ns.Print(recent[i]) end
+		return
+	end
+
+	local enabled
+	if argument == "on" then
+		enabled = ns.Debug.Toggle(true)
+	elseif argument == "off" then
+		enabled = ns.Debug.Toggle(false)
+	else
+		enabled = ns.Debug.Toggle()
+	end
+	ns.Print(enabled and L["Debug logging on."] or L["Debug logging off."])
+	if enabled then
+		ns.Print(L["/wtw debug log - show the last few entries"])
+	end
+	if ns.SettingsUI.IsShown() then ns.SettingsUI.Refresh() end
 end
 
 function addon:PrintDiagnostics()
@@ -159,6 +212,22 @@ function addon:PrintDiagnostics()
 		messages, conversations, ns.Format.Bytes(bytes)))
 	ns.Print(("pixel=%.3f font=%s skin=%s"):format(
 		ns.Pixel.Size(UIParent), tostring(ns.Theme.fontPath), tostring(ns.Theme.skinID)))
+	ns.Print(("errors=%d degraded=%s debug=%s"):format(
+		ns.Debug.ErrorCount(), tostring(ns.Debug.IsDegraded()), tostring(ns.Debug.IsEnabled())))
+
+	-- Pools, busiest first. Only the ones that ever produced something: a list
+	-- of twenty zeroes hides the one number worth reading.
+	local pools = ns.Pool.Snapshot()
+	local shown = 0
+	for i = 1, #pools do
+		local entry = pools[i]
+		if entry.created > 0 and shown < 6 then
+			shown = shown + 1
+			ns.Print(("pool %s: %d created, %d in use, %d free"):format(
+				entry.name, entry.created, entry.active, entry.free))
+		end
+	end
+	ns.Print(("pooled objects total: %d"):format(ns.Pool.TotalCreated()))
 end
 
 --------------------------------------------------------------------------------

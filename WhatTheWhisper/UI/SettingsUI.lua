@@ -122,7 +122,7 @@ local function acquireControl(kind, parent, factory)
 			-- The schema is rebuilt on every open; a pooled control must not
 			-- pin the previous one.
 			control.spec = nil
-		end)
+		end, "settings.control." .. tostring(kind))
 		controlPools[kind] = pool
 	end
 	return pool:Acquire()
@@ -342,8 +342,8 @@ local function build()
 	content.OnScrollChanged = function() SettingsUI.Reflow() end
 	frame.content = content
 
-	frame.cardPool = Pool.New(function() return createCard(content.viewport) end, resetCard)
-	frame.rowPool = Pool.New(function() return createRowFrame(content.viewport) end, resetRowFrame)
+	frame.cardPool = Pool.New(function() return createCard(content.viewport) end, resetCard, "settings.card")
+	frame.rowPool = Pool.New(function() return createRowFrame(content.viewport) end, resetRowFrame, "settings.row")
 
 	frame:HookScript("OnSizeChanged", function() SettingsUI.Refresh() end)
 

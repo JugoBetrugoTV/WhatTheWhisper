@@ -94,6 +94,7 @@ function CM.GetOrCreate(id, opts)
 	conversations[id] = conv
 	totalUnread = totalUnread + conv.unread
 	orderDirty = true
+	ns.Debug.Log("events", "conversation created: %s", tostring(id))
 	ns.Bus.Fire(ns.EV.CONVERSATION_ADDED, conv)
 	return conv
 end
@@ -127,6 +128,7 @@ function CM.LoadPersisted()
 		end
 	end
 	orderDirty = true
+	ns.Debug.Log("history", "loaded %d persisted conversations", CM.Count())
 	ns.Bus.Fire(ns.EV.UNREAD_CHANGED, totalUnread)
 end
 

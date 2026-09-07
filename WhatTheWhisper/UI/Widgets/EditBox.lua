@@ -119,7 +119,7 @@ function Input.New(parent, opts)
 		container:SetHeight(h)
 		if opts.onResize then ns.Guard("Input.onResize", opts.onResize, h) end
 	end
-	container.ApplyHeight = function(self) applyHeight(editBox:GetText()) end
+	container.ApplyHeight = function() applyHeight(editBox:GetText()) end
 
 	local function submit()
 		local value = editBox:GetText()

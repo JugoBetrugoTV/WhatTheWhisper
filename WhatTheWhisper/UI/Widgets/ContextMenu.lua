@@ -167,7 +167,7 @@ local function build()
 		end
 	end
 
-	itemPool = Pool.New(createItem, resetItem)
+	itemPool = Pool.New(createItem, resetItem, "menu.item")
 end
 
 --------------------------------------------------------------------------------

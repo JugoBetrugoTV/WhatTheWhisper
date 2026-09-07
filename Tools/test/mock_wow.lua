@@ -469,8 +469,27 @@ function frameMethods:GetEffectiveScale() return (self._scale or 1) * 1 end
 function frameMethods:GetName() return self._name end
 function frameMethods:SetID(id) self._id = id end
 function frameMethods:GetID() return self._id or 0 end
+-- Frames built from a secure template are protected: the client blocks
+-- show/hide/position/attribute changes on them while in combat. The mock raises
+-- so a protected action shows up as a test failure rather than as
+-- ADDON_ACTION_BLOCKED spam in someone's chat.
+local PROTECTED_IN_COMBAT = {
+	Show = true, Hide = true, SetShown = true, SetPoint = true, SetAllPoints = true,
+	ClearAllPoints = true, SetParent = true, SetWidth = true, SetHeight = true,
+	SetSize = true, SetScale = true, SetFrameLevel = true, SetFrameStrata = true,
+	EnableMouse = true, SetAttribute = true,
+}
+
+local function guardProtected(frame, method)
+	if M.inCombat and frame._protected and PROTECTED_IN_COMBAT[method] then
+		error(("protected frame %s: %s is blocked in combat")
+			:format(frame._name or "<anonymous>", method), 3)
+	end
+end
+M.GuardProtected = guardProtected
+
 function frameMethods:SetAttribute(k, v)
-	assert(not M.inCombat, "SetAttribute called in combat")
+	guardProtected(self, "SetAttribute")
 	self._attributes = self._attributes or {}
 	self._attributes[k] = v
 end
@@ -519,6 +538,18 @@ function frameMethods:SetNormalTexture() end
 function frameMethods:SetHighlightTexture() end
 function frameMethods:SetPushedTexture() end
 
+for _, method in ipairs({
+	"Show", "Hide", "SetShown", "SetPoint", "SetAllPoints", "ClearAllPoints",
+	"SetParent", "SetWidth", "SetHeight", "SetSize", "SetScale",
+	"SetFrameLevel", "SetFrameStrata", "EnableMouse",
+}) do
+	local original = frameMethods[method]
+	frameMethods[method] = function(self, ...)
+		guardProtected(self, method)
+		if original then return original(self, ...) end
+	end
+end
+
 local frameProto, frameMT = makeObject("Frame", frameMethods)
 
 --------------------------------------------------------------------------------
@@ -550,6 +581,7 @@ function _G.CreateFrame(kind, name, parent, template)
 	local f = setmetatable({
 		_kind = kind or "Frame", _name = name, _parent = parent, _template = template,
 		_shown = true,
+		_protected = template ~= nil and tostring(template):find("Secure") ~= nil,
 	}, frameMT)
 	M.frames[#M.frames + 1] = f
 	if name then _G[name] = f end
@@ -700,8 +732,59 @@ _G.SendChatMessage = function(text, kind, lang, target)
 	M.sent[#M.sent + 1] = { text = text, kind = kind, target = target }
 	assert(#text <= 255, "whisper longer than 255 bytes: " .. #text)
 end
-_G.ChatFrame_AddMessageEventFilter = function() end
-_G.ChatFrame_RemoveMessageEventFilter = function() end
+-- Real filter storage rather than a no-op: whether a whisper still reaches the
+-- default chat frame is the single most important thing the addon must not get
+-- wrong, so the harness has to be able to observe it.
+M.chatFilters = {}
+_G.ChatFrame_AddMessageEventFilter = function(event, filter)
+	local list = M.chatFilters[event]
+	if not list then list = {} M.chatFilters[event] = list end
+	for i = 1, #list do
+		assert(list[i] ~= filter, "filter registered twice for " .. tostring(event))
+	end
+	list[#list + 1] = filter
+end
+_G.ChatFrame_RemoveMessageEventFilter = function(event, filter)
+	local list = M.chatFilters[event]
+	if not list then return end
+	for i = #list, 1, -1 do
+		if list[i] == filter then table.remove(list, i) end
+	end
+end
+
+-- Runs the registered filters the way the client does: the first one to return
+-- true suppresses the line. Returns whether the chat frame would show it.
+-- Clicks a widget the way a player does: enter, press, release, leave. Buttons
+-- in this addon check IsMouseOver inside OnMouseUp, so a bare script call would
+-- silently do nothing and the test would pass for the wrong reason.
+function M.Click(frame, button)
+	assert(frame, "M.Click on a nil frame")
+	assert(frame:IsShown(), "M.Click on a hidden frame")
+	button = button or "LeftButton"
+	local previous = frame._mouseOver
+	frame._mouseOver = true
+	local scripts = frame._scripts or {}
+	if scripts.OnEnter then scripts.OnEnter(frame) end
+	if scripts.OnMouseDown then scripts.OnMouseDown(frame, button) end
+	if scripts.OnMouseUp then scripts.OnMouseUp(frame, button) end
+	if scripts.OnClick then scripts.OnClick(frame, button) end
+	if scripts.OnLeave then scripts.OnLeave(frame) end
+	frame._mouseOver = previous
+end
+
+function M.ChatFrameWouldShow(event, ...)
+	local list = M.chatFilters[event]
+	if not list then return true end
+	for i = 1, #list do
+		local ok, suppress = pcall(list[i], _G.DEFAULT_CHAT_FRAME, event, ...)
+		if not ok then
+			M.errors[#M.errors + 1] = "chat filter: " .. tostring(suppress)
+		elseif suppress then
+			return false
+		end
+	end
+	return true
+end
 _G.PlaySound = function() return true end
 _G.PlaySoundFile = function() return true end
 _G.FlashClientIcon = function() end

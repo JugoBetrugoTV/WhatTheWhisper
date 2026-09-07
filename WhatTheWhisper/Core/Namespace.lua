@@ -204,8 +204,14 @@ function ns.Print(...)
 	chat:AddMessage(CHAT_PREFIX .. table.concat(parts, " "))
 end
 
--- Non-fatal error reporting. Never let a UI glitch break the whole event handler.
+-- Non-fatal error reporting. Never let a UI glitch break the whole event
+-- handler; Debug.NoteError also counts these, and past a threshold the addon
+-- stops hiding whispers from the chat frame.
 function ns.SoftError(context, err)
+	if ns.Debug then
+		ns.Debug.NoteError(context, err)
+		return
+	end
 	if ns.db and ns.db.profile and ns.db.profile.advanced and ns.db.profile.advanced.debug then
 		ns.Print("|cffE5484Derror|r in " .. tostring(context) .. ": " .. tostring(err))
 	end
