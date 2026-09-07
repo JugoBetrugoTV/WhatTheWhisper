@@ -1,6 +1,6 @@
 -- WhatTheWhisper -- Addon lifecycle.
 --
--- Uses the Ace3 already present in the repository: AceAddon for the lifecycle,
+-- Uses the Ace3 libraries embedded under Libs/: AceAddon for the lifecycle,
 -- AceDB for profile-aware SavedVariables, AceConsole for slash commands and
 -- AceLocale for strings. The UI is deliberately not AceGUI/AceConfig.
 

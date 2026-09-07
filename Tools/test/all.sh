@@ -23,6 +23,15 @@ python3 Tools/test/check_locales.py
 echo "== structure =="
 python3 Tools/test/check_structure.py
 
+echo "== embedded libraries =="
+python3 Tools/test/check_libs.py | tail -1
+
+echo "== library coexistence =="
+lua5.1 Tools/test/libs.lua | tail -1
+
+echo "== packaged release =="
+python3 Tools/test/check_package.py | tail -1
+
 echo "== text processing =="
 lua5.1 Tools/test/text.lua | tail -1
 

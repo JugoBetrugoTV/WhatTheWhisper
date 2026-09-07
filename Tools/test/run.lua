@@ -72,48 +72,16 @@ end
 -- Library loading
 --------------------------------------------------------------------------------
 
-local libs = {
-	"Ace3/LibStub/LibStub.lua",
-	"Ace3/CallbackHandler-1.0/CallbackHandler-1.0.lua",
-	"Ace3/AceAddon-3.0/AceAddon-3.0.lua",
-	"Ace3/AceEvent-3.0/AceEvent-3.0.lua",
-	"Ace3/AceTimer-3.0/AceTimer-3.0.lua",
-	"Ace3/AceHook-3.0/AceHook-3.0.lua",
-	"Ace3/AceDB-3.0/AceDB-3.0.lua",
-	"Ace3/AceLocale-3.0/AceLocale-3.0.lua",
-	"Ace3/AceConsole-3.0/AceConsole-3.0.lua",
-}
-for _, path in ipairs(libs) do
-	local chunk, err = loadfile(ROOT .. path)
-	if not chunk then
-		report("load " .. path, err)
-	else
-		local ok, loadErr = pcall(chunk, path:match("([^/]+)%.lua$"), {})
-		if not ok then report("run " .. path, loadErr) end
-	end
-end
+-- Libraries then addon files, both walked out of the shipped manifests rather
+-- than listed here: this run is meant to prove that unzipping WhatTheWhisper/
+-- on its own is enough, so it must never reach outside that folder.
+local Harness = dofile(ROOT .. "Tools/test/harness.lua")
 
---------------------------------------------------------------------------------
--- Addon loading, in the order the XML declares
---------------------------------------------------------------------------------
+local libFiles = Harness.LoadLibraries(report)
+print(("loaded %d embedded library files"):format(#libFiles))
 
-local xml = io.open(ROOT .. "WhatTheWhisper/WhatTheWhisper.xml"):read("*a")
-local files = {}
-for file in xml:gmatch('<Script file="([^"]+)"/>') do
-	files[#files + 1] = (file:gsub("\\", "/"))
-end
+local ns, files = Harness.LoadAddon(report)
 print(("loading %d addon files"):format(#files))
-
-local ns = {}
-for _, file in ipairs(files) do
-	local chunk, err = loadfile(ROOT .. "WhatTheWhisper/" .. file)
-	if not chunk then
-		report("compile " .. file, err)
-	else
-		local ok, runErr = pcall(chunk, "WhatTheWhisper", ns)
-		if not ok then report("load " .. file, runErr) end
-	end
-end
 
 if #failures > 0 then
 	print("\nLOAD FAILED")

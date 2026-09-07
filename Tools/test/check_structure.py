@@ -45,9 +45,13 @@ for relative in declared:
     if not exists_exact(relative):
         err("XML lists a file that is not on disk (exact case): %s" % relative)
 
-# Every shipped Lua file must be listed exactly once.
+# Every shipped Lua file must be listed exactly once. Libs/ is excluded on
+# purpose: those files are loaded by their own manifest and are third-party, so
+# Tools/test/check_libs.py owns them -- including checking that they are
+# unmodified, which the rules below would have no business enforcing.
 on_disk = []
-for base, _, files in os.walk(ADDON):
+for base, dirs, files in os.walk(ADDON):
+    dirs[:] = [d for d in dirs if d != "Libs"]
     for name in files:
         if name.endswith(".lua"):
             rel = os.path.relpath(os.path.join(base, name), ADDON).replace("\\", "/")

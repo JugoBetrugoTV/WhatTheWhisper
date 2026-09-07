@@ -5,7 +5,11 @@ codes = true
 -- `function obj:Method()` closures that do not touch self are idiomatic here,
 -- and Ace/WoW callbacks frequently ignore their first argument.
 self = false
-exclude_files = { "Ace3/**", "Tools/test/**" }
+-- WhatTheWhisper/Libs is third-party and byte-for-byte upstream. Linting it
+-- would only invite edits, and an edit there would become another addon's code
+-- the moment they load our copy first -- so it is not ours to tidy.
+-- Tools/test/check_libs.py hashes those files instead.
+exclude_files = { "WhatTheWhisper/Libs/**", "Tools/**" }
 
 -- The addon namespace arrives as a vararg, so every file starts with `local _, ns = ...`
 globals = {

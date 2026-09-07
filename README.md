@@ -11,16 +11,37 @@ Runs on **Retail 12.1.0**, **MoP Classic 5.5.4**, **TBC Anniversary 2.5.6** and
 
 ## Install
 
+Copy the `WhatTheWhisper` folder into your AddOns directory. That is the whole
+installation — there is nothing else to download.
+
 ```
 Interface/AddOns/
-    Ace3/                 <- the library folder already in this repository
     WhatTheWhisper/
+        WhatTheWhisper.toc
+        Libs/             <- LibStub and the five Ace3 libraries it uses
+        Core/  Modules/  UI/  Skins/  Art/
 ```
 
-`Ace3` is a hard dependency (`## Dependencies: Ace3`) and ships alongside the
-addon. Nothing inside `Ace3/` is modified.
-
 `/wtw` opens the messenger. `/wtw help` lists the rest.
+
+### Libraries
+
+The addon embeds LibStub, CallbackHandler-1.0, AceAddon-3.0, AceConsole-3.0,
+AceEvent-3.0, AceDB-3.0 and AceLocale-3.0 — the seven it actually uses, and no
+more. They are byte-for-byte upstream and are never patched: `Libs.manifest.json`
+records a hash for each, and the test suite fails if any of them changes.
+
+That matters because these libraries are shared. If another addon has already
+loaded a newer revision, LibStub keeps theirs and ours stands down; if ours is
+newer, it upgrades theirs in place and their existing references keep working.
+Nothing is forked into a private `WTWAceDB`-style namespace, because that would
+give up exactly the sharing the mechanism exists for. `Tools/test/libs.lua`
+plays out those collisions — older copy first, newer copy first, the same copy
+loaded three times — and checks that no registration, callback or module is lost.
+
+LibSharedMedia-3.0 is *not* embedded. It is asked for with the silent flag and
+used only if some other addon provides it, so it is an integration rather than a
+dependency.
 
 ---
 
