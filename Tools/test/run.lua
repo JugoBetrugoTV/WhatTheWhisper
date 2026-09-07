@@ -372,6 +372,22 @@ step("bulk history", function()
 	print(("bulk: %d messages, %d layout entries, %d bubble frames live")
 		:format(#conv.messages, #list.layout, rendered))
 	assert(rendered < 60, "virtualisation is not working: " .. rendered .. " frames")
+
+	-- A scroll that stays inside the same set of elements must reuse them rather
+	-- than releasing and re-rendering the whole visible window.
+	local before = {}
+	for f in list.bubblePool:EnumerateActive() do before[f] = true end
+	local created = select(1, list.bubblePool:Stats())
+	list:SetOffset(list:GetOffset() - 3, false)
+	local same, total = 0, 0
+	for f in list.bubblePool:EnumerateActive() do
+		total = total + 1
+		if before[f] then same = same + 1 end
+	end
+	assert(total > 0 and same == total,
+		("scroll fast path did not reuse elements: %d/%d"):format(same, total))
+	assert(select(1, list.bubblePool:Stats()) == created, "scroll created new frames")
+	print(("scroll fast path: %d/%d elements reused, 0 new frames"):format(same, total))
 end)
 
 step("logout", function() M.FireEvent("PLAYER_LOGOUT") end)

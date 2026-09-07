@@ -369,6 +369,26 @@ function CM.SendMessage(id, text)
 end
 
 --------------------------------------------------------------------------------
+-- Display name
+--------------------------------------------------------------------------------
+
+-- Honours messages.showRealm: never, only for cross-realm players, or always.
+-- Computed on render rather than stored, so changing the setting takes effect
+-- everywhere at once instead of only for new conversations.
+function CM.DisplayName(conv)
+	if not conv then return "" end
+	if conv.isBN then return conv.name or conv.id end
+	local base = Compat.ShortName(conv.id)
+	local mode = (ns.db and ns.db.profile.messages.showRealm) or "cross"
+	if mode == "never" then return base end
+	local realm = Compat.RealmOf(conv.id)
+	if not realm then return base end
+	if mode == "always" then return base .. "-" .. realm end
+	if Compat.IsCrossRealm(conv.id) then return base .. "-" .. realm end
+	return base
+end
+
+--------------------------------------------------------------------------------
 -- Preview text for the sidebar
 --------------------------------------------------------------------------------
 

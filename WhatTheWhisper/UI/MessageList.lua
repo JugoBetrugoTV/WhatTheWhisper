@@ -305,6 +305,7 @@ function ML:Rebuild(keepPosition)
 
 	wipe(self.layout)
 	self.totalHeight = 0
+	self.rangeFirst, self.rangeLast = nil, nil
 
 	local conv = self.conv
 	if conv then
@@ -353,6 +354,34 @@ function ML:ContentShift()
 	return self:GetOffset() - (self.pushDown or 0)
 end
 
+-- Anchoring is identical for all three element kinds, which is what lets a
+-- scroll that does not change the visible range skip re-rendering entirely and
+-- just move what is already there.
+function ML:PositionElement(f, entry)
+	local shift = self:ContentShift()
+	local pad = ns.SZ.LIST_PAD_X
+	f:ClearAllPoints()
+	if entry.kind == "sep" then
+		f:SetPoint("TOP", self.content, "TOP",
+			-ns.SZ.SCROLLBAR_HIT / 2, -(entry.y - shift))
+	elseif entry.dir == ns.DIR_OUT then
+		f:SetPoint("TOPRIGHT", self.content, "TOPRIGHT",
+			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - shift))
+	else
+		f:SetPoint("TOPLEFT", self.content, "TOPLEFT",
+			pad + AVATAR + AVATAR_GAP, -(entry.y - shift))
+	end
+end
+
+function ML:RepositionVisible()
+	local pools = { self.sepPool, self.headerPool, self.bubblePool }
+	for i = 1, #pools do
+		for f in pools[i]:EnumerateActive() do
+			if f.entry then self:PositionElement(f, f.entry) end
+		end
+	end
+end
+
 local function bubbleColors(dir)
 	if dir == ns.DIR_OUT then
 		return "bubbleOut", "bubbleOutText"
@@ -362,11 +391,11 @@ end
 
 function ML:RenderSeparator(entry)
 	local f = self.sepPool:Acquire()
+	f.entry = entry
 	f.label:SetText(Format.DayLabel(entry.ts))
 	local width = (f.label:GetStringWidth() or 40) + ns.S.MD * 2
 	f:SetSize(width, SEP_H - 6)
-	f:ClearAllPoints()
-	f:SetPoint("TOP", self.content, "TOP", -ns.SZ.SCROLLBAR_HIT / 2, -(entry.y - self:ContentShift()))
+	self:PositionElement(f, entry)
 	f.surface:SetRadius((SEP_H - 6) / 2)
 	f.surface:ApplyTheme()
 	f.surface:SetAlphaScale(0.55)
@@ -376,9 +405,9 @@ end
 
 function ML:RenderHeader(entry)
 	local f = self.headerPool:Acquire()
+	f.entry = entry
 	local conv = self.conv
-	local pad = ns.SZ.LIST_PAD_X
-	f:ClearAllPoints()
+	self:PositionElement(f, entry)
 
 	if entry.dir == ns.DIR_OUT then
 		f.name:SetText("")
@@ -386,12 +415,10 @@ function ML:RenderHeader(entry)
 		f.timeRight:SetText(ns.db.profile.appearance.timestamps
 			and Format.Clock(entry.ts) or "")
 		f.timeRight:Show()
-		f:SetPoint("TOPRIGHT", self.content, "TOPRIGHT",
-			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:ContentShift()))
 		f:SetWidth(200)
 	else
 		local nameColor = Theme.ClassColor(conv and conv.class, "bg2")
-		f.name:SetText(conv and conv.name or "")
+		f.name:SetText(conv and ns.ConversationManager.DisplayName(conv) or "")
 		if nameColor then
 			f.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
 		else
@@ -399,8 +426,6 @@ function ML:RenderHeader(entry)
 		end
 		f.time:SetText(ns.db.profile.appearance.timestamps and Format.Clock(entry.ts) or "")
 		f.timeRight:SetText("")
-		f:SetPoint("TOPLEFT", self.content, "TOPLEFT",
-			pad + AVATAR + AVATAR_GAP, -(entry.y - self:ContentShift()))
 		f:SetWidth(240)
 	end
 	f:SetHeight(HEADER_H)
@@ -455,15 +480,7 @@ function ML:RenderBubble(entry)
 	end
 	W.SetTextRole(f.text, ap.bubbles and textRole or "textPrimary")
 
-	local pad = ns.SZ.LIST_PAD_X
-	f:ClearAllPoints()
-	if entry.dir == ns.DIR_OUT then
-		f:SetPoint("TOPRIGHT", self.content, "TOPRIGHT",
-			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:ContentShift()))
-	else
-		f:SetPoint("TOPLEFT", self.content, "TOPLEFT",
-			pad + AVATAR + AVATAR_GAP, -(entry.y - self:ContentShift()))
-	end
+	self:PositionElement(f, entry)
 
 	-- Avatar only on the first bubble of an incoming group.
 	if entry.groupStart and entry.dir == ns.DIR_IN and ap.avatars then
@@ -549,26 +566,41 @@ function ML:UpdateVisible()
 		self.headerPool:ReleaseAll()
 		self.bubblePool:ReleaseAll()
 		self.pushDown = 0
+		self.rangeFirst, self.rangeLast = nil, nil
 		return
 	end
 
 	local offset = self:GetOffset()
 	local viewHeight = self:GetViewHeight()
+	local previousPush = self.pushDown
 
 	-- A conversation shorter than the canvas is pushed down so it rests on the
 	-- composer. Text starting at the top of an empty canvas is the single most
 	-- obvious "this is a list widget, not a chat" tell.
 	self.pushDown = max(0, viewHeight - (self.totalHeight + ns.SZ.LIST_PAD_Y))
+	if previousPush ~= self.pushDown then self.rangeFirst = nil end
 	local top, bottom = offset - self.pushDown, offset + viewHeight - self.pushDown
+
+	local first = firstVisible(layout, top)
+	local last = first - 1
+	while last + 1 <= #layout and layout[last + 1].y <= bottom do
+		last = last + 1
+	end
+
+	-- Scrolling within the same set of elements only needs new anchors; the
+	-- text, colours and measurements are already correct.
+	if first == self.rangeFirst and last == self.rangeLast then
+		self:RepositionVisible()
+		return
+	end
+	self.rangeFirst, self.rangeLast = first, last
 
 	self.sepPool:ReleaseAll()
 	self.headerPool:ReleaseAll()
 	self.bubblePool:ReleaseAll()
 
-	local i = firstVisible(layout, top)
-	while i <= #layout do
+	for i = first, last do
 		local entry = layout[i]
-		if entry.y > bottom then break end
 		if entry.kind == "sep" then
 			self:RenderSeparator(entry)
 		elseif entry.kind == "header" then
@@ -576,7 +608,6 @@ function ML:UpdateVisible()
 		else
 			self:RenderBubble(entry)
 		end
-		i = i + 1
 	end
 end
 
@@ -610,7 +641,8 @@ function ML:UpdateEmptyState()
 		self.emptyBody:SetText(L["Enable it in Settings > History to keep messages."])
 	else
 		self.emptyTitle:SetText(L["Start the conversation"])
-		self.emptyBody:SetText(L["Say hi to %s."]:format(conv.name or ""))
+		self.emptyBody:SetText(L["Say hi to %s."]:format(
+			ns.ConversationManager.DisplayName(conv)))
 	end
 end
 
@@ -629,6 +661,7 @@ function ML:OnMessageAdded(conv, msg, index)
 		self.pendingNew = self.pendingNew + 1
 		self:UpdatePill()
 	end
+	self.rangeFirst, self.rangeLast = nil, nil
 	self:UpdateVisible()
 end
 
@@ -647,6 +680,9 @@ function ML:RenderBubbleInPlace(f)
 	if not entry then return end
 	self.bubblePool:Release(f)
 	self:RenderBubble(entry)
+	-- The active set changed identity, so a later scroll must not take the
+	-- reposition-only path against a stale range.
+	self.rangeFirst, self.rangeLast = nil, nil
 end
 
 --------------------------------------------------------------------------------

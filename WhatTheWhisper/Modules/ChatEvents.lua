@@ -88,17 +88,48 @@ end
 -- Helpers
 --------------------------------------------------------------------------------
 
+-- Upgrades a pending outgoing message to "sent".
+--
+-- The in-memory queue is the normal path. After a /reload the queue is empty but
+-- the message is already in the stored thread, so the thread itself is checked
+-- before adding what would be a duplicate.
+local function resolvePending(id, text)
+	local conv = CM.Get(id)
+	local entry = takePending(id, text)
+	if entry and entry.msg then
+		entry.msg[MSG_STATUS] = ns.SEND_OK
+		if conv then ns.Bus.Fire(ns.EV.MESSAGE_UPDATED, conv, entry.msg) end
+		return true
+	end
+	if not conv then return false end
+	local index, msg = CM.FindPendingOutgoing(conv, text)
+	if index and (Compat.GetServerTime() - (msg[ns.MSG_TS] or 0)) <= 60 then
+		CM.UpdateMessageStatus(conv, index, ns.SEND_OK)
+		return true
+	end
+	return false
+end
+
 local function isMention(text)
 	if not myName or not text then return false end
 	return ns.Text.Contains(text, myName)
 end
 
+-- Account ids are only stable within a session, so the BattleTag is the durable
+-- key. It is cached per account id because a friend who goes offline can stop
+-- resolving mid-session, and falling back to the presence name would silently
+-- open a second thread for the same person.
+local bnKeyCache = {}
+
 local function bnConversationID(bnSenderID, accountName)
+	local cached = bnKeyCache[bnSenderID]
+	if cached then return cached.id, cached.name or accountName, cached.tag end
 	local battleTag, name = Compat.GetBNAccountInfoByID(bnSenderID)
-	if battleTag then
-		return "BN:" .. battleTag, name or accountName, battleTag
-	end
-	return "BN:" .. tostring(accountName or bnSenderID), accountName, nil
+	local id = battleTag and ("BN:" .. battleTag)
+		or ("BN:" .. tostring(accountName or bnSenderID))
+	local entry = { id = id, name = name or accountName, tag = battleTag }
+	if battleTag then bnKeyCache[bnSenderID] = entry end
+	return entry.id, entry.name, entry.tag
 end
 
 --------------------------------------------------------------------------------
@@ -130,13 +161,7 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 	local id = Compat.NormalizeName(target)
 	PlayerInfo.Observe(id, guid)
 
-	local entry = takePending(id, text)
-	if entry and entry.msg then
-		entry.msg[MSG_STATUS] = ns.SEND_OK
-		local conv = CM.Get(id)
-		if conv then ns.Bus.Fire(ns.EV.MESSAGE_UPDATED, conv, entry.msg) end
-		return
-	end
+	if resolvePending(id, text) then return end
 
 	-- Sent from the default chat frame or another addon: adopt it.
 	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, nil, ns.SEND_OK)
@@ -159,13 +184,7 @@ end
 local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
 	if not bnSenderID then return end
 	local id = select(1, bnConversationID(bnSenderID, accountName))
-	local entry = takePending(id, text)
-	if entry and entry.msg then
-		entry.msg[MSG_STATUS] = ns.SEND_OK
-		local conv = CM.Get(id)
-		if conv then ns.Bus.Fire(ns.EV.MESSAGE_UPDATED, conv, entry.msg) end
-		return
-	end
+	if resolvePending(id, text) then return end
 	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, nil, ns.SEND_OK)
 end
 

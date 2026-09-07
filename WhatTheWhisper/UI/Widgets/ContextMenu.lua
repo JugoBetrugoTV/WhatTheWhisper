@@ -18,7 +18,7 @@ ns.Menu = Menu
 
 local max = math.max
 
-local frame, catcher, itemPool, secureButton
+local frame, catcher, itemPool, secureButton, secureHost
 
 local ITEM_H = ns.SZ.MENU_ITEM_H
 local PAD_Y = 6
@@ -92,13 +92,19 @@ end
 -- Secure "Target" support
 --------------------------------------------------------------------------------
 
+-- The secure button lives inside an ordinary frame. Hide() and SetPoint() are
+-- blocked on a protected frame during combat, but hiding or moving its
+-- unprotected parent is not -- so all the show/hide/position work happens on the
+-- host and the protected button itself is only ever touched out of combat.
 local function ensureSecureButton()
 	if secureButton then return secureButton end
-	secureButton = CreateFrame("Button", "WhatTheWhisperSecureTarget", frame,
+	secureHost = CreateFrame("Frame", nil, frame)
+	secureHost:Hide()
+	secureButton = CreateFrame("Button", "WhatTheWhisperSecureTarget", secureHost,
 		"SecureActionButtonTemplate")
 	secureButton:RegisterForClicks("AnyUp")
+	secureButton:SetAllPoints(secureHost)
 	secureButton:SetAttribute("type", "macro")
-	secureButton:Hide()
 	secureButton:HookScript("OnClick", function() Menu.Close() end)
 	return secureButton
 end
@@ -111,15 +117,14 @@ local function attachSecure(row, macroText)
 		return false
 	end
 	local btn = ensureSecureButton()
-	btn:SetParent(frame)
-	btn:ClearAllPoints()
-	btn:SetAllPoints(row)
-	btn:SetFrameLevel(row:GetFrameLevel() + 2)
+	secureHost:ClearAllPoints()
+	secureHost:SetAllPoints(row)
+	secureHost:SetFrameLevel(row:GetFrameLevel() + 2)
 	btn:SetAttribute("type", "macro")
 	btn:SetAttribute("macrotext", macroText)
 	btn:SetScript("OnEnter", function() row.__wtwHover = true row.UpdateVisualState() end)
 	btn:SetScript("OnLeave", function() row.__wtwHover = false row.UpdateVisualState() end)
-	btn:Show()
+	secureHost:Show()
 	row.secure = true
 	return true
 end
@@ -268,13 +273,12 @@ end
 
 function Menu.Close()
 	if not frame then return end
-	if secureButton and not InCombatLockdown() then
-		secureButton:Hide()
-		secureButton:ClearAllPoints()
-		secureButton:SetScript("OnEnter", nil)
-		secureButton:SetScript("OnLeave", nil)
-	elseif secureButton then
-		secureButton:Hide()
+	if secureHost then
+		secureHost:Hide()
+		if not InCombatLockdown() then
+			secureButton:SetScript("OnEnter", nil)
+			secureButton:SetScript("OnLeave", nil)
+		end
 	end
 	if itemPool then itemPool:ReleaseAll() end
 	catcher:Hide()

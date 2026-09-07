@@ -82,7 +82,8 @@ function C:SetConversation(conv)
 	end
 	self.conv = conv
 	if conv then
-		self.input:SetPlaceholder(L["Message %s..."]:format(conv.name or ""))
+		self.input:SetPlaceholder(L["Message %s..."]:format(
+			ns.ConversationManager.DisplayName(conv)))
 		self.input:SetText(conv.draft or "")
 	else
 		self.input:SetPlaceholder(L["Type a message..."])

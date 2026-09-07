@@ -108,7 +108,10 @@ local function collectWindows()
 	end
 	ns.Popout.Each(function(id, win)
 		local conv = CM.Get(id)
-		list[#list + 1] = { frame = win, label = conv and conv.name or id, convID = id }
+		list[#list + 1] = {
+			frame = win, convID = id,
+			label = conv and CM.DisplayName(conv) or id,
+		}
 	end)
 	return list
 end

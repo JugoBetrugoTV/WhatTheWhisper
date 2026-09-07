@@ -195,7 +195,7 @@ function T:PaintTab(tab, conv, width)
 	end
 
 	local reserved = ns.S.MD + (unread and (DOT + ns.S.SM - 1) or 0) + 18 + ns.S.SM * 2
-	Text.Ellipsize(tab.label, conv.name or conv.id, max(20, width - reserved))
+	Text.Ellipsize(tab.label, CM.DisplayName(conv), max(20, width - reserved))
 	tab.UpdateVisualState(true)
 
 	if unread and ns.db.profile.layout.tabBlink and not tab.active and not conv.muted then

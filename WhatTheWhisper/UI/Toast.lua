@@ -160,7 +160,8 @@ function Toast.Show(conv, msg, isMention)
 	t.avatar:SetConversation(conv)
 
 	local nameColor = Theme.ClassColor(conv.class, "bg3")
-	t.name:SetText(conv.name or conv.id)
+	local displayName = CM.DisplayName(conv)
+	t.name:SetText(displayName)
 	if nameColor then
 		t.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
 	else
@@ -181,7 +182,7 @@ function Toast.Show(conv, msg, isMention)
 	local nameWidth = bodyWidth - 44
 	t.name:SetWidth(0)
 	if (t.name:GetStringWidth() or 0) > nameWidth then
-		Text.Ellipsize(t.name, conv.name or conv.id, nameWidth)
+		Text.Ellipsize(t.name, displayName, nameWidth)
 	end
 
 	Toast.Relayout()

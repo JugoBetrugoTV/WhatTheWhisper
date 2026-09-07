@@ -228,7 +228,8 @@ function V:RefreshHeader()
 	header.avatar:SetConversation(conv)
 
 	local nameColor = Theme.ClassColor(conv.class, "headerBg")
-	header.name:SetText(conv.name or conv.id)
+	local displayName = ns.ConversationManager.DisplayName(conv)
+	header.name:SetText(displayName)
 	if nameColor then
 		header.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
 	else
@@ -253,7 +254,7 @@ function V:RefreshHeader()
 	if available > 40 then
 		header.name:SetWidth(0)
 		if (header.name:GetStringWidth() or 0) > available then
-			Text.Ellipsize(header.name, conv.name or conv.id, available)
+			Text.Ellipsize(header.name, displayName, available)
 		end
 		header.status:SetWidth(math.max(20, available))
 		header.status:SetWordWrap(false)

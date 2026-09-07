@@ -83,6 +83,7 @@ local function resetRow(_, row)
 	row:Hide()
 	row:ClearAllPoints()
 	row.conv = nil
+	row.rowIndex = nil
 	row:SetSelectedState(false)
 	row.badge:Hide()
 end
@@ -162,6 +163,7 @@ function S:SetFilter(value)
 end
 
 function S:Refresh()
+	self.rangeFirst, self.rangeLast = nil, nil
 	ns.Search.FilterConversations(self.filter, self.filtered)
 	local rowHeight = Theme.RowHeight()
 	self.rowHeight = rowHeight
@@ -248,18 +250,23 @@ local function layoutRow(sb, row, compact)
 	row.badge:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -pad, ns.S.MD)
 end
 
+function S:PositionRow(row, index)
+	local rowHeight = self.rowHeight or Theme.RowHeight()
+	local y = -((index - 1) * rowHeight - self.list:GetOffset())
+	row:ClearAllPoints()
+	row:SetPoint("TOPLEFT", self.list.viewport, "TOPLEFT", 0, y)
+	row:SetPoint("TOPRIGHT", self.list.viewport, "TOPRIGHT", 0, y)
+end
+
 function S:RenderRow(conv, index)
 	local row = self.rowPool:Acquire()
 	local compact = self.compact
 	local rowHeight = self.rowHeight or Theme.RowHeight()
 
 	row.conv = conv
+	row.rowIndex = index
 	row:SetHeight(rowHeight)
-	row:ClearAllPoints()
-	row:SetPoint("TOPLEFT", self.list.viewport, "TOPLEFT", 0,
-		-((index - 1) * rowHeight - self.list:GetOffset()))
-	row:SetPoint("TOPRIGHT", self.list.viewport, "TOPRIGHT", 0,
-		-((index - 1) * rowHeight - self.list:GetOffset()))
+	self:PositionRow(row, index)
 
 	layoutRow(self, row, compact)
 
@@ -290,7 +297,7 @@ function S:RenderRow(conv, index)
 		local textLeft = ns.S.LG + ns.SZ.AVATAR_LG + ns.S.MD
 		local available = max(30, (self:GetWidth() or 280)
 			- textLeft - ns.S.LG - STAMP_W - ns.S.SM - indicatorWidth)
-		Text.Ellipsize(row.name, conv.name or conv.id, available)
+		Text.Ellipsize(row.name, CM.DisplayName(conv), available)
 
 		local anchor = row.name
 		if conv.pinned then
@@ -328,16 +335,30 @@ function S:RenderRow(conv, index)
 end
 
 function S:UpdateVisible()
-	self.rowPool:ReleaseAll()
 	local rowHeight = self.rowHeight or Theme.RowHeight()
 	local count = #self.filtered
-	if count == 0 then return end
+	if count == 0 then
+		self.rowPool:ReleaseAll()
+		self.rangeFirst, self.rangeLast = nil, nil
+		return
+	end
 
 	local offset = self.list:GetOffset()
 	local viewHeight = self.list:GetViewHeight()
 	local first = max(1, floor(offset / rowHeight) + 1)
 	local last = min(count, floor((offset + viewHeight) / rowHeight) + 1)
 
+	-- Scrolling inside the same set of rows only needs new anchors. Re-rendering
+	-- would redo two ellipsised strings per row on every animation frame.
+	if first == self.rangeFirst and last == self.rangeLast then
+		for row in self.rowPool:EnumerateActive() do
+			if row.rowIndex then self:PositionRow(row, row.rowIndex) end
+		end
+		return
+	end
+	self.rangeFirst, self.rangeLast = first, last
+
+	self.rowPool:ReleaseAll()
 	for i = first, last do
 		self:RenderRow(self.filtered[i], i)
 	end
