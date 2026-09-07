@@ -121,7 +121,6 @@ end
 local function scanGuild()
 	local n = Compat.GetNumGuildMembers()
 	if n == 0 then return end
-	local realm = Compat.GetRealmName()
 	for i = 1, n do
 		local name, level, classFile, online = Compat.GetGuildRosterInfo(i)
 		if name then
@@ -141,7 +140,7 @@ end
 local function scanFriends()
 	local n = Compat.GetNumFriends()
 	for i = 1, n do
-		local name, level, className, connected = Compat.GetFriendInfo(i)
+		local name, level, _, connected = Compat.GetFriendInfo(i)
 		if name then
 			local full = Compat.NormalizeName(name)
 			local e = cache[full]

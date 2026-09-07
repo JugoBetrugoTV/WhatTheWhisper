@@ -7,7 +7,6 @@
 local _, ns = ...
 local Theme, W, Anim, Pool, Text = ns.Theme, ns.Widgets, ns.Anim, ns.Pool, ns.Text
 local CM = ns.ConversationManager
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 
 local Tabs = {}
 ns.Tabs = Tabs

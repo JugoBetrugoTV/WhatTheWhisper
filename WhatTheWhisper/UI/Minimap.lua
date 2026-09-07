@@ -5,7 +5,7 @@
 -- dependency. It shows the unread count, which the LDB version could not.
 
 local _, ns = ...
-local Theme, W, Draw, Anim = ns.Theme, ns.Widgets, ns.Draw, ns.Anim
+local Theme, W, Anim = ns.Theme, ns.Widgets, ns.Anim
 local CM = ns.ConversationManager
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 

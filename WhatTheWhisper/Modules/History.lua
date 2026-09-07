@@ -13,11 +13,10 @@ local Compat = ns.Compat
 local History = {}
 ns.History = History
 
-local tinsert, tremove, wipe = table.insert, table.remove, wipe
-local floor, max, min = math.floor, math.max, math.min
+local wipe = wipe
+local floor, max = math.floor, math.max
 
-local MSG_TS, MSG_DIR, MSG_TEXT, MSG_KIND, MSG_STATUS =
-	ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_KIND, ns.MSG_STATUS
+local MSG_TS, MSG_TEXT = ns.MSG_TS, ns.MSG_TEXT
 
 local root      -- WhatTheWhisperHistoryDB
 local charStore -- root.chars[playerKey]
@@ -160,7 +159,7 @@ function History.Prune()
 	local removedMessages, removedConversations = 0, 0
 	local limit = setting("maxPerConversation")
 
-	for id, rec in pairs(conv) do
+	for _, rec in pairs(conv) do
 		local msgs = rec.msgs
 		if type(msgs) ~= "table" then
 			msgs = {}
@@ -193,8 +192,8 @@ function History.Prune()
 	-- Conversation cap: keep pinned threads and the most recently active ones.
 	local maxConv = setting("maxConversations") or 0
 	local ordered = {}
-	for id, rec in pairs(conv) do
-		ordered[#ordered + 1] = { id = id, rec = rec }
+	for convID, rec in pairs(conv) do
+		ordered[#ordered + 1] = { id = convID, rec = rec }
 	end
 	if maxConv > 0 and #ordered > maxConv then
 		table.sort(ordered, function(a, b)

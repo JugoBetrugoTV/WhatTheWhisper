@@ -10,8 +10,6 @@ local Draw, Theme, Pixel, Anim = ns.Draw, ns.Theme, ns.Pixel, ns.Anim
 local W = {}
 ns.Widgets = W
 
-local max = math.max
-
 --------------------------------------------------------------------------------
 -- Surfaces
 --------------------------------------------------------------------------------

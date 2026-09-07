@@ -19,8 +19,6 @@ ns.Menu = Menu
 local max = math.max
 
 local frame, catcher, itemPool, secureButton
-local items = {}
-local currentItems
 
 local ITEM_H = ns.SZ.MENU_ITEM_H
 local PAD_Y = 6
@@ -176,7 +174,6 @@ function Menu.Open(entries, opts)
 	build()
 	Menu.Close()
 	opts = opts or {}
-	currentItems = entries
 
 	local measure = Theme.Measure("SMALL")
 	local width = opts.minWidth or ns.SZ.MENU_MIN_W
@@ -185,9 +182,7 @@ function Menu.Open(entries, opts)
 
 	for i = 1, #entries do
 		local entry = entries[i]
-		if entry.hidden then
-			-- skipped entirely
-		elseif entry.separator then
+		if entry.separator and not entry.hidden then
 			local row = itemPool:Acquire()
 			row.isSeparator = true
 			row:SetHeight(SEP_H)
@@ -200,7 +195,7 @@ function Menu.Open(entries, opts)
 			row:SetEnabled(false)
 			shown[#shown + 1] = row
 			height = height + SEP_H
-		else
+		elseif not entry.hidden then
 			local row = itemPool:Acquire()
 			row:SetHeight(ITEM_H)
 			row.danger = entry.danger
@@ -269,7 +264,6 @@ function Menu.Open(entries, opts)
 	end
 
 	Anim.SlideIn(frame, 0, 4, Theme.Duration("FAST"))
-	items = shown
 end
 
 function Menu.Close()
@@ -283,8 +277,6 @@ function Menu.Close()
 		secureButton:Hide()
 	end
 	if itemPool then itemPool:ReleaseAll() end
-	items = {}
-	currentItems = nil
 	catcher:Hide()
 	Anim.StopAll(frame)
 	frame:SetScript("OnHide", nil)

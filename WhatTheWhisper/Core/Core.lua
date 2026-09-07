@@ -116,7 +116,7 @@ end
 
 function addon:HandleCommand(input)
 	input = ns.Text.Trim(input or "")
-	local command, rest = input:match("^(%S*)%s*(.*)$")
+	local command = input:match("^(%S*)")
 	command = (command or ""):lower()
 
 	if command == "" then

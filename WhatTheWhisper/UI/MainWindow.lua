@@ -12,7 +12,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 local MainWindow = {}
 ns.MainWindow = MainWindow
 
-local max, min, abs = math.max, math.min, math.abs
+local max, min = math.max, math.min
 
 local M = {}
 local SPLITTER_W = 5
@@ -189,7 +189,6 @@ function M:SetSplitterHighlight(on)
 end
 
 function M:SetSidebarWidth(width)
-	local layout = ns.db.profile.layout
 	local maxWidth = min(ns.SZ.SIDEBAR_MAX_W, (self:GetWidth() or 900) - 320)
 	width = min(max(width, ns.SZ.SIDEBAR_RAIL_W), max(ns.SZ.SIDEBAR_RAIL_W, maxWidth))
 	-- Snap through the compact threshold so the rail feels intentional.
@@ -202,8 +201,7 @@ function M:SetSidebarWidth(width)
 end
 
 function M:Relayout()
-	local layout = ns.db and ns.db.profile.layout
-	local mode = layout and layout.mode or "sidebar"
+	local mode = (ns.db and ns.db.profile.layout.mode) or "sidebar"
 
 	local showSidebar = (mode ~= "tabbed")
 	local showTabs = (mode ~= "sidebar")

@@ -5,7 +5,7 @@
 -- one in a popout header.
 
 local _, ns = ...
-local Theme, W, Draw, Anim, Text = ns.Theme, ns.Widgets, ns.Draw, ns.Anim, ns.Text
+local Theme, W, Anim = ns.Theme, ns.Widgets, ns.Anim
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 
 local Controls = {}

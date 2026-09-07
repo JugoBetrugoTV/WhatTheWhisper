@@ -10,7 +10,7 @@ local CM, Text = ns.ConversationManager, ns.Text
 local Search = {}
 ns.Search = Search
 
-local MSG_TS, MSG_DIR, MSG_TEXT = ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT
+local MSG_TEXT = ns.MSG_TEXT
 local BUDGET = 2500
 
 local activeToken = 0

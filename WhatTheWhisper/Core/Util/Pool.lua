@@ -10,7 +10,7 @@ local _, ns = ...
 local Pool = {}
 ns.Pool = Pool
 
-local tremove, tinsert = table.remove, table.insert
+local tremove = table.remove
 
 local mt = {}
 mt.__index = mt

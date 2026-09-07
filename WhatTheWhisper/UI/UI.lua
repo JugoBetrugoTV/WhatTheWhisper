@@ -14,7 +14,6 @@ ns.UI = UI
 
 local tabOrder = {}
 local tabSweepScheduled = false
-local combatState
 
 --------------------------------------------------------------------------------
 -- Window access
@@ -195,7 +194,6 @@ end
 function UI.BuildConversationMenu(conv)
 	local entries = {}
 	local isBN = conv.isBN
-	local shortName = isBN and conv.name or Compat.ShortName(conv.id)
 
 	entries[#entries + 1] = { text = L["Whisper"], icon = "message", onClick = function()
 		UI.Show()
@@ -298,7 +296,7 @@ function UI.ConfirmClear(conv)
 end
 
 function UI.ConfirmClearAll()
-	local conversations, messages = ns.History.Stats()
+	local conversations = ns.History.Stats()
 	ns.Dialogs.Confirm(
 		L["Clear all history?"],
 		L["This removes every stored message in %d conversations. It cannot be undone."]

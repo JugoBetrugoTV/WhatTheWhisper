@@ -7,7 +7,7 @@
 -- lines at once adds more than one character and is left alone.
 
 local _, ns = ...
-local Theme, W, Draw, Anim, Text = ns.Theme, ns.Widgets, ns.Draw, ns.Anim, ns.Text
+local Theme, W, Draw, Anim = ns.Theme, ns.Widgets, ns.Draw, ns.Anim
 
 local Input = {}
 ns.Input = Input

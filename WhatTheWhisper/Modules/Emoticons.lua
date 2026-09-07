@@ -14,7 +14,7 @@ local Text, Draw = ns.Text, ns.Draw
 local Emoticons = {}
 ns.Emoticons = Emoticons
 
-local find, sub, byte, gsub, lower = string.find, string.sub, string.byte, string.gsub, string.lower
+local find, sub, byte, lower = string.find, string.sub, string.byte, string.lower
 
 --------------------------------------------------------------------------------
 -- Tables

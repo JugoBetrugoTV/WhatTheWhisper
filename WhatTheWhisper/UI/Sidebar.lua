@@ -8,7 +8,7 @@
 -- and "resizable".
 
 local _, ns = ...
-local Theme, W, Anim, Pool, Text = ns.Theme, ns.Widgets, ns.Anim, ns.Pool, ns.Text
+local Theme, W, Pool, Text = ns.Theme, ns.Widgets, ns.Pool, ns.Text
 local CM, Format = ns.ConversationManager, ns.Format
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 

@@ -14,7 +14,7 @@ Theme.c = {}          -- resolved colour roles
 Theme.m = {}          -- resolved metrics
 Theme.fonts = {}      -- FontObjects by type token
 
-local min, max, floor = math.min, math.max, math.floor
+local min, max = math.min, math.max
 
 -- Surfaces are affected by the opacity slider; content colours never are.
 local SURFACE_ROLES = {

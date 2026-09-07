@@ -11,7 +11,7 @@ local Compat = ns.Compat
 local Sounds = {}
 ns.Sounds = Sounds
 
-local GetTime, IsInInstance = GetTime, IsInInstance
+local GetTime = GetTime
 
 -- id -> { label, kit } ; "none" and "custom" are handled specially.
 Sounds.LIBRARY = {

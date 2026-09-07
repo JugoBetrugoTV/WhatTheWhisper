@@ -12,7 +12,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 local Popout = {}
 ns.Popout = Popout
 
-local max, min, abs = math.max, math.min, math.abs
+local max, abs = math.max, math.abs
 
 local windows = {}
 local P = {}
@@ -26,7 +26,7 @@ Popout.windows = windows
 
 local function snapTargets(exclude)
 	local targets = {}
-	for id, win in pairs(windows) do
+	for _, win in pairs(windows) do
 		if win ~= exclude and win:IsShown() then targets[#targets + 1] = win end
 	end
 	local mainWindow = ns.MainWindow and ns.MainWindow.Get()

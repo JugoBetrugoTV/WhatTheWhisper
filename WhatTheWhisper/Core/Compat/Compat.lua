@@ -14,14 +14,14 @@ local Compat = {}
 ns.Compat = Compat
 
 local _G = _G
-local select, type, pcall, tonumber, tostring = select, type, pcall, tonumber, tostring
-local strmatch, strfind, gsub, format = string.match, string.find, string.gsub, string.format
+local select, type, pcall, tonumber = select, type, pcall, tonumber
+local strmatch, strfind, gsub = string.match, string.find, string.gsub
 
 --------------------------------------------------------------------------------
 -- Flavour detection
 --------------------------------------------------------------------------------
 
-local buildVersion, buildNumber, buildDate, tocVersion = GetBuildInfo()
+local buildVersion, buildNumber, _, tocVersion = GetBuildInfo()
 tocVersion = tonumber(tocVersion) or 0
 
 -- WOW_PROJECT_ID is authoritative where it exists; the interface number is the

@@ -14,7 +14,7 @@ local Compat, CM, PlayerInfo = ns.Compat, ns.ConversationManager, ns.PlayerInfo
 local ChatEvents = {}
 ns.ChatEvents = ChatEvents
 
-local MSG_TEXT, MSG_STATUS = ns.MSG_TEXT, ns.MSG_STATUS
+local MSG_STATUS = ns.MSG_STATUS
 
 local frame = CreateFrame("Frame")
 local pending = {}

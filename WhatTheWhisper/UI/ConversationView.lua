@@ -5,8 +5,7 @@
 -- cheaper window.
 
 local _, ns = ...
-local Theme, W, Anim, Text = ns.Theme, ns.Widgets, ns.Anim, ns.Text
-local CM, Compat = ns.ConversationManager, ns.Compat
+local Theme, W, Text = ns.Theme, ns.Widgets, ns.Text
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 
 local ConversationView = {}

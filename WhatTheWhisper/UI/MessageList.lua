@@ -13,7 +13,7 @@
 
 local _, ns = ...
 local Theme, W, Draw, Anim, Pool = ns.Theme, ns.Widgets, ns.Draw, ns.Anim, ns.Pool
-local Text, Format, Color = ns.Text, ns.Format, ns.Color
+local Text, Format = ns.Text, ns.Format
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 
 local MessageList = {}

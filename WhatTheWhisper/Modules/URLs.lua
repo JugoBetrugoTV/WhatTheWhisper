@@ -55,11 +55,11 @@ local function makeLink(url, display, colorEscape)
 end
 
 local function processChunk(chunk, colorEscape)
-	if not find(chunk, "%\S") then return chunk end
+	if not find(chunk, "%S") then return chunk end
 	local out, pos, last = nil, 1, 1
 	local length = #chunk
 	while pos <= length do
-		local s, e = find(chunk, "%\S+", pos)
+		local s, e = find(chunk, "%S+", pos)
 		if not s then break end
 		local core = sub(chunk, s, e)
 		local trailing = ""

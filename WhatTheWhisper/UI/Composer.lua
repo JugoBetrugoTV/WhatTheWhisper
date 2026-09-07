@@ -5,7 +5,7 @@
 -- says so before you press Enter rather than after.
 
 local _, ns = ...
-local Theme, W, Anim, Text = ns.Theme, ns.Widgets, ns.Anim, ns.Text
+local W, Text = ns.Widgets, ns.Text
 local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
 
 local Composer = {}

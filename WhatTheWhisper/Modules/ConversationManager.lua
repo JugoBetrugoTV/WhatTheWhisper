@@ -9,8 +9,8 @@ local Compat, History, PlayerInfo = ns.Compat, ns.History, ns.PlayerInfo
 local CM = {}
 ns.ConversationManager = CM
 
-local MSG_TS, MSG_DIR, MSG_TEXT, MSG_KIND, MSG_STATUS =
-	ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_KIND, ns.MSG_STATUS
+local MSG_TS, MSG_DIR, MSG_TEXT, MSG_STATUS =
+	ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_STATUS
 
 local conversations = {}
 local orderCache = {}
@@ -18,7 +18,7 @@ local orderDirty = true
 local selectedID
 local totalUnread = 0
 
-local sort, wipe, time = table.sort, wipe, time
+local sort, wipe = table.sort, wipe
 
 --------------------------------------------------------------------------------
 -- Creation

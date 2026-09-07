@@ -14,7 +14,7 @@ local Theme = ns.Theme
 local Anim = {}
 ns.Anim = Anim
 
-local pow, min, max = math.pow, math.min, math.max
+local min = math.min
 
 --------------------------------------------------------------------------------
 -- Easing

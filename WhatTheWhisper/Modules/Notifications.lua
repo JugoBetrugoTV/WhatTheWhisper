@@ -12,8 +12,6 @@ local Sounds = ns.Sounds
 local Notifications = {}
 ns.Notifications = Notifications
 
-local GetTime = GetTime
-
 local function settings()
 	return (ns.db and ns.db.profile and ns.db.profile.notifications)
 		or ns.defaults.profile.notifications

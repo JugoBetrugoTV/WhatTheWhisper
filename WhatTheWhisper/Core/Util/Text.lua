@@ -10,10 +10,10 @@ local _, ns = ...
 local Text = {}
 ns.Text = Text
 
-local byte, sub, len, find, gsub, format = string.byte, string.sub, string.len,
-	string.find, string.gsub, string.format
+local byte, sub, len, find, gsub = string.byte, string.sub, string.len,
+	string.find, string.gsub
 local floor = math.floor
-local tconcat, tinsert, twipe = table.concat, table.insert, wipe
+local tconcat, twipe = table.concat, wipe
 
 --------------------------------------------------------------------------------
 -- UTF-8 primitives
