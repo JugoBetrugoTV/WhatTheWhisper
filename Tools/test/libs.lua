@@ -192,9 +192,23 @@ check("a whisper still arrives after all the library churn",
 -- No global namespace pollution beyond LibStub itself
 --------------------------------------------------------------------------------
 
--- LibStub is the one global these libraries are allowed to create: everything
--- else goes into its registry. A library leaking its own global would be
--- reachable by, and clobberable by, every other addon.
+-- LibStub is a global on purpose and must stay one. It is the registry the
+-- whole library ecosystem looks for by that exact name, so hiding, renaming or
+-- sandboxing it would cut this addon off from every other addon's copies --
+-- the opposite of what embedding shared libraries is for. Asserted positively
+-- so a later "no globals" cleanup cannot quietly break it.
+check("LibStub is a global", _G.LibStub ~= nil)
+eq("under exactly that name", type(_G.LibStub), "table")
+check("with the standard registry interface",
+	type(_G.LibStub.NewLibrary) == "function"
+	and type(_G.LibStub.GetLibrary) == "function"
+	and type(_G.LibStub.IterateLibraries) == "function")
+check("and callable as LibStub(\"Major\"), which is how addons ask",
+	type(getmetatable(_G.LibStub) or {}) == "table"
+	and (getmetatable(_G.LibStub) or {}).__call ~= nil)
+
+-- Everything else goes into that registry instead. A library leaking its own
+-- global would be reachable by, and clobberable by, every other addon.
 for _, major in ipairs({ "AceAddon-3.0", "AceDB-3.0", "AceEvent-3.0",
 	"AceConsole-3.0", "AceLocale-3.0", "CallbackHandler-1.0" }) do
 	local bare = major:gsub("%-.*$", "")

@@ -22,21 +22,107 @@ end
 -- Base object
 --------------------------------------------------------------------------------
 
+-- Which widget types own which methods.
+--
+-- A real Frame has no SetText; a real Texture has no SetFontObject; calling
+-- either raises in the client. The mock has to raise too, or the harness
+-- happily proves code that cannot run in the game. WIDGET_OWNER maps a method
+-- to the types that actually have it, so a misuse names the right mistake
+-- instead of just failing.
+local WIDGET_OWNER = {}
+local function own(kinds, names)
+	for name in names:gmatch("%S+") do
+		WIDGET_OWNER[name] = WIDGET_OWNER[name] or {}
+		for kind in kinds:gmatch("%S+") do WIDGET_OWNER[name][kind] = true end
+	end
+end
+
+-- Text-bearing widgets. A plain Frame has none of these.
+own("Button EditBox FontString", "SetText GetText SetTextColor GetTextColor SetFontObject GetFontObject SetFont GetFont")
+own("EditBox", [[
+	SetMultiLine IsMultiLine SetAutoFocus SetFocus ClearFocus HasFocus
+	SetMaxLetters GetNumLetters SetCursorPosition GetCursorPosition
+	HighlightText Insert SetTextInsets SetCountInvisibleLetters
+	SetNumeric IsNumeric SetPassword GetInputLanguage
+	SetAltArrowKeyMode SetBlinkSpeed ToggleInputLanguage AddHistoryLine]])
+-- Line spacing and justification belong to anything that lays out text, which
+-- is both of them -- a FontString:SetSpacing is entirely real.
+own("EditBox FontString", "SetSpacing SetJustifyH SetJustifyV")
+own("FontString", [[
+	SetWordWrap SetNonSpaceWrap SetMaxLines GetStringWidth GetStringHeight
+	SetShadowOffset SetShadowColor CanWordWrap GetFieldSize SetIndentedWordWrap]])
+own("Button CheckButton", [[
+	SetNormalTexture SetPushedTexture SetHighlightTexture SetDisabledTexture
+	GetNormalTexture GetPushedTexture GetHighlightTexture
+	RegisterForClicks SetButtonState GetButtonState Click SetFormattedText]])
+own("CheckButton", "SetChecked GetChecked SetCheckedTexture GetCheckedTexture")
+own("ScrollFrame", [[
+	SetScrollChild GetScrollChild SetVerticalScroll GetVerticalScroll
+	GetVerticalScrollRange SetHorizontalScroll GetHorizontalScroll
+	GetHorizontalScrollRange UpdateScrollChildRect]])
+own("Slider", [[
+	SetMinMaxValues GetMinMaxValues SetValue GetValue SetValueStep GetValueStep
+	SetOrientation SetThumbTexture GetThumbTexture SetObeyStepOnDrag]])
+own("StatusBar", [[
+	SetStatusBarTexture GetStatusBarTexture SetStatusBarColor
+	SetMinMaxValues GetMinMaxValues SetValue GetValue SetFillStyle SetRotatesTexture]])
+own("Button CheckButton EditBox Slider StatusBar", "Enable Disable IsEnabled SetEnabled")
+
+-- Real widget API that this mock has simply not modelled. Reaching one of these
+-- is fine -- it returns nil like an unmodelled getter -- but it is recorded, so
+-- the list of what the harness pretends about stays visible instead of the mock
+-- silently answering every call.
+local UNMODELLED = {}
+for name in ([[
+	SetBackdrop SetBackdropColor SetBackdropBorderColor GetBackdrop
+	SetUserPlaced IsUserPlaced SetDontSavePosition RegisterForMouseWheel
+	SetFrameRef GetFrameRef Execute WrapScript UnwrapScript
+	SetPassThroughButtons SetMouseClickEnabled SetMouseMotionEnabled
+	SetFlattensRenderLayers SetIsFrameBuffer GetChildren GetRegions
+	GetNumChildren GetNumRegions GetBoundsRect GetRect
+	IsForbidden IsProtected CanChangeProtectedState
+	SetResizeBounds GetResizeBounds SetFixedFrameStrata SetFixedFrameLevel
+	RegisterUnitEvent RegisterAllEvents GetDebugName IsObjectType GetObjectType
+	SetShown IsShown IsVisible SetAlpha GetAlpha SetParent GetParent
+]]):gmatch("%S+") do UNMODELLED[name] = true end
+
 local function makeObject(kind, methods)
 	local proto = {}
 	for name, fn in pairs(methods) do proto[name] = fn end
 	local mt = {
 		__index = function(t, key)
+			if M.blocked and M.blocked[kind .. ":" .. key] then return nil end
+			if type(key) ~= "string" or not key:match("^%u") then return nil end
+
+			-- Checked before the method table, not after: the mock defines the
+			-- EditBox and Button methods on one shared table for convenience, so
+			-- looking them up first would hand a plain Frame a SetText that the
+			-- client would have refused.
+			local owners = WIDGET_OWNER[key]
+			local actual = t._kind or kind
+			if owners and not owners[actual] then
+				local list = {}
+				for owner in pairs(owners) do list[#list + 1] = owner end
+				table.sort(list)
+				error(("%s: %s is a %s method; this is a %s"):format(
+					tostring(t._name or "<anonymous>"), key,
+					table.concat(list, "/"), actual), 3)
+			end
+
 			local value = rawget(proto, key)
 			if value ~= nil then return value end
-			if M.blocked and M.blocked[kind .. ":" .. key] then return nil end
-			if type(key) == "string" and key:match("^%u") then
-				record(kind, key)
-				local stub = function() return nil end
-				rawset(t, key, stub)
-				return stub
+
+			if not UNMODELLED[key] then
+				error(("%s: %s is not a widget method the client provides "
+					.. "(frame type %s). If it is real, add it to the mock."):format(
+					tostring(t._name or "<anonymous>"), key,
+					tostring(t._kind or kind)), 3)
 			end
-			return nil
+
+			record(kind, key)
+			local stub = function() return nil end
+			rawset(t, key, stub)
+			return stub
 		end,
 	}
 	return proto, mt
@@ -61,6 +147,10 @@ local RIGHT_EDGE = { RIGHT = true, TOPRIGHT = true, BOTTOMRIGHT = true }
 local TOP_EDGE = { TOP = true, TOPLEFT = true, TOPRIGHT = true }
 local BOTTOM_EDGE = { BOTTOM = true, BOTTOMLEFT = true, BOTTOMRIGHT = true }
 
+local ANCHOR_POINTS = {}
+for name in ([[TOPLEFT TOP TOPRIGHT LEFT CENTER RIGHT
+	BOTTOMLEFT BOTTOM BOTTOMRIGHT]]):gmatch("%S+") do ANCHOR_POINTS[name] = true end
+
 function regionMethods:SetPoint(a, b, c, d, e)
 	local point, relTo, relPoint, x, y
 	point = a
@@ -73,6 +163,11 @@ function regionMethods:SetPoint(a, b, c, d, e)
 	else
 		relTo, relPoint, x, y = b, c or point, d or 0, e or 0
 	end
+	assert(ANCHOR_POINTS[point], "invalid anchor point: " .. tostring(point))
+	assert(ANCHOR_POINTS[relPoint], "invalid relative anchor point: " .. tostring(relPoint))
+	assert(relTo ~= self, "a region cannot be anchored to itself")
+	assert(type(x) == "number" and type(y) == "number",
+		"anchor offsets must be numbers, got " .. type(x) .. "/" .. type(y))
 	self._points = self._points or {}
 	self._points[#self._points + 1] = { point, relTo, relPoint, x, y }
 	invalidate()
@@ -211,7 +306,16 @@ function regionMethods:SetAlpha(a) self._alpha = a end
 function regionMethods:GetAlpha() return self._alpha or 1 end
 function regionMethods:SetParent(p) self._parent = p invalidate() end
 function regionMethods:GetParent() return self._parent end
-function regionMethods:SetDrawLayer() end
+local DRAW_LAYERS = {}
+for name in ("BACKGROUND BORDER ARTWORK OVERLAY HIGHLIGHT"):gmatch("%S+") do
+	DRAW_LAYERS[name] = true
+end
+function regionMethods:SetDrawLayer(layer, sub)
+	assert(DRAW_LAYERS[layer], "invalid draw layer: " .. tostring(layer))
+	assert(sub == nil or (type(sub) == "number" and sub >= -8 and sub <= 7),
+		"draw sub-level must be -8..7, got " .. tostring(sub))
+	self._layer = layer
+end
 function regionMethods:GetObjectType() return self._kind end
 function regionMethods:SetIgnoreParentAlpha() end
 function regionMethods:SetIgnoreParentScale() end
@@ -337,7 +441,12 @@ function animMethods:SetTarget() end
 local animProto, animMT = makeObject("Animation", animMethods)
 
 local agMethods = {}
+local ANIMATION_TYPES = {}
+for name in ("Alpha Scale Translation Rotation Path LineScale LineTranslation FlipBook"):gmatch("%S+") do
+	ANIMATION_TYPES[name] = true
+end
 function agMethods:CreateAnimation(kind)
+	assert(ANIMATION_TYPES[kind], "invalid animation type: " .. tostring(kind))
 	local a = setmetatable({ _kind = "Animation", _type = kind }, animMT)
 	self._animations = self._animations or {}
 	self._animations[#self._animations + 1] = a
@@ -470,9 +579,22 @@ end
 function frameMethods:GetHitRectInsets()
 	return self._hitLeft or 0, self._hitRight or 0, self._hitTop or 0, self._hitBottom or 0
 end
-function frameMethods:SetFrameStrata(s) self._strata = s end
+-- The client accepts these eight strata names and raises on anything else, so
+-- a typo like "DIALOGUE" has to fail here rather than at a player's login.
+local STRATA = {}
+for name in ([[BACKGROUND LOW MEDIUM HIGH DIALOG FULLSCREEN FULLSCREEN_DIALOG
+	TOOLTIP]]):gmatch("%S+") do STRATA[name] = true end
+
+function frameMethods:SetFrameStrata(s)
+	assert(STRATA[s], "invalid frame strata: " .. tostring(s))
+	self._strata = s
+end
 function frameMethods:GetFrameStrata() return self._strata or "MEDIUM" end
-function frameMethods:SetFrameLevel(l) self._level = l end
+function frameMethods:SetFrameLevel(level)
+	assert(type(level) == "number" and level >= 0 and level % 1 == 0,
+		"frame level must be a non-negative integer, got " .. tostring(level))
+	self._level = level
+end
 function frameMethods:GetFrameLevel() return self._level or 1 end
 function frameMethods:SetToplevel() end
 function frameMethods:SetMovable() end
@@ -487,7 +609,10 @@ end
 function frameMethods:SetMinResize() end
 function frameMethods:SetMaxResize() end
 function frameMethods:SetClipsChildren() end
-function frameMethods:SetHyperlinksEnabled() end
+function frameMethods:SetHyperlinksEnabled(enabled)
+	self._hyperlinksEnabled = (enabled ~= false)
+end
+function frameMethods:GetHyperlinksEnabled() return self._hyperlinksEnabled or false end
 function frameMethods:Raise() end
 function frameMethods:Lower() end
 function frameMethods:SetScale(s) self._scale = s end
@@ -615,7 +740,36 @@ function M.Disable(kind, name)
 	M.blocked[kind .. ":" .. name] = true
 end
 
+-- Frame types and templates the client actually provides. An unknown template
+-- name raises in the game; the mock has to do the same or a typo ships.
+local FRAME_TYPES = {}
+for name in ([[Frame Button CheckButton EditBox ScrollFrame Slider StatusBar
+	GameTooltip MessageFrame ScrollingMessageFrame SimpleHTML Cooldown
+	ColorSelect Model PlayerModel ModelScene Browser Minimap MovieFrame
+	POIFrame QuestPOIFrame ArchaeologyDigSiteFrame ScenarioPOIFrame
+	UnitButton ContainedAlertFrame OffScreenFrame FogOfWarFrame]]):gmatch("%S+") do
+	FRAME_TYPES[name] = true
+end
+
+M.knownTemplates = {}
+for name in ([[UIPanelButtonTemplate UIPanelCloseButton
+	SecureActionButtonTemplate SecureHandlerClickTemplate
+	BackdropTemplate TooltipBorderedFrameTemplate
+	InputBoxTemplate UIDropDownMenuTemplate
+	OptionsSliderTemplate UICheckButtonTemplate
+	InsecureActionButtonTemplate]]):gmatch("%S+") do
+	M.knownTemplates[name] = true
+end
+
 function _G.CreateFrame(kind, name, parent, template)
+	assert(FRAME_TYPES[kind or "Frame"], "unknown frame type: " .. tostring(kind))
+	if template then
+		for one in tostring(template):gmatch("[^,%s]+") do
+			assert(M.knownTemplates[one], "unknown frame template: " .. one)
+		end
+	end
+	assert(name == nil or _G[name] == nil or _G[name]._kind ~= nil,
+		"frame name collides with an existing global: " .. tostring(name))
 	local f = setmetatable({
 		_kind = kind or "Frame", _name = name, _parent = parent, _template = template,
 		_shown = true,

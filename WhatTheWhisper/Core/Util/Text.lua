@@ -108,6 +108,61 @@ function Text.SafeByteSub(s, from, to)
 	return sub(s, Text.ByteFloor(s, from or 1), Text.ByteCeil(s, to or len(s)))
 end
 
+-- Cuts a string to at most `limit` bytes without splitting a character or
+-- leaving a half-written escape sequence behind.
+--
+-- A byte cut is wrong twice over: it can land inside a multi-byte character,
+-- which draws a replacement glyph, and it can land inside a |H...|h link or a
+-- |cffxxxxxx colour, which leaks raw markup into the display and can colour
+-- everything after it. Cutting on the last completed escape-aware boundary
+-- avoids both.
+--
+-- Returns the text and whether anything was removed.
+function Text.SafeByteLimit(s, limit)
+	if not s or s == "" then return s or "", false end
+	if len(s) <= limit then return s, false end
+
+	-- Walk forward accumulating whole pieces. The moment one does not fit, the
+	-- cut is fixed: a later piece must not be allowed to jump the gap and stitch
+	-- itself onto text that was dropped.
+	local safeEnd, depth, stopped = 0, 0, false
+	Text.Walk(s,
+		function(chunk)
+			if stopped then return end
+			local finish = safeEnd + len(chunk)
+			if finish <= limit then
+				safeEnd = finish
+				return
+			end
+			-- A plain run can be cut mid-run, but only on a character boundary.
+			-- ByteFloor snaps to the start of the character the limit lands in,
+			-- so the last whole character ends one byte earlier.
+			local cut = Text.ByteFloor(s, limit + 1) - 1
+			if cut > safeEnd then safeEnd = cut end
+			stopped = true
+		end,
+		function(chunk, kind)
+			if stopped then return end
+			local finish = safeEnd + len(chunk)
+			if finish > limit then
+				-- An escape is atomic: a half-written link or colour is worse
+				-- than a shorter string, so the cut happens before it.
+				stopped = true
+				return
+			end
+			safeEnd = finish
+			if kind == "color" then depth = depth + 1
+			elseif kind == "reset" then depth = depth > 0 and depth - 1 or 0 end
+		end)
+
+	local out = sub(s, 1, safeEnd)
+	-- Close any colour still open, so the truncation cannot tint what follows.
+	local opens = select(2, gsub(out, "|c%x%x%x%x%x%x%x%x", ""))
+	local closes = select(2, gsub(out, "|r", ""))
+	for _ = 1, opens - closes do out = out .. "|r" end
+	return out, true
+end
+
 --------------------------------------------------------------------------------
 -- WoW escape sequences
 --------------------------------------------------------------------------------

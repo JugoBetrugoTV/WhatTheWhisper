@@ -32,6 +32,9 @@ lua5.1 Tools/test/libs.lua | tail -1
 echo "== packaged release =="
 python3 Tools/test/check_package.py | tail -1
 
+echo "== real-client loadability =="
+lua5.1 Tools/test/loadability.lua | tail -1
+
 echo "== text processing =="
 lua5.1 Tools/test/text.lua | tail -1
 

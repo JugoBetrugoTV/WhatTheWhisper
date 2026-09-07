@@ -125,11 +125,12 @@ local function buildCopy()
 
 	function d:SetContent(text)
 		text = text or ""
-		local truncated = false
-		if #text > MAX_CHARS then
-			text = text:sub(1, MAX_CHARS)
-			truncated = true
-		end
+		-- Cut on a character and escape boundary, not on a byte. A plain
+		-- sub() here splits multi-byte characters in any non-English thread
+		-- and can sever a |H...|h link, leaking raw markup into the box the
+		-- player is about to copy.
+		local truncated
+		text, truncated = ns.Text.SafeByteLimit(text, MAX_CHARS)
 		d.content = text
 		edit:SetText(text)
 		edit:SetCursorPosition(0)

@@ -214,5 +214,132 @@ eq("emoticons skip links", emo("|Hitem:1|h[:)]|h"), "|Hitem:1|h[:)]|h")
 eq("emoticons keep utf8", emo("Grüße :)"), "Grüße <smile>")
 eq("emoticon next to an item link", emo(item .. " :)"), item .. " <smile>")
 
+-- A byte string is valid UTF-8 only if every lead byte is followed by exactly
+-- the continuation bytes its width promises.
+local function validUTF8(str)
+	local i, n = 1, #str
+	while i <= n do
+		local c = str:byte(i)
+		local width = c < 0x80 and 1 or c < 0xE0 and 2 or c < 0xF0 and 3
+			or c < 0xF8 and 4 or 0
+		if width == 0 then return false end
+		for k = 1, width - 1 do
+			local cc = str:byte(i + k)
+			if not cc or cc < 0x80 or cc >= 0xC0 then return false end
+		end
+		i = i + width
+	end
+	return true
+end
+
+--------------------------------------------------------------------------------
+-- Native WoW markup must survive URL detection byte for byte
+--------------------------------------------------------------------------------
+
+-- The rule: never rewrite a Blizzard-formatted string blindly. A link, a
+-- texture escape or a colour belongs to the client, and corrupting one turns a
+-- working item link into visible garbage -- or worse, into a link that points
+-- somewhere else.
+local MIXED = {
+	"Check https://wowhead.com/item=19019",
+	"|cffff8000Thunderfury|r",
+	"|Hitem:19019::::::::::::|h[Thunderfury, Blessed Blade of the Windseeker]|h",
+	"|cffa335ee|Hitem:19019::::::::::::|h[Thunderfury]|h|r and https://wowhead.com/item=19019",
+	"|Hplayer:Thrall-Blackrock:1|h[Thrall]|h says hi at example.com",
+	"|cff71d5ff|Hspell:133|h[Fireball]|h|r beats http://fire.gg",
+	"|cffffff00|Hachievement:1234:Player:0:0:0:0:0:0:0:0|h[Achievement]|h|r",
+	"|TInterface\\Icons\\INV_Misc_QuestionMark:16|t icon then wowhead.com",
+	"escaped pipe || and www.example.com",
+	"Übergröße |cffa335ee|Hitem:19019::::::::::::|h[Straße]|h|r nötig auf example.de",
+	"|Hitem:19019|h[a]|h|Hitem:19020|h[b]|h back to back plus test.com",
+	"|cffff0000broken colour with no reset and https://x.com",
+	"|Hitem:19019 unterminated link with example.com after",
+	"just text, no links, nothing at all",
+	"|Hquest:1234:70|h[A Quest]|h at questsite.com",
+	"|cff00ff00|Hunit:Player-1234-ABCD:Thrall|h[Thrall]|h|r",
+}
+
+for _, raw in ipairs(MIXED) do
+	local out = ns.URLs.Process(raw)
+	local label = ("%q"):format(#raw > 46 and (raw:sub(1, 43) .. "...") or raw)
+
+	-- Every |H...|h body must come back byte-identical.
+	local intact = true
+	for body in raw:gmatch("|H(.-)|h") do
+		if not out:find("|H" .. body:gsub("(%W)", "%%%1") .. "|h") then intact = false end
+	end
+	check("native links survive URL detection in " .. label, intact, out)
+
+	-- A URL link must never be created inside a native link's display text:
+	-- that would nest hyperlinks, which the client cannot render.
+	local nested = false
+	for display in out:gmatch("|H[^|]*|h(.-)|h") do
+		if display:find(ns.URLs.LINK_TYPE, 1, true) then nested = true end
+	end
+	check("no URL link is nested inside a native link in " .. label, not nested, out)
+
+	-- Texture and atlas escapes are opaque.
+	local textures = true
+	for tex in raw:gmatch("|T.-|t") do
+		if not out:find(tex, 1, true) then textures = false end
+	end
+	check("texture escapes survive in " .. label, textures, out)
+
+	-- An escaped pipe is a literal pipe, not the start of anything.
+	local _, rawPipes = raw:gsub("||", "")
+	local _, outPipes = out:gsub("||", "")
+	eq("escaped pipes are untouched in " .. label, outPipes, rawPipes)
+end
+
+-- The URL inside a mixed message is still found; surviving markup is not enough
+-- if the feature stopped working.
+local mixed = ns.URLs.Process(
+	"|cffa335ee|Hitem:19019::::::::::::|h[Thunderfury]|h|r and https://wowhead.com/item=19019")
+check("the URL beside a native link is still linked",
+	mixed:find(ns.URLs.LINK_TYPE, 1, true) ~= nil, mixed)
+local extracted = ns.URLs.Extract(
+	"|Hitem:19019|h[Thunderfury]|h see https://example.com/a and www.b.org")
+check("both URLs beside a link are extracted", extracted and #extracted == 2,
+	extracted and table.concat(extracted, ", "))
+check("an item id is not mistaken for a URL",
+	not (ns.URLs.Extract("|Hitem:19019::::::::::::|h[Thunderfury]|h") or {})[1])
+
+--------------------------------------------------------------------------------
+-- Truncating by bytes, safely
+--------------------------------------------------------------------------------
+
+-- Every cut position, over text where almost every character is multi-byte.
+local umlauts = string.rep("Übergrößenträger Straße ", 40)
+local brokeUTF8, overLimit = 0, 0
+for limit = 1, 200 do
+	local out = ns.Text.SafeByteLimit(umlauts, limit)
+	if not validUTF8(out) then brokeUTF8 = brokeUTF8 + 1 end
+	if #out > limit then overLimit = overLimit + 1 end
+end
+eq("no cut position splits a character", brokeUTF8, 0)
+eq("no cut position exceeds its limit", overLimit, 0)
+
+-- Every cut position through a message carrying a link and a colour.
+local linked = "hi |cffa335ee|Hitem:19019::::::::::::|h[Thunderfury]|h|r there"
+local severed, unclosed = 0, 0
+for limit = 1, #linked + 5 do
+	local out = ns.Text.SafeByteLimit(linked, limit)
+	local _, opens = out:gsub("|H", "")
+	local _, closes = out:gsub("|h", "")
+	if opens > 0 and opens * 2 ~= closes then severed = severed + 1 end
+	local _, coloured = out:gsub("|c%x%x%x%x%x%x%x%x", "")
+	local _, resets = out:gsub("|r", "")
+	if coloured > resets then unclosed = unclosed + 1 end
+end
+eq("no cut position severs a link", severed, 0)
+eq("no cut position leaves a colour open", unclosed, 0)
+
+local short, cutShort = ns.Text.SafeByteLimit("short", 100)
+eq("text under the limit is returned whole", short, "short")
+eq("and reports that nothing was cut", cutShort, false)
+local _, cutLong = ns.Text.SafeByteLimit(umlauts, 20)
+eq("text over the limit reports that it was cut", cutLong, true)
+eq("an empty string is handled", ns.Text.SafeByteLimit("", 10), "")
+
 print(("\n%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)
