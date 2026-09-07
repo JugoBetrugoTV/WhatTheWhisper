@@ -17,6 +17,9 @@ python3 Tools/test/check_icons.py
 echo "== textures =="
 python3 Tools/test/check_textures.py | tail -1
 
+echo "== icon legibility =="
+python3 Tools/test/check_icon_legibility.py 2>/dev/null | tail -1
+
 echo "== locales =="
 python3 Tools/test/check_locales.py
 

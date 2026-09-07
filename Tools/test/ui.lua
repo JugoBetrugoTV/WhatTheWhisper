@@ -421,6 +421,49 @@ if composer.send and #outgoing > 0 then
 			select(5, rect(composer.send)), select(5, rect(outgoing[1]))))
 end
 
+-- Delivery ticks sit against their bubble at one consistent distance. A mark
+-- floating at a different gap on each message reads as debris rather than as
+-- status.
+local gaps = {}
+for i = 1, #outgoing do
+	local b = outgoing[i]
+	if b.status and M.EffectivelyShown(b.status, window) then
+		gaps[#gaps + 1] = {
+			gap = select(1, rect(b)) - select(5, rect(b.status)),
+			bottom = select(2, rect(b.status)) - select(2, rect(b)),
+		}
+	end
+end
+if #gaps > 1 then
+	local sameGap, sameBottom = true, true
+	for i = 2, #gaps do
+		if math.abs(gaps[i].gap - gaps[1].gap) > EPS then sameGap = false end
+		if math.abs(gaps[i].bottom - gaps[1].bottom) > EPS then sameBottom = false end
+	end
+	check("every delivery tick sits the same distance from its bubble", sameGap,
+		("%.2f vs %.2f"):format(gaps[#gaps].gap, gaps[1].gap))
+	check("and at the same height within it", sameBottom,
+		("%.2f vs %.2f"):format(gaps[#gaps].bottom, gaps[1].bottom))
+	check("the tick is close enough to read as attached",
+		gaps[1].gap >= 0 and gaps[1].gap <= ns.S.MD,
+		("%.2f away"):format(gaps[1].gap))
+end
+
+-- Group headers carry a time and nothing else, on the side their group sits on.
+local headers = {}
+for header in view.list.headerPool:EnumerateActive() do
+	if M.EffectivelyShown(header, window) then headers[#headers + 1] = header end
+end
+check("the thread rendered group headers", #headers > 0)
+for i = 1, #headers do
+	local header = headers[i]
+	check("a group header carries no repeated sender name",
+		header.name == nil,
+		"the name font string is back; a 1:1 thread should not repeat it")
+	check("a group header does show a time",
+		header.time ~= nil and (header.time._text or "") ~= "")
+end
+
 --------------------------------------------------------------------------------
 -- Animation timing: one vocabulary, not a duration per call site
 --------------------------------------------------------------------------------

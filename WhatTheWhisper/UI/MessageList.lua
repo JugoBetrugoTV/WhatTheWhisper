@@ -28,7 +28,6 @@ local SEP_H = 26
 local HEADER_H = 18
 local AVATAR = ns.SZ.AVATAR_SM
 local AVATAR_GAP = ns.S.SM
-local STATUS_SIZE = 11
 
 -- Rendered text and measured geometry, keyed by the message table itself so it
 -- is collected with the message.
@@ -99,16 +98,22 @@ local function createSeparator(list)
 	return f
 end
 
+-- The line that separates one group of messages from the next.
+--
+-- It carries a time and nothing else. A whisper thread has exactly two people
+-- in it, the avatar beside every incoming bubble is already class coloured, and
+-- the person's name is in the header above -- so repeating that name over every
+-- group is the one thing that made this read as a chat log rather than as a
+-- messenger. Every desktop messenger omits it in a one-to-one conversation for
+-- the same reason.
 local function createHeader(list)
 	local f = CreateFrame("Frame", nil, list.content)
 	f:SetHeight(HEADER_H)
-	f.name = W.Text(f, "MICRO", "textSecondary")
-	f.name:SetPoint("LEFT", f, "LEFT", 0, 0)
+	-- One font string, anchored to whichever side the group sits on, so incoming
+	-- and outgoing are treated identically instead of one carrying a name and a
+	-- time on the left and the other a bare time on the right.
 	f.time = W.Text(f, "MICRO", "textMuted")
-	f.time:SetPoint("LEFT", f.name, "RIGHT", ns.S.SM, 0)
-	f.timeRight = W.Text(f, "MICRO", "textMuted")
-	f.timeRight:SetPoint("RIGHT", f, "RIGHT", 0, 0)
-	f.timeRight:SetJustifyH("RIGHT")
+	f.time:SetPoint("LEFT", f, "LEFT", 0, 0)
 	return f
 end
 
@@ -131,7 +136,7 @@ local function createBubble(list)
 	f.stamp:Hide()
 
 	f.status = f:CreateTexture(nil, "OVERLAY")
-	f.status:SetSize(STATUS_SIZE, STATUS_SIZE)
+	f.status:SetSize(ns.SZ.STATUS_ICON, ns.SZ.STATUS_ICON)
 	f.status:SetPoint("BOTTOMLEFT", f, "BOTTOMRIGHT", ns.S.XS, 1)
 	f.status:Hide()
 
@@ -414,25 +419,17 @@ function ML:RenderHeader(entry)
 	local conv = self.conv
 	self:PositionElement(f, entry)
 
-	if entry.dir == ns.DIR_OUT then
-		f.name:SetText("")
-		f.time:SetText("")
-		f.timeRight:SetText(ns.db.profile.appearance.timestamps
-			and Format.Clock(entry.ts) or "")
-		f.timeRight:Show()
-		f:SetWidth(200)
+	local outgoing = entry.dir == ns.DIR_OUT
+	f.time:SetText(ns.db.profile.appearance.timestamps and Format.Clock(entry.ts) or "")
+	f.time:ClearAllPoints()
+	if outgoing then
+		f.time:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+		f.time:SetJustifyH("RIGHT")
 	else
-		local nameColor = Theme.ClassColor(conv and conv.class, "bg2")
-		f.name:SetText(conv and ns.ConversationManager.DisplayName(conv) or "")
-		if nameColor then
-			f.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
-		else
-			W.SetTextRole(f.name, "textSecondary")
-		end
-		f.time:SetText(ns.db.profile.appearance.timestamps and Format.Clock(entry.ts) or "")
-		f.timeRight:SetText("")
-		f:SetWidth(240)
+		f.time:SetPoint("LEFT", f, "LEFT", 0, 0)
+		f.time:SetJustifyH("LEFT")
 	end
+	f:SetWidth(120)
 	f:SetHeight(HEADER_H)
 	f:Show()
 	return f
@@ -509,7 +506,7 @@ function ML:RenderBubble(entry)
 			Draw.SetIcon(f.status, spec.icon)
 			local c = Theme.Get(spec.role)
 			f.status:SetVertexColor(c[1], c[2], c[3], spec.alpha)
-			local size = (status == ns.SEND_PENDING) and 6 or STATUS_SIZE
+			local size = (status == ns.SEND_PENDING) and 6 or ns.SZ.STATUS_ICON
 			f.status:SetSize(size, size)
 			f.status:ClearAllPoints()
 			f.status:SetPoint("BOTTOMRIGHT", f, "BOTTOMLEFT", -ns.S.SM, 2)
@@ -837,9 +834,7 @@ function ML:ApplyTheme()
 		W.RefreshText(f.label)
 	end)
 	refresh(self.headerPool, function(f)
-		W.RefreshText(f.name)
 		W.RefreshText(f.time)
-		W.RefreshText(f.timeRight)
 	end)
 	refresh(self.bubblePool, function(f)
 		f.surface:ApplyTheme()

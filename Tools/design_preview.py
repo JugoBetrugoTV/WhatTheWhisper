@@ -364,10 +364,12 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
             cv.rrect(cx - lw / 2, y, lw, it["h"], it["h"] / 2, fill=c["bg3"])
             cv.text(cx, y + it["h"] / 2, it["label"], T["MICRO"], c["textMuted"], anchor="mm")
         elif it["kind"] == "header":
+            # A time and nothing else, on the side its group sits on. The name
+            # is in the window header and the avatar is class coloured, so
+            # repeating it over every group was pure noise.
             if it["side"] == "in":
-                hx = content_x + pad + avatar + gap
-                nw = cv.text(hx, y + 9, "Thrall", T["MICRO"], thrall)
-                cv.text(hx + nw + S["SM"], y + 9, it["stamp"], T["MICRO"], c["textMuted"])
+                cv.text(content_x + pad + avatar + gap, y + 9, it["stamp"],
+                        T["MICRO"], c["textMuted"])
             else:
                 cv.text(content_x + content_w - pad - SZ["SCROLLBAR_HIT"], y + 9, it["stamp"],
                         T["MICRO"], c["textMuted"], anchor="rm")

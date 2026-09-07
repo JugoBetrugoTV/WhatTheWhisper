@@ -16,7 +16,15 @@ CELL = 64
 COLS = 8
 ROWS = 8
 SS = 6          # supersample factor
-W = 5.0         # default stroke width in 64-unit space
+# Default stroke width in the 64-unit cell.
+#
+# The number that matters is not how it looks at 64px but how many real pixels
+# it becomes at the sizes the UI actually draws: 11px for the sidebar's pin and
+# sort marks, 12 for the mute bell, 14 in menus, 16 for most buttons. A 5-unit
+# stroke is 5 * 11/64 = 0.86 physical pixels at the smallest of those -- under
+# one pixel, so the client resolves it to grey mush rather than a line. 6.4
+# units clears one pixel at 11px and still reads as a fine line at 24.
+W = 6.4
 CLEAR = (0, 0, 0, 0)   # ImageDraw writes raw pixels, so this erases
 
 ICONS = []
@@ -185,14 +193,16 @@ def _(p):
 
 @icon("dots")
 def _(p):
-    for x in (19, 32, 45):
-        p.circle(x, 32, 3.6, fill=(255, 255, 255, 255))
+    # 3.6 units is 1.35px across at 24px once antialiasing takes its share,
+    # which is not enough for a dot to read as a dot.
+    for x in (15, 32, 49):
+        p.circle(x, 32, 6.0, fill=(255, 255, 255, 255))
 
 
 @icon("dots_v")
 def _(p):
-    for y in (19, 32, 45):
-        p.circle(32, y, 3.6, fill=(255, 255, 255, 255))
+    for y in (15, 32, 49):
+        p.circle(32, y, 6.0, fill=(255, 255, 255, 255))
 
 
 @icon("send")
@@ -423,9 +433,12 @@ def _(p):
 
 @icon("volume")
 def _(p):
-    p.poly([(16, 26), (24, 26), (34, 17), (34, 47), (24, 38), (16, 38)])
-    p.arc(34, 32, 10, -55, 55, W - 1.2)
-    p.arc(34, 32, 16, -50, 50, W - 1.2)
+    # Shifted left so the speaker and its two waves are centred as one glyph.
+    # The heavier stroke widens the outer arc, which pushed the whole thing
+    # right of centre and made it wobble beside the other title-bar icons.
+    p.poly([(13, 26), (21, 26), (31, 17), (31, 47), (21, 38), (13, 38)])
+    p.arc(31, 32, 10, -55, 55, W - 1.2)
+    p.arc(31, 32, 16, -50, 50, W - 1.2)
 
 
 @icon("volume_off")

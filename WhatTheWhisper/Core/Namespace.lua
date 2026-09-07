@@ -81,6 +81,9 @@ ns.SZ = {
 	AVATAR_XS         = 18,
 
 	BADGE_H           = 18,
+	-- The delivery mark beside an outgoing bubble. The smallest glyph the UI
+	-- draws, so the icon set's stroke weight is chosen to survive it.
+	STATUS_ICON       = 12,
 	STATUS_DOT        = 8,
 
 	ICON_BTN          = 30,
