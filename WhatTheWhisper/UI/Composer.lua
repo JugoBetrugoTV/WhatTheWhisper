@@ -30,13 +30,28 @@ function Composer.New(parent, opts)
 		icon = "smiley", size = ns.SZ.ICON_BTN, tooltip = L["Emoji"],
 		onClick = function(self) ns.EmojiPicker.Toggle(self, c) end,
 	})
-	c.emoji:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", PAD, PAD + 3)
+	-- The composer sits on the same column as the thread above it: its left
+	-- margin is the message list's padding, and its right margin is that plus
+	-- the scrollbar gutter, so the send button lines up with the right edge of
+	-- the outgoing bubbles instead of hanging past them.
+	local LEFT_MARGIN = ns.SZ.LIST_PAD_X
+	local RIGHT_MARGIN = ns.SZ.LIST_PAD_X + ns.SZ.SCROLLBAR_HIT
+
+	-- Both buttons are shorter than the field beside them, so each is lifted by
+	-- half the difference rather than by a number somebody eyeballed.
+	local function centreOnField(height)
+		return PAD + (ns.SZ.COMPOSER_FIELD_H - height) / 2
+	end
+
+	c.emoji:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT",
+		LEFT_MARGIN, centreOnField(ns.SZ.ICON_BTN))
 
 	c.send = ns.Button.Send(c, {
 		tooltip = L["Send"],
 		onClick = function() c:Submit() end,
 	})
-	c.send:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -PAD, PAD + 2)
+	c.send:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT",
+		-RIGHT_MARGIN, centreOnField(ns.SZ.SEND_BTN))
 
 	c.input = ns.Input.New(c, {
 		multiline = true,

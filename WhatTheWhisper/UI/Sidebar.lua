@@ -30,12 +30,15 @@ local function createRow(sidebar)
 		radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 1, 1 },
 	})
 
+	-- Inside the card, not beside it. The card is inset from the row by S.SM, so
+	-- a marker measured from the row's own edge floats in the gutter and reads as
+	-- the window border bleeding colour rather than as part of the selected row.
+	-- The vertical inset clears the card's corner radius.
+	local ACCENT_X = ns.S.SM + ns.SZ.ACCENT_BAR_INSET
 	row.accent = CreateFrame("Frame", nil, row)
 	row.accent:SetWidth(ns.SZ.ACCENT_BAR_W)
-	-- Inset from the window edge so the bar reads as a marker rather than as the
-	-- window border bleeding colour.
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", ns.SZ.ACCENT_BAR_INSET, -ns.S.MD)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ns.SZ.ACCENT_BAR_INSET, ns.S.MD)
+	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", ACCENT_X, -ns.S.MD)
+	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ACCENT_X, ns.S.MD)
 	row.accent.surface = W.Surface(row.accent, {
 		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
 	})
@@ -235,11 +238,15 @@ local function layoutRow(row, compact)
 	end
 
 	local textLeft = pad + avatarSize + ns.S.MD
+	local nameTop = ns.S.MD + 1
 	row.name:ClearAllPoints()
-	row.name:SetPoint("TOPLEFT", row, "TOPLEFT", textLeft, -(ns.S.MD + 1))
+	row.name:SetPoint("TOPLEFT", row, "TOPLEFT", textLeft, -nameTop)
 
+	-- The timestamp is a smaller face than the name; offsetting it by the ascent
+	-- difference puts the two on one baseline instead of one top edge.
 	row.time:ClearAllPoints()
-	row.time:SetPoint("TOPRIGHT", row, "TOPRIGHT", -pad, -(ns.S.MD + 2))
+	row.time:SetPoint("TOPRIGHT", row, "TOPRIGHT", -pad,
+		-(nameTop + W.BaselineOffset(row.time, row.name.__wtwToken)))
 	row.time:SetWidth(STAMP_W)
 
 	row.preview:ClearAllPoints()

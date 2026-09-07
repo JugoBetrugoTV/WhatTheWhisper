@@ -36,9 +36,12 @@ local function createNavRow(parent)
 	row:SetHeight(ns.SZ.SETTINGS_ROW_H)
 	row.surface = W.Surface(row, { radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 0, 0 } })
 	row.accent = CreateFrame("Frame", nil, row)
+	-- Same rule as the sidebar: the marker belongs inside the card, past the
+	-- inset the surface is drawn with, or it floats in the gutter beside it.
+	local accentX = ns.S.SM + ns.SZ.ACCENT_BAR_INSET
 	row.accent:SetWidth(ns.SZ.ACCENT_BAR_W)
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", ns.SZ.ACCENT_BAR_INSET, -ns.S.SM)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ns.SZ.ACCENT_BAR_INSET, ns.S.SM)
+	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", accentX, -ns.S.SM)
+	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", accentX, ns.S.SM)
 	row.accent.surface = W.Surface(row.accent, {
 		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
 	})

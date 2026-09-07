@@ -202,7 +202,13 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
                 cv.rrect(S["SM"], y + 1, sidebar_w - S["SM"] * 2, row_h - 2,
                          radius(R["MD"]), fill=c["selected"])
                 if m.get("accentBar", 1):
-                    cv.rrect(3, y + S["MD"], 3, row_h - S["MD"] * 2, 1.5, fill=c["accent"])
+                    # Inside the row card, which is itself inset by S.SM -- the
+                    # marker has to sit past that inset or it floats in the
+                    # gutter and reads as the window edge.
+                    bar_w = SZ["ACCENT_BAR_W"]
+                    bar_x = S["SM"] + SZ["ACCENT_BAR_INSET"]
+                    cv.rrect(bar_x, y + S["MD"], bar_w, row_h - S["MD"] * 2,
+                             bar_w / 2, fill=c["accent"])
 
             av = SZ["AVATAR_LG"]
             ax, ay = S["LG"], y + (row_h - av) / 2
@@ -460,7 +466,9 @@ def render_settings(skin_id="midnight", path=None):
         active = label == "Appearance"
         if active:
             cv.rrect(S["SM"], y, nav_w - S["SM"] * 2, row_h, radius(R["MD"]), fill=c["selected"])
-            cv.rrect(3, y + 6, 3, row_h - 12, 1.5, fill=c["accent"])
+            bar_w = SZ["ACCENT_BAR_W"]
+            cv.rrect(S["SM"] + SZ["ACCENT_BAR_INSET"], y + S["SM"], bar_w,
+                     row_h - S["SM"] * 2, bar_w / 2, fill=c["accent"])
         cv.icon(icon, S["LG"], y + (row_h - 14) / 2, 14,
                 c["accent"] if active else c["textMuted"])
         cv.text(S["LG"] + 14 + S["MD"], y + row_h / 2, label, T["SMALL"],

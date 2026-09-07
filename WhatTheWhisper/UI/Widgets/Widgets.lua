@@ -249,6 +249,28 @@ function W.Text(parent, token, role, layer)
 	return fs
 end
 
+-- Two font strings of different sizes anchored by their tops do not share a
+-- baseline: the smaller one's baseline rides higher by roughly the difference
+-- in ascent. A name and its timestamp on the same row have to sit on one line,
+-- so the smaller string's top offset is pushed down by that difference.
+--
+-- 0.78 is the ascent fraction of the fonts the client ships and of the ones
+-- players replace them with; it is close enough that the remaining error is
+-- under half a pixel at every size on the type scale.
+local ASCENT = 0.78
+
+-- Extra downward offset for `fs` so its baseline matches a string set in
+-- `referenceToken`. Zero when the two are the same size, so passing it through
+-- unconditionally is safe.
+function W.BaselineOffset(fs, referenceToken)
+	local token = fs and fs.__wtwToken
+	if not token or not referenceToken then return 0 end
+	local mine = Theme.FontSize(token) or 0
+	local theirs = Theme.FontSize(referenceToken) or 0
+	if theirs <= mine then return 0 end
+	return (theirs - mine) * ASCENT
+end
+
 function W.SetTextRole(fs, role, alpha)
 	fs.__wtwRole = role
 	local c = Theme.Get(role)

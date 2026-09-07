@@ -252,6 +252,204 @@ end
 checkTargets("every clickable element is big enough to hit", window)
 
 --------------------------------------------------------------------------------
+-- The 1-2px pass: baselines, optical centring, markers inside their cards
+--------------------------------------------------------------------------------
+
+-- A row's name and its timestamp are different sizes. Anchored by their tops
+-- they would sit on different baselines by a couple of pixels, which is exactly
+-- the kind of thing that reads as "off" without anyone being able to say why.
+local function baselineOf(fs, reference)
+	local size = ns.Theme.FontSize(fs.__wtwToken) or 12
+	local top = select(6, rect(fs))
+	-- The drawn baseline sits one ascent below the top of the box.
+	return top - size * 0.78, size, reference
+end
+
+local rows = {}
+for row in sidebar.rowPool:EnumerateActive() do rows[#rows + 1] = row end
+check("the sidebar built rows to measure", #rows > 0)
+
+for i = 1, math.min(#rows, 3) do
+	local row = rows[i]
+	if row.name and row.time and row.time:IsShown() then
+		local nameBase = baselineOf(row.name)
+		local timeBase = baselineOf(row.time)
+		check("row " .. i .. ": the name and its timestamp share a baseline",
+			math.abs(nameBase - timeBase) <= 1.0,
+			("name baseline %.2f, timestamp baseline %.2f"):format(nameBase, timeBase))
+	end
+	-- The selected marker belongs inside the row's card, not in the gutter
+	-- beside it, or it reads as the window border rather than as this row.
+	if row.accent then
+		local cardLeft = select(1, rect(row)) + ns.S.SM
+		local accentLeft = select(1, rect(row.accent))
+		check("row " .. i .. ": the selected marker sits inside the card",
+			accentLeft >= cardLeft - 0.51,
+			("marker at %.2f, card edge at %.2f"):format(accentLeft, cardLeft))
+	end
+	-- Left edges of the stacked text must agree exactly; a one pixel step
+	-- between a name and the preview under it is visible as a ragged column.
+	if row.name and row.preview then
+		check("row " .. i .. ": the name and preview share a left edge",
+			math.abs(select(1, rect(row.name)) - select(1, rect(row.preview))) < EPS)
+	end
+end
+
+-- Every row in the list must use the same margins: one row indented differently
+-- from its neighbours is the most visible layout bug there is.
+if #rows > 1 then
+	local lefts, rights = {}, {}
+	for i = 1, #rows do
+		lefts[i] = select(1, rect(rows[i])) 
+		rights[i] = select(5, rect(rows[i]))
+	end
+	local sameLeft, sameRight = true, true
+	for i = 2, #rows do
+		if math.abs(lefts[i] - lefts[1]) > EPS then sameLeft = false end
+		if math.abs(rights[i] - rights[1]) > EPS then sameRight = false end
+	end
+	check("every sidebar row starts at the same left edge", sameLeft)
+	check("every sidebar row ends at the same right edge", sameRight)
+end
+
+-- Icons must sit optically centred in the buttons that hold them, or a row of
+-- title bar controls looks like it was assembled by hand.
+local function checkIconCentring(label, root)
+	local offenders, sample = 0, nil
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "Frame" and node._mouseEnabled then
+			local kids = M.Descendants(node)
+			for k = 1, #kids do
+				local kid = kids[k]
+				-- __wtwIcon is the marker W.Icon puts on a glyph. Without it this
+				-- would also pick up the quads and bands the rounded-rectangle
+				-- surface is assembled from, which tile the button on purpose.
+				if kid.__wtwIcon and M.EffectivelyShown(kid, node) then
+					local bl, bb, bw, bh = rect(node)
+					local il, ib, iw, ih = rect(kid)
+					-- Only icon buttons: a frame not much bigger than the glyph
+					-- it holds. A sidebar row also contains textures, but a pin
+					-- badge in its corner is not meant to be centred in the row.
+					local isIconButton = bw <= iw * 2.5 and bh <= ih * 2.5
+					if iw > 4 and ih > 4 and iw <= bw and ih <= bh and isIconButton then
+						local dx = (il + iw / 2) - (bl + bw / 2)
+						local dy = (ib + ih / 2) - (bb + bh / 2)
+						if math.abs(dx) > 1.0 or math.abs(dy) > 1.0 then
+							offenders = offenders + 1
+							sample = sample or (describe(kid)
+								.. (" off centre by %.2f,%.2f in its button"):format(dx, dy))
+						end
+					end
+				end
+			end
+		end
+	end
+	check(label, offenders == 0, sample)
+end
+
+checkIconCentring("icons are centred in their buttons", window)
+
+--------------------------------------------------------------------------------
+-- Bubbles: padding, alignment and the rhythm they share with the composer
+--------------------------------------------------------------------------------
+
+local bubbles = {}
+for bubble in view.list.bubblePool:EnumerateActive() do
+	if M.EffectivelyShown(bubble, window) then bubbles[#bubbles + 1] = bubble end
+end
+check("the thread rendered bubbles to measure", #bubbles >= 4, tostring(#bubbles))
+
+local incoming, outgoing = {}, {}
+for i = 1, #bubbles do
+	local b = bubbles[i]
+	local bl, _, bw = rect(b)
+	local tl = select(1, rect(b.text))
+	-- Text inset from the bubble's own edges, both sides.
+	check("a bubble pads its text on the left by the named amount",
+		math.abs((tl - bl) - ns.SZ.BUBBLE_PAD_X) < EPS,
+		("%.2f, want %d"):format(tl - bl, ns.SZ.BUBBLE_PAD_X))
+	local rightPad = (bl + bw) - select(5, rect(b.text))
+	check("a bubble pads its text on the right by the same amount",
+		math.abs(rightPad - ns.SZ.BUBBLE_PAD_X) < 1.01,
+		("%.2f vs %.2f on the left"):format(rightPad, tl - bl))
+	check("a bubble is never wider than the cap",
+		bw <= ns.SZ.BUBBLE_MAX_ABS + EPS, ("%.1f"):format(bw))
+
+	if b.msg and b.msg[ns.MSG_DIR] == ns.DIR_OUT then
+		outgoing[#outgoing + 1] = b
+	else
+		incoming[#incoming + 1] = b
+	end
+end
+
+-- One column each side. A bubble that starts a pixel off from the one above it
+-- is the single most visible defect a chat client can have.
+local function sharedEdge(list, label, pick)
+	if #list < 2 then return end
+	local first = pick(list[1])
+	local same = true
+	local worst
+	for i = 2, #list do
+		local v = pick(list[i])
+		if math.abs(v - first) > EPS then
+			same = false
+			worst = worst or ("%.2f vs %.2f"):format(v, first)
+		end
+	end
+	check(label, same, worst)
+end
+
+sharedEdge(incoming, "every incoming bubble starts on the same left edge",
+	function(b) return (select(1, rect(b))) end)
+sharedEdge(outgoing, "every outgoing bubble ends on the same right edge",
+	function(b) return (select(5, rect(b))) end)
+
+-- The thread and the composer under it are one column. The field itself is
+-- inset by the two buttons flanking it, so what has to line up is the row: the
+-- emoji button with the avatar column, and the send button with the right edge
+-- of the outgoing bubbles.
+if composer.emoji and #incoming > 0 then
+	local avatar = incoming[1].avatar
+	if avatar and M.EffectivelyShown(avatar, window) then
+		check("the emoji button sits on the avatar column",
+			math.abs(select(1, rect(composer.emoji)) - select(1, rect(avatar))) <= 2.01,
+			("emoji at %.2f, avatar at %.2f"):format(
+				select(1, rect(composer.emoji)), select(1, rect(avatar))))
+	end
+end
+if composer.send and #outgoing > 0 then
+	check("the send button ends on the outgoing bubbles' right edge",
+		math.abs(select(5, rect(composer.send)) - select(5, rect(outgoing[1]))) <= 2.01,
+		("send ends %.2f, bubble ends %.2f"):format(
+			select(5, rect(composer.send)), select(5, rect(outgoing[1]))))
+end
+
+--------------------------------------------------------------------------------
+-- Animation timing: one vocabulary, not a duration per call site
+--------------------------------------------------------------------------------
+
+local durations = {}
+for _, token in ipairs({ "FAST", "BASE", "SLOW", "WINDOW" }) do
+	local d = ns.Theme.Duration(token)
+	if d then durations[#durations + 1] = { token = token, value = d } end
+end
+check("the motion scale is defined", #durations >= 3)
+for i = 1, #durations do
+	local d = durations[i]
+	check(("%s is a plausible duration"):format(d.token),
+		d.value >= 0 and d.value <= 0.6,
+		tostring(d.value) .. "s")
+	if i > 1 then
+		check(("%s is longer than %s"):format(d.token, durations[i - 1].token),
+			d.value >= durations[i - 1].value,
+			("%s=%.3f vs %s=%.3f"):format(d.token, d.value,
+				durations[i - 1].token, durations[i - 1].value))
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Contrast
 --------------------------------------------------------------------------------
 
