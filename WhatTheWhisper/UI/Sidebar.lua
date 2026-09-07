@@ -17,7 +17,6 @@ ns.Sidebar = Sidebar
 
 local max, min, floor = math.max, math.min, math.floor
 
-local ACCENT_BAR_W = 3
 local STAMP_W = 64
 local S = {}
 
@@ -32,13 +31,13 @@ local function createRow(sidebar)
 	})
 
 	row.accent = CreateFrame("Frame", nil, row)
-	row.accent:SetWidth(ACCENT_BAR_W)
+	row.accent:SetWidth(ns.SZ.ACCENT_BAR_W)
 	-- Inset from the window edge so the bar reads as a marker rather than as the
 	-- window border bleeding colour.
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", 3, -ns.S.MD)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 3, ns.S.MD)
+	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", ns.SZ.ACCENT_BAR_INSET, -ns.S.MD)
+	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ns.SZ.ACCENT_BAR_INSET, ns.S.MD)
 	row.accent.surface = W.Surface(row.accent, {
-		color = "accent", radius = ACCENT_BAR_W / 2, layer = "ARTWORK",
+		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
 	})
 	row.accent:Hide()
 

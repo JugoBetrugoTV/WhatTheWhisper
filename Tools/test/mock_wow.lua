@@ -7,6 +7,7 @@ _G.WOWMOCK = M
 
 M.unknownMethods = {}
 M.frames = {}
+M.regions = {}
 M.eventFrames = {}
 M.timers = {}
 M.now = 1000
@@ -138,8 +139,25 @@ local function geometry(region)
 		return 0, size
 	end
 
-	local left, w = axis(xConstraints, width)
-	local bottom, h = axis(yConstraints, height)
+	-- A font string with no explicit size is as big as its text, the way the
+	-- client sizes it. Without this every unsized label would measure 100x100 and
+	-- an audit could not tell a label that fits from one that runs off the panel.
+	local naturalW, naturalH
+	if region._kind == "FontString" then
+		naturalW = region.GetStringWidth and region:GetStringWidth() or nil
+	end
+
+	local left, w = axis(xConstraints, width or naturalW)
+	if region._kind == "FontString" and not height then
+		local size = select(2, region:GetFont()) or 12
+		if region._wordWrap == false then
+			naturalH = size + 2
+		else
+			local lines = math.max(1, math.ceil((naturalW or 0) / math.max(w, 1)))
+			naturalH = lines * (size + (region._spacing or 0)) + 2
+		end
+	end
+	local bottom, h = axis(yConstraints, height or naturalH)
 	if width then w = width end
 	if height then h = height end
 	if w <= 0 then w = 1 end
@@ -236,6 +254,7 @@ local texProto, texMT = makeObject("Texture", textureMethods)
 
 local function newTexture(parent, layer)
 	local t = setmetatable({ _kind = "Texture", _parent = parent, _layer = layer }, texMT)
+	M.regions[#M.regions + 1] = t
 	return t
 end
 
@@ -281,7 +300,7 @@ function fsMethods:GetStringHeight()
 end
 function fsMethods:SetJustifyH() end
 function fsMethods:SetJustifyV() end
-function fsMethods:SetWordWrap() end
+function fsMethods:SetWordWrap(v) self._wordWrap = (v ~= false) end
 function fsMethods:SetNonSpaceWrap() end
 function fsMethods:SetSpacing(v) self._spacing = v end
 function fsMethods:SetTextColor() end
@@ -293,7 +312,9 @@ function fsMethods:SetShadowColor() end
 local fsProto, fsMT = makeObject("FontString", fsMethods)
 
 local function newFontString(parent, layer)
-	return setmetatable({ _kind = "FontString", _parent = parent, _layer = layer }, fsMT)
+	local fs = setmetatable({ _kind = "FontString", _parent = parent, _layer = layer }, fsMT)
+	M.regions[#M.regions + 1] = fs
+	return fs
 end
 
 --------------------------------------------------------------------------------
@@ -438,11 +459,17 @@ function frameMethods:IsEventRegistered(event)
 	return self._events and self._events[event] or false
 end
 
-function frameMethods:EnableMouse() end
+function frameMethods:EnableMouse(v) self._mouseEnabled = (v ~= false) end
+function frameMethods:IsMouseEnabled() return self._mouseEnabled or false end
 function frameMethods:EnableMouseWheel() end
 function frameMethods:EnableKeyboard() end
 function frameMethods:IsMouseOver() return self._mouseOver or false end
-function frameMethods:SetHitRectInsets() end
+function frameMethods:SetHitRectInsets(l, r, t, b)
+	self._hitLeft, self._hitRight, self._hitTop, self._hitBottom = l, r, t, b
+end
+function frameMethods:GetHitRectInsets()
+	return self._hitLeft or 0, self._hitRight or 0, self._hitTop or 0, self._hitBottom or 0
+end
 function frameMethods:SetFrameStrata(s) self._strata = s end
 function frameMethods:GetFrameStrata() return self._strata or "MEDIUM" end
 function frameMethods:SetFrameLevel(l) self._level = l end
@@ -465,7 +492,18 @@ function frameMethods:Raise() end
 function frameMethods:Lower() end
 function frameMethods:SetScale(s) self._scale = s end
 function frameMethods:GetScale() return self._scale or 1 end
-function frameMethods:GetEffectiveScale() return (self._scale or 1) * 1 end
+-- Effective scale is the product up the parent chain, the way the client
+-- computes it; a mock that ignores UIParent's scale would make every pixel
+-- snapping test pass at exactly the one scale nobody plays at.
+function frameMethods:GetEffectiveScale()
+	local scale, node, hops = 1, self, 0
+	while node and hops < 64 do
+		scale = scale * (node._scale or 1)
+		node = node._parent
+		hops = hops + 1
+	end
+	return scale
+end
 function frameMethods:GetName() return self._name end
 function frameMethods:SetID(id) self._id = id end
 function frameMethods:GetID() return self._id or 0 end
@@ -770,6 +808,43 @@ function M.Click(frame, button)
 	if scripts.OnClick then scripts.OnClick(frame, button) end
 	if scripts.OnLeave then scripts.OnLeave(frame) end
 	frame._mouseOver = previous
+end
+
+-- Everything under a frame, frames and regions alike, so a UI audit can measure
+-- what was actually built instead of what the code was supposed to build.
+function M.Descendants(root, out)
+	out = out or {}
+	local function isUnder(node)
+		local hops = 0
+		while node do
+			if node == root then return true end
+			hops = hops + 1
+			if hops > 64 then return false end   -- cycle guard
+			node = node._parent
+		end
+		return false
+	end
+	for _, list in ipairs({ M.frames, M.regions }) do
+		for i = 1, #list do
+			local node = list[i]
+			if node ~= root and isUnder(node) then out[#out + 1] = node end
+		end
+	end
+	return out
+end
+
+-- A node is only really on screen if it and every ancestor up to the root are
+-- shown; a hidden panel full of visible children must not be audited.
+function M.EffectivelyShown(node, root)
+	local hops = 0
+	while node do
+		if node._shown == false then return false end
+		if node == root then return true end
+		hops = hops + 1
+		if hops > 64 then return false end
+		node = node._parent
+	end
+	return root == nil
 end
 
 function M.ChatFrameWouldShow(event, ...)

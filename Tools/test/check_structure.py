@@ -128,6 +128,47 @@ for rel in declared:
             err("%s reaches for the _G alias instead of the vararg namespace" % rel)
             break
 
+# ---------------------------------------------------------------------------
+# The spacing system: SetPoint offsets must be named constants or derived from
+# them, never a number typed straight into the call. This is a source rule, not
+# a geometry one -- at runtime a derived 3 and a magic 3 are the same number, so
+# the only place it can be enforced is here.
+SPACING = set()
+_ns = open(os.path.join(ADDON, "Core/Namespace.lua"), encoding="utf-8").read()
+for block in ("S", "R", "SZ", "T"):
+    section = re.search(r'\bns\.%s\s*=\s*\{(.*?)\n\}' % block, _ns, re.S)
+    if section:
+        for value in re.findall(r'=\s*(-?\d+(?:\.\d+)?)\s*,', section.group(1)):
+            SPACING.add(abs(float(value)))
+
+# 0 is "flush", 1 and 2 are hairline nudges that read as such wherever they
+# appear, and a half or double step is still the scale talking.
+ALLOWED = {0.0, 1.0, 2.0}
+for value in list(SPACING):
+    ALLOWED.add(value)
+    ALLOWED.add(value / 2)
+    ALLOWED.add(value * 2)
+
+SETPOINT = re.compile(r'SetPoint\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
+offenders = []
+for rel in declared:
+    source = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    for line_no, line in enumerate(source.split("\n"), 1):
+        for call in SETPOINT.finditer(line):
+            args = call.group(1).split(",")
+            for arg in args[-2:] if len(args) >= 4 else []:
+                arg = arg.strip()
+                literal = re.fullmatch(r'-?\d+(?:\.\d+)?', arg)
+                if not literal:
+                    continue        # a constant, an expression, a variable
+                if abs(float(arg)) not in ALLOWED:
+                    offenders.append("%s:%d offset %s is not on the spacing scale"
+                                     % (rel, line_no, arg))
+for offender in offenders:
+    err(offender)
+notes.append("%d SetPoint offsets checked against the spacing scale"
+             % len(SPACING))
+
 print("\n".join("  " + n for n in notes))
 if errors:
     print("\nSTRUCTURE ERRORS:")

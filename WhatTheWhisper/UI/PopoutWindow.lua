@@ -16,7 +16,6 @@ local max, abs = math.max, math.abs
 
 local windows = {}
 local P = {}
-local GRIP = 14
 
 Popout.windows = windows
 
@@ -144,7 +143,7 @@ local function create(conv)
 	})
 
 	win.grip = CreateFrame("Frame", nil, win)
-	win.grip:SetSize(GRIP, GRIP)
+	win.grip:SetSize(ns.SZ.RESIZE_GRIP, ns.SZ.RESIZE_GRIP)
 	win.grip:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -2, 2)
 	win.grip:EnableMouse(true)
 	win.grip:SetScript("OnMouseDown", function()

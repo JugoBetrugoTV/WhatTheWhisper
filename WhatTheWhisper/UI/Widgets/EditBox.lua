@@ -85,14 +85,18 @@ function Input.New(parent, opts)
 	editBox:SetTextColor(tc[1], tc[2], tc[3], 1)
 	if editBox.SetSpacing then editBox:SetSpacing(2) end
 
+	-- Anchored on both sides in either mode. A placeholder is "Message <name>",
+	-- and a name plus a realm is long enough that an unbounded font string runs
+	-- straight out of the composer and over whatever is next to it.
 	container.placeholder = W.Text(container, opts.fontToken or "BODY", "textMuted")
-	container.placeholder:SetPoint("LEFT", container, "LEFT", PAD_X, 0)
 	container.placeholder:SetPoint("RIGHT", container, "RIGHT", -PAD_X, 0)
 	if opts.multiline then
-		container.placeholder:ClearAllPoints()
 		container.placeholder:SetPoint("TOPLEFT", container, "TOPLEFT", PAD_X, -PAD_Y)
 		container.placeholder:SetJustifyV("TOP")
+	else
+		container.placeholder:SetPoint("LEFT", container, "LEFT", PAD_X, 0)
 	end
+	container.placeholder:SetWordWrap(false)
 	container.placeholder:SetText(opts.placeholder or "")
 
 	----------------------------------------------------------------- behaviour

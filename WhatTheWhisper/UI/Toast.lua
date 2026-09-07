@@ -53,8 +53,8 @@ local function createToast()
 
 	-- Hairline progress bar showing the remaining time.
 	t.progress = CreateFrame("Frame", nil, t)
-	t.progress:SetHeight(2)
-	t.progress:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", ns.S.MD, 3)
+	t.progress:SetHeight(ns.SZ.TOAST_PROGRESS_H)
+	t.progress:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", ns.S.MD, ns.SZ.TOAST_PROGRESS_INSET)
 	t.progress.surface = W.Surface(t.progress, { color = "accent", radius = 1, layer = "OVERLAY" })
 
 	t:SetScript("OnEnter", function(self)

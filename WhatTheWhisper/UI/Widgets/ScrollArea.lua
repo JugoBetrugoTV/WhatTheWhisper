@@ -66,10 +66,17 @@ function Scroll.New(parent, opts)
 	track:Hide()
 	sa.track = track
 
+	-- The thumb is centred in the wider grab track; deriving the inset rather
+	-- than writing it down means changing either constant keeps it centred.
+	local THUMB_INSET = (ns.SZ.SCROLLBAR_HIT - ns.SZ.SCROLLBAR_W) / 2
 	local thumb = CreateFrame("Frame", nil, track)
 	thumb:SetWidth(ns.SZ.SCROLLBAR_W)
-	thumb:SetPoint("RIGHT", track, "RIGHT", -3, 0)
+	thumb:SetPoint("RIGHT", track, "RIGHT", -THUMB_INSET, 0)
 	thumb:EnableMouse(true)
+	-- The pill is 4px because a fat scrollbar is ugly; the thing you grab is the
+	-- full track. Negative insets grow the hit rect outwards, so the visible bar
+	-- stays thin while the target is the width the hand expects.
+	thumb:SetHitRectInsets(-THUMB_INSET, -THUMB_INSET, 0, 0)
 	sa.thumb = thumb
 	sa.thumbSurface = W.Surface(thumb, { color = "scrollbar", radius = ns.SZ.SCROLLBAR_W / 2 })
 
@@ -213,14 +220,15 @@ function SA:UpdateBar()
 	self.track:Show()
 	local trackHeight = self.track:GetHeight() or view
 	local ratio = view / max(view, self.contentHeight)
-	local thumbHeight = max(28, floor(trackHeight * ratio))
+	local thumbHeight = max(ns.SZ.SCROLLBAR_MIN_THUMB, floor(trackHeight * ratio))
 	self.thumb:SetHeight(thumbHeight)
 	local travel = max(0, trackHeight - thumbHeight)
 	local progress = maxOffset > 0 and (self.offset / maxOffset) or 0
 	self.thumb:ClearAllPoints()
 	self.thumb:SetPoint("TOP", self.track, "TOP", 0, -(travel * progress))
 	self.thumb:SetWidth(ns.SZ.SCROLLBAR_W)
-	self.thumb:SetPoint("RIGHT", self.track, "RIGHT", -3, 0)
+	self.thumb:SetPoint("RIGHT", self.track, "RIGHT",
+		-(ns.SZ.SCROLLBAR_HIT - ns.SZ.SCROLLBAR_W) / 2, 0)
 end
 
 -- Shows the bar, then fades it out again once the list has been still for a

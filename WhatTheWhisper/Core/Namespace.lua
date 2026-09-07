@@ -85,6 +85,7 @@ ns.SZ = {
 
 	SCROLLBAR_W       = 4,
 	SCROLLBAR_HIT     = 10,
+	SCROLLBAR_MIN_THUMB = 28,
 
 	LIST_PAD_X        = 20,
 	LIST_PAD_Y        = 16,
@@ -124,6 +125,24 @@ ns.SZ = {
 	POPOUT_MIN_W      = 280,
 	POPOUT_MIN_H      = 240,
 	POPOUT_HEADER_H   = 48,
+
+	-- The sidebar splitter is a grab handle, not a gutter: it is centred on the
+	-- boundary and only the hairline is drawn, so the panels stay flush.
+	SPLITTER_HIT      = 12,
+
+	-- The corner resize handle. 16 was too small to hit reliably; 20 is about a
+	-- 5mm target at scale 1.0, and the glyph inside it does not change size.
+	RESIZE_GRIP       = 20,
+
+	-- The selected-row marker: a pill down the left edge of a sidebar or
+	-- settings row, inset by its own width so it reads as a marker rather than
+	-- as the panel border bleeding colour.
+	ACCENT_BAR_W      = 3,
+	ACCENT_BAR_INSET  = 3,
+
+	-- The toast's remaining-time hairline, riding inside the bottom radius.
+	TOAST_PROGRESS_H  = 2,
+	TOAST_PROGRESS_INSET = 3,
 
 	SNAP_DISTANCE     = 12,
 }

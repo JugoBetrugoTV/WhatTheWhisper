@@ -15,8 +15,6 @@ ns.MainWindow = MainWindow
 local max, min = math.max, math.min
 
 local M = {}
-local SPLITTER_W = 5
-local GRIP = 16
 
 local frame
 
@@ -109,10 +107,14 @@ function MainWindow.Get()
 	frame.sidebar:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
 	frame.sidebar:SetWidth(ns.db and ns.db.profile.layout.sidebarWidth or ns.SZ.SIDEBAR_W)
 
+	-- Straddles the boundary so half the grab area is over each panel, and sits
+	-- above both so the handle wins the cursor there. Neither panel is inset for
+	-- it: a dead strip between the list and the thread would be visible.
 	frame.splitter = CreateFrame("Frame", nil, frame)
-	frame.splitter:SetWidth(SPLITTER_W)
-	frame.splitter:SetPoint("TOPLEFT", frame.sidebar, "TOPRIGHT", -2, 0)
-	frame.splitter:SetPoint("BOTTOMLEFT", frame.sidebar, "BOTTOMRIGHT", -2, 0)
+	frame.splitter:SetWidth(ns.SZ.SPLITTER_HIT)
+	frame.splitter:SetPoint("TOP", frame.sidebar, "TOPRIGHT", 0, 0)
+	frame.splitter:SetPoint("BOTTOM", frame.sidebar, "BOTTOMRIGHT", 0, 0)
+	frame.splitter:SetFrameLevel(frame.sidebar:GetFrameLevel() + 10)
 	frame.splitter:EnableMouse(true)
 	frame.splitter:SetScript("OnEnter", function() frame:SetSplitterHighlight(true) end)
 	frame.splitter:SetScript("OnLeave", function() frame:SetSplitterHighlight(false) end)
@@ -133,16 +135,16 @@ function MainWindow.Get()
 	frame.splitter:SetScript("OnHide", endSplit)
 
 	frame.tabs = ns.Tabs.New(frame)
-	frame.tabs:SetPoint("TOPLEFT", frame.splitter, "TOPRIGHT", 0, 0)
+	frame.tabs:SetPoint("TOPLEFT", frame.sidebar, "TOPRIGHT", 0, 0)
 	frame.tabs:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -ns.SZ.TITLEBAR_H)
 
 	frame.view = ns.ConversationView.New(frame)
 	frame.view:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-	frame.view:SetPoint("LEFT", frame.splitter, "RIGHT", 0, 0)
+	frame.view:SetPoint("LEFT", frame.sidebar, "RIGHT", 0, 0)
 
 	-------------------------------------------------------------- resize grips
 	frame.grip = CreateFrame("Frame", nil, frame)
-	frame.grip:SetSize(GRIP, GRIP)
+	frame.grip:SetSize(ns.SZ.RESIZE_GRIP, ns.SZ.RESIZE_GRIP)
 	frame.grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
 	frame.grip:EnableMouse(true)
 	frame.gripIcon = W.Icon(frame.grip, "sort", 11, "textMuted")
@@ -186,11 +188,13 @@ end
 function M:SetSplitterHighlight(on)
 	if not self.splitterTex then
 		self.splitterTex = self.splitter:CreateTexture(nil, "OVERLAY")
-		self.splitterTex:SetPoint("TOPRIGHT", self.splitter, "TOPRIGHT", -2, 0)
-		self.splitterTex:SetPoint("BOTTOMRIGHT", self.splitter, "BOTTOMRIGHT", -2, 0)
-		self.splitterTex:SetWidth(Pixel.Size(self.splitter) * 2)
+		self.splitterTex:SetPoint("TOP", self.sidebar, "TOPRIGHT", 0, 0)
+		self.splitterTex:SetPoint("BOTTOM", self.sidebar, "BOTTOMRIGHT", 0, 0)
 		self.splitterTex:SetAlpha(0)
 	end
+	-- Two physical pixels, recomputed on every call: the UI scale can change
+	-- between hovers and a hairline frozen at the old scale looks blurry.
+	self.splitterTex:SetWidth(Pixel.Size(self.splitter) * 2)
 	local c = Theme.Get("accent")
 	self.splitterTex:SetColorTexture(c[1], c[2], c[3], 1)
 	Anim.FadeTo(self.splitterTex, on and 0.9 or 0, Theme.Duration("FAST"))
@@ -221,7 +225,7 @@ function M:Relayout()
 	self.view:ClearAllPoints()
 	self.view:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", 0, 0)
 	if showSidebar then
-		self.view:SetPoint("LEFT", self.splitter, "RIGHT", 0, 0)
+		self.view:SetPoint("LEFT", self.sidebar, "RIGHT", 0, 0)
 	else
 		self.view:SetPoint("LEFT", self, "LEFT", 0, 0)
 	end
@@ -229,7 +233,7 @@ function M:Relayout()
 		self.tabs:ClearAllPoints()
 		self.tabs:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, -ns.SZ.TITLEBAR_H)
 		if showSidebar then
-			self.tabs:SetPoint("TOPLEFT", self.splitter, "TOPRIGHT", 0, 0)
+			self.tabs:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 0, 0)
 		else
 			self.tabs:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -ns.SZ.TITLEBAR_H)
 		end
