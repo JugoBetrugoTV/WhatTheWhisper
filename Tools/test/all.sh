@@ -44,6 +44,9 @@ lua5.1 Tools/test/settings.lua | tail -1
 echo "== commands, debug and failsafe =="
 lua5.1 Tools/test/commands.lua | tail -1
 
+echo "== search =="
+lua5.1 Tools/test/search.lua | tail -1
+
 echo "== ui geometry and contrast =="
 lua5.1 Tools/test/ui.lua | tail -1
 
