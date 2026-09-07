@@ -110,7 +110,7 @@ ns.SZ = {
 	SETTINGS_H        = 600,
 	SETTINGS_NAV_W    = 200,
 	SETTINGS_ROW_H    = 32,
-	SETTINGS_MAX_CONTENT = 640,
+	SETTINGS_MAX_CONTENT = 560,
 
 	TOGGLE_W          = 36,
 	TOGGLE_H          = 20,

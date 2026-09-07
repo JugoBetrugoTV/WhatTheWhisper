@@ -187,7 +187,7 @@ function Options.BuildSchema()
 			id = "appearance", label = L["Appearance"], icon = "eye",
 			cards = {
 				{
-					title = L["Skin"],
+					title = L["Theme"],
 					rows = {
 						dropdown("appearance.skin", L["Skin"], Options.SkinOptions()),
 						slider("appearance.opacity", L["Background opacity"], 0.35, 1, 0.01, percent),
@@ -200,7 +200,7 @@ function Options.BuildSchema()
 					},
 				},
 				{
-					title = L["Font"],
+					title = L["Typography"],
 					rows = {
 						dropdown("appearance.font", L["Font"], Options.FontOptions()),
 						slider("appearance.fontScale", L["Font size"], -2, 4, 1, function(v)
@@ -232,7 +232,7 @@ function Options.BuildSchema()
 				{
 					title = L["Chat bubbles"],
 					rows = {
-						toggle("appearance.bubbles", L["Chat bubbles"]),
+						toggle("appearance.bubbles", L["Show chat bubbles"]),
 						slider("appearance.bubbleOpacity", L["Bubble opacity"], 0.15, 1, 0.01, percent),
 						toggle("appearance.grouping", L["Group messages"],
 							L["Collapse consecutive messages from the same player."]),
@@ -262,7 +262,7 @@ function Options.BuildSchema()
 					},
 				},
 				{
-					title = L["Show delivery state"],
+					title = L["Delivery"],
 					rows = {
 						toggle("messages.deliveryStatus", L["Show delivery state"],
 							L["Show whether the server accepted each message you send."]),
@@ -277,7 +277,7 @@ function Options.BuildSchema()
 				{
 					title = L["Layout"],
 					rows = {
-						dropdown("layout.mode", L["Layout"], {
+						dropdown("layout.mode", L["Mode"], {
 							{ value = "sidebar", label = L["Sidebar"] },
 							{ value = "tabbed", label = L["Tabbed"] },
 							{ value = "hybrid", label = L["Hybrid"] },
@@ -491,7 +491,7 @@ function Options.BuildSchema()
 					},
 				},
 				{
-					title = L["Reset everything"],
+					title = L["Reset"],
 					rows = {
 						{
 							type = "button", label = L["Reset everything"],

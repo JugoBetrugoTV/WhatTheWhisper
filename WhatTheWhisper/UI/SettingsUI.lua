@@ -18,8 +18,12 @@ local max, min = math.max, math.min
 local ROW_H = 34
 local ROW_GAP = ns.S.SM
 local CARD_PAD = ns.S.LG
-local CARD_GAP = ns.S.MD
+local CARD_GAP = ns.S.XL
 local CONTROL_W = 190
+-- The section label sits above its card, the way settings panes in modern
+-- desktop apps do. Inside the card it competed with the first row's label,
+-- which reads as two headings for the same thing.
+local SECTION_H = 22
 
 local frame, schema, activeCategory
 
@@ -33,8 +37,8 @@ local function createNavRow(parent)
 	row.surface = W.Surface(row, { radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 0, 0 } })
 	row.accent = CreateFrame("Frame", nil, row)
 	row.accent:SetWidth(3)
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -6)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 6)
+	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", 3, -6)
+	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 3, 6)
 	row.accent.surface = W.Surface(row.accent, { color = "accent", radius = 1.5, layer = "ARTWORK" })
 	row.accent:Hide()
 	row.icon = W.Icon(row, "dot", ns.SZ.ICON_GLYPH_SM, "textMuted")
@@ -93,8 +97,8 @@ end
 local function createCard(parent)
 	local card = CreateFrame("Frame", nil, parent)
 	card.surface = W.Surface(card, { color = "bg3", border = "borderSubtle", radius = ns.R.LG })
-	card.title = W.Text(card, "SMALL", "textSecondary")
-	card.title:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -CARD_PAD)
+	card.title = W.Text(card, "SMALL", "textMuted")
+	card.title:SetPoint("BOTTOMLEFT", card, "TOPLEFT", 2, ns.S.SM)
 	return card
 end
 
@@ -418,11 +422,12 @@ function SettingsUI.Refresh()
 		if #rows > 0 then
 			local card = frame.cardPool:Acquire()
 			card:ClearAllPoints()
-			card:SetPoint("TOPLEFT", viewport, "TOPLEFT", left, -(y - frame.content:GetOffset()))
+			card:SetPoint("TOPLEFT", viewport, "TOPLEFT", left,
+				-(y + SECTION_H - frame.content:GetOffset()))
 			card:SetWidth(available)
 			card.title:SetText(cardSpec.title or "")
 
-			local rowY = CARD_PAD + 20
+			local rowY = CARD_PAD
 			for r = 1, #rows do
 				local spec = rows[r]
 				local row = frame.rowPool:Acquire()
@@ -460,7 +465,7 @@ function SettingsUI.Refresh()
 			card:SetHeight(cardHeight)
 			card.surface:Layout()
 			card:Show()
-			y = y + cardHeight + CARD_GAP
+			y = y + SECTION_H + cardHeight + CARD_GAP
 		end
 	end
 

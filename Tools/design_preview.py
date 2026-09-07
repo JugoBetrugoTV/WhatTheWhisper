@@ -421,3 +421,129 @@ if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "midnight"
     layout = sys.argv[2] if len(sys.argv) > 2 else "hybrid"
     print(render(which, layout))
+
+
+def render_settings(skin_id="midnight", path=None):
+    """Renders the settings window from the same tokens the addon uses."""
+    skin = tokens["skins"][skin_id]
+    c = {k: rgba(v) for k, v in skin["colors"].items()}
+    m = skin["metrics"]
+    radius = lambda base: base * m.get("radiusScale", 1)
+
+    W, H = SZ["SETTINGS_W"], SZ["SETTINGS_H"]
+    cv = Canvas(W, H, c["bg0"])
+    cv.rrect(0, 0, W, H, radius(R["LG"]), fill=c["bg0"], outline=c["borderSubtle"], width=1)
+
+    head_h = SZ["TITLEBAR_H"] + 6
+    cv.text(S["LG"], head_h / 2, "Settings", T["TITLE"], c["textPrimary"])
+    cv.icon("close", W - S["SM"] - 26 + (26 - 13) / 2, (head_h - 13) / 2, 13, c["textSecondary"])
+    cv.hline(0, head_h, W, c["borderSubtle"])
+
+    # navigation
+    nav_w = SZ["SETTINGS_NAV_W"]
+    cv.rect(0, head_h, nav_w, H - head_h, c["bg1"])
+    cv.vline(nav_w, head_h, H - head_h, c["borderSubtle"])
+    fh = 28
+    cv.rrect(S["MD"], head_h + S["MD"], nav_w - S["MD"] * 2, fh, radius(R["MD"]),
+             fill=c["inputBg"], outline=c["borderSubtle"], width=1)
+    cv.icon("search", S["MD"] * 2, head_h + S["MD"] + (fh - 14) / 2, 14, c["textMuted"])
+    cv.text(S["MD"] + S["HUGE"], head_h + S["MD"] + fh / 2, "Search settings", T["SMALL"],
+            c["textMuted"])
+
+    categories = [("General", "sliders"), ("Appearance", "eye"), ("Messages", "message"),
+                  ("Layout", "grid"), ("History", "clock"), ("Sounds", "volume"),
+                  ("Notifications", "bell"), ("Animations", "refresh"), ("Combat", "shield"),
+                  ("Links", "globe"), ("Advanced", "keyboard")]
+    row_h = SZ["SETTINGS_ROW_H"]
+    y = head_h + S["MD"] + fh + S["MD"]
+    for i, (label, icon) in enumerate(categories):
+        active = label == "Appearance"
+        if active:
+            cv.rrect(S["SM"], y, nav_w - S["SM"] * 2, row_h, radius(R["MD"]), fill=c["selected"])
+            cv.rrect(3, y + 6, 3, row_h - 12, 1.5, fill=c["accent"])
+        cv.icon(icon, S["LG"], y + (row_h - 14) / 2, 14,
+                c["accent"] if active else c["textMuted"])
+        cv.text(S["LG"] + 14 + S["MD"], y + row_h / 2, label, T["SMALL"],
+                c["textPrimary"] if active else c["textSecondary"])
+        y += row_h + 2
+
+    # content
+    view_w = W - nav_w
+    available = min(SZ["SETTINGS_MAX_CONTENT"], view_w - S["XXL"] * 2)
+    left = nav_w + max(S["XL"], (view_w - available) / 2)
+    control_w = 190
+    card_pad = S["LG"]
+
+    cards = [
+        ("Skin", [
+            ("Skin", None, "dropdown", "Midnight"),
+            ("Background opacity", None, "slider", "97%"),
+            ("Corner radius", None, "dropdown", "Normal"),
+            ("Drop shadows", None, "toggle", True),
+        ]),
+        ("Font", [
+            ("Font", None, "dropdown", "Automatic"),
+            ("Font size", None, "slider", "+0"),
+        ]),
+        ("Conversations", [
+            ("Density", None, "dropdown", "Comfortable"),
+            ("Use class colours", None, "toggle", True),
+            ("Show avatars", None, "toggle", True),
+            ("Avatar style", "Portrait when in range, class icon otherwise.",
+             "dropdown", "Automatic"),
+        ]),
+    ]
+
+    y = head_h + S["XL"]
+    for title, rows in cards:
+        heights = []
+        for label, caption, kind, value in rows:
+            h = 34
+            if caption:
+                h = max(h, 20 + T["MICRO"] + 8)
+            heights.append(h)
+        card_h = card_pad * 2 + sum(heights) + S["SM"] * (len(rows) - 1)
+        cv.text(left + 2, y + 11, title, T["SMALL"], c["textMuted"])
+        y += 22
+        cv.rrect(left, y, available, card_h, radius(R["LG"]), fill=c["bg3"],
+                 outline=c["borderSubtle"], width=1)
+
+        ry = y + card_pad
+        for i, (label, caption, kind, value) in enumerate(rows):
+            h = heights[i]
+            cv.text(left + card_pad, ry + 8, label, T["SMALL"], c["textPrimary"])
+            if caption:
+                cv.text(left + card_pad, ry + 8 + T["SMALL"] + 4, caption, T["MICRO"],
+                        c["textMuted"])
+            cx = left + available - card_pad - control_w
+            cy = ry + h / 2
+            if kind == "toggle":
+                tw, th, knob = SZ["TOGGLE_W"], SZ["TOGGLE_H"], SZ["TOGGLE_KNOB"]
+                tx = left + available - card_pad - tw
+                cv.rrect(tx, cy - th / 2, tw, th, th / 2,
+                         fill=c["accent"] if value else c["hover"])
+                kx = tx + (tw - knob - 2 if value else 2)
+                cv.circle(kx + knob / 2, cy, knob / 2,
+                          fill=c["onAccent"] if value else c["textSecondary"])
+            elif kind == "dropdown":
+                cv.rrect(cx, cy - 15, control_w, 30, radius(R["MD"]), fill=c["inputBg"],
+                         outline=c["borderSubtle"], width=1)
+                cv.text(cx + S["MD"], cy, value, T["SMALL"], c["textPrimary"])
+                cv.icon("chevron_down", cx + control_w - S["SM"] - 14, cy - 7, 14, c["textMuted"])
+            else:
+                track = control_w - 46
+                cv.rrect(cx + SZ["SLIDER_THUMB"] / 2, cy - 2, track - SZ["SLIDER_THUMB"], 4, 2,
+                         fill=c["hover"])
+                cv.rrect(cx + SZ["SLIDER_THUMB"] / 2, cy - 2,
+                         (track - SZ["SLIDER_THUMB"]) * 0.75, 4, 2, fill=c["accent"])
+                cv.circle(cx + SZ["SLIDER_THUMB"] / 2 + (track - SZ["SLIDER_THUMB"]) * 0.75, cy,
+                          SZ["SLIDER_THUMB"] / 2, fill=c["textPrimary"])
+                cv.text(cx + control_w, cy, value, T["SMALL"], c["textSecondary"], anchor="rm")
+            ry += h + S["SM"]
+        y += card_h + S["XL"]
+
+    out = path or "/tmp/wtw_settings_%s.png" % skin_id
+    flat = Image.new("RGB", cv.img.size, (16, 18, 22))
+    flat.paste(cv.img, (0, 0), cv.img)
+    flat.save(out)
+    return out
