@@ -254,8 +254,14 @@ function Anim.PopIn(frame, duration, fromScale)
 end
 
 -- One-shot attention pulse for unread badges. Fancy level only.
+-- A brief scale bump, used on the unread dot of a tab.
+--
+-- The target is often a Texture rather than a Frame, and SetScale belongs to
+-- Frame: a texture is scaled by the animation itself and has nothing to reset.
+-- Calling it unconditionally threw every time a tab blinked.
 function Anim.Pulse(frame, strength)
 	if not frame or not Theme.IsFancy() then return end
+	local canSetScale = type(frame.SetScale) == "function"
 	local ag = frame.__wtwPulse
 	if not ag then
 		ag = frame:CreateAnimationGroup()
@@ -270,7 +276,9 @@ function Anim.Pulse(frame, strength)
 		frame.__wtwPulse = ag
 		frame.__wtwPulseUp = up
 		frame.__wtwPulseDown = down
-		ag:SetScript("OnFinished", function() frame:SetScale(1) end)
+		ag:SetScript("OnFinished", function()
+			if canSetScale then frame:SetScale(1) end
+		end)
 	end
 	local s = 1 + (strength or 0.18)
 	if HAS_SCALE_TO then

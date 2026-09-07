@@ -12,4 +12,3 @@
 
 Libs\Libs.xml
 WhatTheWhisper.xml
-Bindings.xml

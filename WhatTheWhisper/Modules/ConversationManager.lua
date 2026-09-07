@@ -252,15 +252,25 @@ end
 -- Selection
 --------------------------------------------------------------------------------
 
+-- Selecting a thread is the player looking at it, so it clears the unread mark
+-- -- unless they have asked it not to. That setting had a checkbox and no
+-- effect: the mark was cleared unconditionally, so switching it off did nothing.
+local function markReadIfWanted(id)
+	local db = ns.db
+	local wanted = db and db.profile and db.profile.messages.markReadOnFocus
+	if wanted == nil then wanted = ns.defaults.profile.messages.markReadOnFocus end
+	if wanted then CM.MarkRead(id) end
+end
+
 function CM.Select(id, silent)
 	if id and not conversations[id] then return end
 	if selectedID == id then
-		if id then CM.MarkRead(id) end
+		if id then markReadIfWanted(id) end
 		return
 	end
 	local previous = selectedID
 	selectedID = id
-	if id then CM.MarkRead(id) end
+	if id then markReadIfWanted(id) end
 	ns.Bus.Fire(ns.EV.CONVERSATION_SELECTED, id, previous, silent)
 end
 

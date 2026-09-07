@@ -68,6 +68,21 @@ own("StatusBar", [[
 	SetMinMaxValues GetMinMaxValues SetValue GetValue SetFillStyle SetRotatesTexture]])
 own("Button CheckButton EditBox Slider StatusBar", "Enable Disable IsEnabled SetEnabled")
 
+-- Frame-only, which is the distinction that matters most in practice: a texture
+-- is scaled by an animation, not by SetScale, and code that resets a scale on
+-- whatever it was handed has to check first.
+local FRAME_KINDS = "Frame Button CheckButton EditBox ScrollFrame Slider StatusBar GameTooltip"
+own(FRAME_KINDS, [[
+	SetScale GetScale GetEffectiveScale SetFrameStrata GetFrameStrata
+	SetFrameLevel GetFrameLevel SetClampedToScreen SetMovable SetResizable
+	StartMoving StopMovingOrSizing StartSizing SetToplevel Raise Lower
+	RegisterEvent UnregisterEvent UnregisterAllEvents IsEventRegistered
+	EnableMouse IsMouseEnabled EnableMouseWheel EnableKeyboard
+	SetHitRectInsets GetHitRectInsets SetID GetID SetAttribute GetAttribute
+	CreateTexture CreateFontString SetClipsChildren SetHyperlinksEnabled
+	SetPropagateKeyboardInput RegisterForDrag SetMinResize SetMaxResize
+	SetResizeBounds IsMouseOver GetCursorPosition]])
+
 -- Real widget API that this mock has simply not modelled. Reaching one of these
 -- is fine -- it returns nil like an unmodelled getter -- but it is recorded, so
 -- the list of what the harness pretends about stays visible instead of the mock
@@ -98,16 +113,15 @@ local function makeObject(kind, methods)
 			-- EditBox and Button methods on one shared table for convenience, so
 			-- looking them up first would hand a plain Frame a SetText that the
 			-- client would have refused.
+			--
+			-- The answer is nil rather than an error, because that is what the
+			-- client does: texture.SetScale simply is not there, so reading it
+			-- yields nil and `type(x.SetScale) == "function"` is a legitimate
+			-- capability check that addons really use. Calling it still fails,
+			-- loudly and with the right message, the moment anyone tries.
 			local owners = WIDGET_OWNER[key]
 			local actual = t._kind or kind
-			if owners and not owners[actual] then
-				local list = {}
-				for owner in pairs(owners) do list[#list + 1] = owner end
-				table.sort(list)
-				error(("%s: %s is a %s method; this is a %s"):format(
-					tostring(t._name or "<anonymous>"), key,
-					table.concat(list, "/"), actual), 3)
-			end
+			if owners and not owners[actual] then return nil end
 
 			local value = rawget(proto, key)
 			if value ~= nil then return value end
@@ -136,6 +150,10 @@ end
 local generation = 1
 local function invalidate() generation = generation + 1 end
 M.InvalidateLayout = invalidate
+
+-- Forward declared: Region:CreateAnimationGroup is defined before the
+-- AnimationGroup metatable exists, and closes over it.
+local agMT
 
 local regionMethods = {}
 
@@ -297,14 +315,79 @@ function regionMethods:GetCenter()
 	local l, b, w, h = geometry(self)
 	return l + w / 2, b + h / 2
 end
-function regionMethods:Show() self._shown = true end
-function regionMethods:Hide() self._shown = false end
+-- Effective visibility: a frame is on screen only if it and every ancestor is
+-- shown. The client fires OnShow and OnHide on that, not on the frame's own
+-- flag, which is why hiding a window also fires OnHide on everything under it.
+local function effectivelyVisible(region)
+	local node, hops = region, 0
+	while node and hops < 64 do
+		if node._shown == false then return false end
+		node = node._parent
+		hops = hops + 1
+	end
+	return true
+end
+M.EffectivelyVisible = effectivelyVisible
+
+-- Only the changed frame's own subtree can flip, so the walk is over children
+-- rather than over every frame in the session. M.children is maintained by
+-- CreateFrame and SetParent.
+M.children = setmetatable({}, { __mode = "k" })
+
+local function fireVisibility(frame, becameVisible)
+	local script = frame._scripts and frame._scripts[becameVisible and "OnShow" or "OnHide"]
+	if script then
+		local ok, err = pcall(script, frame)
+		if not ok then
+			M.errors[#M.errors + 1] =
+				(becameVisible and "OnShow: " or "OnHide: ") .. tostring(err)
+		end
+	end
+	local kids = M.children[frame]
+	if not kids then return end
+	for i = 1, #kids do
+		local kid = kids[i]
+		-- A child that is hidden in its own right does not change state when an
+		-- ancestor does; nothing below it does either.
+		if kid._shown ~= false then fireVisibility(kid, becameVisible) end
+	end
+end
+
+-- Without this the mock could not test anything that reacts to a window opening
+-- or closing -- which is how a drop shadow anchored from outside its window
+-- shipped without ever being hidden with it.
+local function setShown(region, shown)
+	shown = shown and true or false
+	if region._shown == shown then return end
+	local wasVisible = effectivelyVisible(region)
+	region._shown = shown
+	local isVisible = effectivelyVisible(region)
+	if wasVisible ~= isVisible then fireVisibility(region, isVisible) end
+end
+
+function regionMethods:Show() setShown(self, true) end
+function regionMethods:Hide() setShown(self, false) end
 function regionMethods:IsShown() return self._shown ~= false end
 function regionMethods:IsVisible() return self._shown ~= false end
-function regionMethods:SetShown(v) self._shown = v and true or false end
+function regionMethods:SetShown(v) setShown(self, v) end
 function regionMethods:SetAlpha(a) self._alpha = a end
 function regionMethods:GetAlpha() return self._alpha or 1 end
-function regionMethods:SetParent(p) self._parent = p invalidate() end
+function regionMethods:SetParent(p)
+	local old = self._parent
+	if old and M.children[old] then
+		local kids = M.children[old]
+		for i = #kids, 1, -1 do
+			if kids[i] == self then table.remove(kids, i) end
+		end
+	end
+	self._parent = p
+	if p then
+		local kids = M.children[p]
+		if not kids then kids = {} M.children[p] = kids end
+		kids[#kids + 1] = self
+	end
+	invalidate()
+end
 function regionMethods:GetParent() return self._parent end
 local DRAW_LAYERS = {}
 for name in ("BACKGROUND BORDER ARTWORK OVERLAY HIGHLIGHT"):gmatch("%S+") do
@@ -325,6 +408,12 @@ function regionMethods:SetIgnoreParentScale() end
 --------------------------------------------------------------------------------
 
 local textureMethods = {}
+-- Animation groups belong to Region, so a texture or a font string can have
+-- one too; plenty of addons animate a texture directly.
+function regionMethods:CreateAnimationGroup()
+	return setmetatable({ _kind = "AnimationGroup", _parent = self }, agMT)
+end
+
 for k, v in pairs(regionMethods) do textureMethods[k] = v end
 function textureMethods:SetTexture(path) self._texture = path end
 function textureMethods:GetTexture() return self._texture end
@@ -475,7 +564,8 @@ function agMethods:HookScript(name, fn)
 		fn(...)
 	end)
 end
-local agProto, agMT = makeObject("AnimationGroup", agMethods)
+local agProto
+agProto, agMT = makeObject("AnimationGroup", agMethods)
 
 --------------------------------------------------------------------------------
 -- Frames
@@ -490,6 +580,7 @@ function frameMethods:CreateMaskTexture(name, layer) return newTexture(self, lay
 function frameMethods:CreateAnimationGroup()
 	return setmetatable({ _kind = "AnimationGroup", _parent = self }, agMT)
 end
+
 
 -- Script handlers are frame-type specific. Setting OnDoubleClick on a plain
 -- Frame, for instance, silently does nothing in the real client, so the mock
@@ -776,6 +867,11 @@ function _G.CreateFrame(kind, name, parent, template)
 		_protected = template ~= nil and tostring(template):find("Secure") ~= nil,
 	}, frameMT)
 	M.frames[#M.frames + 1] = f
+	if parent then
+		local kids = M.children[parent]
+		if not kids then kids = {} M.children[parent] = kids end
+		kids[#kids + 1] = f
+	end
 	if name then _G[name] = f end
 	return f
 end
@@ -1019,7 +1115,37 @@ _G.PlaySoundFile = function() return true end
 _G.FlashClientIcon = function() end
 _G.SetItemRef = function() end
 _G.geterrorhandler = function() return function(msg) M.errors[#M.errors + 1] = tostring(msg) end end
-_G.hooksecurefunc = function() end
+-- The real thing: appends to a global function without replacing it, and the
+-- hook receives the same arguments. A no-op here made anything built on a
+-- Blizzard hook impossible to test, which is worse than not having the mock.
+_G.hooksecurefunc = function(a, b, c)
+	local owner, name, hook
+	if type(a) == "string" then owner, name, hook = _G, a, b
+	else owner, name, hook = a, b, c end
+	local original = owner[name]
+	assert(type(original) == "function",
+		"hooksecurefunc on something that is not a function: " .. tostring(name))
+	assert(type(hook) == "function", "hooksecurefunc needs a function to add")
+	owner[name] = function(...)
+		local results = { original(...) }
+		hook(...)
+		return unpack(results)
+	end
+end
+
+-- Blizzard's default chat edit box, and the function it calls whenever the
+-- player points it somewhere else. Enough of it to drive "/w Someone".
+_G.DEFAULT_CHAT_FRAME_EDITBOX = CreateFrame("EditBox", "ChatFrame1EditBox", UIParent)
+function _G.ChatEdit_UpdateHeader(editBox) return editBox end
+
+-- Drives the chat box the way typing "/w Name " does: set the target, then let
+-- Blizzard update the header, which is where addons hook in.
+function M.ComposeWhisper(target)
+	local editBox = _G.DEFAULT_CHAT_FRAME_EDITBOX
+	editBox:SetAttribute("chatType", target and "WHISPER" or "SAY")
+	editBox:SetAttribute("tellTarget", target)
+	_G.ChatEdit_UpdateHeader(editBox)
+end
 _G.SetPortraitTexture = function() end
 _G.InterfaceOptions_AddCategory = function() end
 _G.InterfaceOptionsFrame_OpenToCategory = function() end

@@ -171,6 +171,8 @@ function Options.BuildSchema()
 					rows = {
 						toggle("messages.openOnWhisper", L["Open on new whisper"],
 							L["Show the messenger automatically when someone whispers you."]),
+						toggle("messages.openOnCompose", L["Open when you start a whisper"],
+							L["Typing /w in the default chat box opens that conversation here."]),
 						toggle("messages.autoSwitch", L["Auto-switch to new conversations"],
 							L["Switching away from what you are reading is off by default."]),
 						toggle("messages.openOnSend", L["Open a tab for every conversation"]),

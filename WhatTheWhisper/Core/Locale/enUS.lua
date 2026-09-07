@@ -301,3 +301,5 @@ L["Delivery"] = true
 L["Mode"] = true
 L["Nothing logged yet."] = true
 L["/wtw debug log - show the last few entries"] = true
+L["Open when you start a whisper"] = true
+L["Typing /w in the default chat box opens that conversation here."] = true

@@ -50,7 +50,11 @@ ns.defaults = {
 		messages = {
 			openOnSend         = true,
 			autoSwitch         = false,
-			openOnWhisper      = false,
+			-- A messenger that stays shut when somebody writes to you is a
+			-- messenger you miss messages in, so both directions open it: a
+			-- whisper arriving, and you starting to type one.
+			openOnWhisper      = true,
+			openOnCompose      = true,
 			hideFromChatFrame  = true,
 			markReadOnFocus    = true,
 			deliveryStatus     = true,

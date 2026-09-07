@@ -767,6 +767,36 @@ function Compat.ShowGameLink(link, text, button)
 	return false
 end
 
+-- Calls back when the player points the default chat box at a whisper target,
+-- which is what "/w Thrall " does before a single word is typed.
+--
+-- ChatEdit_UpdateHeader is the function Blizzard calls whenever that header
+-- changes, and hooksecurefunc only adds to it -- nothing of Blizzard's is
+-- replaced, so a chat box the addon knows nothing about keeps working exactly
+-- as it did. Returns whether the hook could be installed at all.
+function Compat.HookWhisperCompose(callback)
+	if type(_G.hooksecurefunc) ~= "function"
+		or type(_G.ChatEdit_UpdateHeader) ~= "function" then
+		return false
+	end
+	local lastTarget
+	_G.hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
+		if type(editBox) ~= "table" or not editBox.GetAttribute then return end
+		local ok, chatType = pcall(editBox.GetAttribute, editBox, "chatType")
+		if not ok or chatType ~= "WHISPER" then
+			lastTarget = nil
+			return
+		end
+		local gotTarget, target = pcall(editBox.GetAttribute, editBox, "tellTarget")
+		if not gotTarget or type(target) ~= "string" or target == "" then return end
+		-- The header updates on every keystroke; only a change of target is news.
+		if target == lastTarget then return end
+		lastTarget = target
+		callback(target)
+	end)
+	return true
+end
+
 function Compat.SetTooltipHyperlink(tooltip, link)
 	if tooltip and tooltip.SetHyperlink then
 		return pcall(tooltip.SetHyperlink, tooltip, link)

@@ -378,6 +378,25 @@ function Draw.NewShadow(target, spread)
 
 	local o = setmetatable({ frame = frame, target = target, spread = spread, pieces = {} }, ShadowMT)
 
+	-- The shadow has to be a sibling of the window rather than a child, because
+	-- a child cannot draw behind its parent's own background. The cost of that
+	-- is that hiding the window does not hide the shadow: it is not in the
+	-- window's parent chain, so nothing tells it to go away, and a closed window
+	-- leaves a dark rectangle sitting on the world.
+	--
+	-- So visibility is mirrored explicitly. OnHide fires when a frame becomes
+	-- hidden for any reason, a hidden ancestor included, which covers closing
+	-- the window, hiding the whole UI, and a popout being docked.
+	-- Re-evaluates, never records: passing a value here would write "hidden" as
+	-- the caller's intent the first time the window closed, and the shadow would
+	-- never come back.
+	local function follow()
+		o:SetShown()
+	end
+	target:HookScript("OnShow", follow)
+	target:HookScript("OnHide", follow)
+	frame:SetShown(target:IsShown())
+
 	local function piece(u1, u2, v1, v2)
 		local tex = frame:CreateTexture(nil, "BACKGROUND")
 		tex:SetTexture(TEX_SHADOW, "CLAMP", "CLAMP")
@@ -412,6 +431,19 @@ function Draw.NewShadow(target, spread)
 	return o
 end
 
+-- Remembers what the caller asked for. The shadow is only actually shown when
+-- both that and the window's own visibility agree, so mirroring the window can
+-- never resurrect a shadow that the theme or a setting switched off.
+function ShadowMT:SetShown(shown)
+	if shown ~= nil then self.wanted = shown and true or false end
+	self.frame:SetShown((self.wanted ~= false) and self.target:IsShown())
+	return self
+end
+
+function ShadowMT:IsShown()
+	return self.frame:IsShown()
+end
+
 function ShadowMT:SetColor(r, g, b, a)
 	if type(r) == "table" then r, g, b, a = r[1], r[2], r[3], r[4] end
 	for i = 1, #self.pieces do
@@ -426,11 +458,6 @@ function ShadowMT:SetSpread(spread)
 	self.frame:SetPoint("BOTTOMRIGHT", self.target, "BOTTOMRIGHT", spread, -spread)
 	local sz = spread * 2
 	for i = 1, 4 do self.pieces[i]:SetSize(sz, sz) end
-	return self
-end
-
-function ShadowMT:SetShown(shown)
-	self.frame:SetShown(shown and true or false)
 	return self
 end
 

@@ -36,6 +36,12 @@ local ns = Harness.Load()
 M.loggedIn = true
 M.FireEvent("ADDON_LOADED", "WhatTheWhisper")
 M.FireEvent("PLAYER_LOGIN")
+
+-- This file tests the whisper pipeline, not the window policy. Auto-open would
+-- select the thread and clear its unread mark, which is correct behaviour and
+-- entirely beside the point here.
+ns.db.profile.messages.openOnWhisper = false
+ns.db.profile.messages.openOnCompose = false
 ns.SoftError = function(context, err) check("no soft error", false, context .. ": " .. tostring(err)) end
 
 local CM = ns.ConversationManager

@@ -209,6 +209,19 @@ for path in xml_files:
 
 notes.append("%d XML files parsed as the client parses them" % len(xml_files))
 
+# Bindings.xml is picked up from the addon folder by the client itself. Listing
+# it in the TOC makes the generic UI XML loader parse it as well, which fills
+# the log with "Unrecognized XML: Binding" for every entry -- the bindings still
+# register, but the warnings are real and they are ours.
+for name in tocs:
+    body = open(os.path.join(ADDON, name), encoding="utf-8").read()
+    for line in body.split("\n"):
+        if line.strip().lower() == "bindings.xml":
+            err("%s lists Bindings.xml; the client loads it on its own, and "
+                "listing it makes the UI parser walk it too" % name)
+if os.path.exists(os.path.join(ADDON, "Bindings.xml")):
+    notes.append("Bindings.xml present and left for the client to discover")
+
 print("\n".join("  " + n for n in notes))
 if errors:
     print("\nSTRUCTURE ERRORS:")

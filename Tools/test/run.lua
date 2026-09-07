@@ -137,17 +137,64 @@ local function inform(text, target, guid)
 	M.FireEvent("CHAT_MSG_WHISPER_INFORM", text, target, "Common", "", target, "", 0, 0, "", 0, 2, guid)
 end
 
+-- Auto-open is the shipped default, but laziness is only observable before
+-- anything has opened the window, so the first burst runs with it off.
+ns.db.profile.messages.openOnWhisper = false
+ns.db.profile.messages.openOnCompose = false
+
 step("incoming whisper", whisper, "Yo kommst du Raid? :)", "Thrall", "Player-1-AAAA")
 step("incoming whisper 2", whisper, "check https://wowhead.com/spell=133 pls", "Thrall", "Player-1-AAAA")
 step("incoming whisper 3", whisper, "und {rt1} setzen", "Thrall", "Player-1-AAAA")
 step("second player", whisper, "Portal in 5", "Jaina", "Player-1-BBBB")
 
--- Traffic must not build the window: a player who never opens the messenger
--- should not pay for its frames.
-step("lazy window", function()
+-- Traffic must not build the window while auto-open is off: somebody who wants
+-- the messenger only on demand should not pay for its frames until they ask.
+step("lazy window while auto-open is off", function()
 	assert(ns.MainWindow.Existing() == nil,
-		"main window was built before it was ever shown")
+		"main window was built although auto-open is off")
 	print(("  frames after four whispers, window unopened: %d"):format(#M.frames))
+end)
+
+-- With the shipped default, a whisper puts the thread in front of the player.
+-- A messenger that stays shut when somebody writes to you is one you miss
+-- messages in.
+step("a whisper opens the window", function()
+	assert(ns.defaults.profile.messages.openOnWhisper,
+		"opening on an incoming whisper should be the shipped default")
+	ns.db.profile.messages.openOnWhisper = true
+	whisper("bist du da?", "Thrall", "Player-1-AAAA")
+	M.RunFrames(4)
+	local window = ns.MainWindow.Existing()
+	assert(window and window:IsShown(),
+		"a whisper arrived and the window never opened")
+end)
+
+-- The other half of "whisper someone": pointing the default chat box at a
+-- player opens their thread before a single word is typed.
+step("starting a whisper opens the thread", function()
+	assert(ns.defaults.profile.messages.openOnCompose,
+		"opening when you start a whisper should be the shipped default")
+	ns.db.profile.messages.openOnCompose = true
+	ns.UI.Hide()
+	M.RunFrames(4)
+	M.ComposeWhisper("Sylvanas")
+	M.RunFrames(4)
+	local id = ns.Compat.NormalizeName("Sylvanas")
+	assert(ns.ConversationManager.Get(id), "composing did not create the thread")
+	assert(ns.ConversationManager.SelectedID() == id,
+		"composing did not select the thread")
+	local window = ns.MainWindow.Existing()
+	assert(window and window:IsShown(), "composing did not open the window")
+
+	-- Pointing it somewhere else and back again must still work; the hook only
+	-- reacts to a change of target, so it has to notice the change back.
+	ns.UI.Hide()
+	M.RunFrames(4)
+	M.ComposeWhisper(nil)
+	M.ComposeWhisper("Sylvanas")
+	M.RunFrames(4)
+	assert(ns.MainWindow.Existing():IsShown(),
+		"returning to the same target did not reopen the window")
 end)
 
 step("show window", function() ns.UI.Show() end)

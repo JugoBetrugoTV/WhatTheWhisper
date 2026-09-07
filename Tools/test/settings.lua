@@ -203,6 +203,56 @@ check("normal corners restore", ns.Theme.Radius(ns.R.LG) > 0)
 ns.Options.Set("animations.level", "off")
 eq("animations off is honoured", ns.Theme.AnimationsEnabled(), false)
 ns.Options.Set("animations.level", "fancy")
+
+-- "Mark read when focused" had a checkbox and no effect for a long time: the
+-- unread mark was cleared whenever a thread was selected, whichever way the
+-- setting was pointing. Being listed in the schema is not the same as doing
+-- something, so the toggles whose effect is behavioural rather than visual are
+-- exercised in both positions.
+do
+	local CM = ns.ConversationManager
+	local id = "Ungelesen-Blackrock"
+	CM.GetOrCreate(id, { name = "Ungelesen" })
+	CM.Select(nil)
+
+	ns.Options.Set("messages.markReadOnFocus", true)
+	CM.AddMessage(id, ns.DIR_IN, "eins", ns.MSG_WHISPER)
+	check("an incoming message counts as unread", CM.Get(id).unread > 0)
+	CM.Select(id)
+	eq("selecting clears the unread mark when that is wanted", CM.Get(id).unread, 0)
+
+	CM.Select(nil)
+	ns.Options.Set("messages.markReadOnFocus", false)
+	CM.AddMessage(id, ns.DIR_IN, "zwei", ns.MSG_WHISPER)
+	check("unread again", CM.Get(id).unread > 0)
+	CM.Select(id)
+	check("selecting keeps the unread mark when the player asked it to",
+		CM.Get(id).unread > 0, "the setting has no effect")
+
+	ns.Options.Set("messages.markReadOnFocus", true)
+	CM.MarkRead(id)
+end
+
+-- Both auto-open toggles decide whether an event puts the window on screen.
+do
+	local CM = ns.ConversationManager
+	ns.UI.Hide()
+	M.RunFrames(4)
+	ns.Options.Set("messages.openOnCompose", false)
+	M.ComposeWhisper("Irgendwer")
+	M.RunFrames(4)
+	local shown = ns.MainWindow.Existing() and ns.MainWindow.Existing():IsShown()
+	eq("composing does not open the window when that is off", shown or false, false)
+
+	ns.Options.Set("messages.openOnCompose", true)
+	M.ComposeWhisper(nil)
+	M.ComposeWhisper("Irgendwer")
+	M.RunFrames(4)
+	check("composing does open it when that is on",
+		ns.MainWindow.Existing() and ns.MainWindow.Existing():IsShown())
+	check("and it selected that thread",
+		CM.SelectedID() == ns.Compat.NormalizeName("Irgendwer"))
+end
 check("fancy is recognised", ns.Theme.IsFancy())
 ns.Options.Set("animations.level", "normal")
 

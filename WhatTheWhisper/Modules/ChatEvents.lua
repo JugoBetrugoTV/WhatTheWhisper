@@ -240,6 +240,27 @@ local function onSystem(text)
 end
 
 --------------------------------------------------------------------------------
+-- Starting a whisper from the default chat box
+--------------------------------------------------------------------------------
+
+-- Opens the thread the player is about to write in, without stealing their
+-- keystrokes: the default chat box keeps focus, so typing and pressing Enter
+-- works exactly as it did. This only puts the conversation on screen.
+function ChatEvents.OnComposeWhisper(target)
+	local db = ns.db
+	if not db or not db.profile or not db.profile.enabled then return end
+	if not db.profile.messages.openOnCompose then return end
+	if not target or target == "" then return end
+
+	local id = Compat.NormalizeName(ns.Text.UpperFirst(target))
+	Debug.Log("events", "composing a whisper to %s", id)
+	CM.GetOrCreate(id)
+	ns.UI.Show()
+	CM.Select(id)
+	ns.UI.EnsureConversationOpen(id, false)
+end
+
+--------------------------------------------------------------------------------
 -- Chat frame suppression
 --------------------------------------------------------------------------------
 
@@ -305,6 +326,13 @@ function ChatEvents.Init()
 	end
 	for event in pairs(rosterHandlers) do
 		Compat.RegisterEventSafe(frame, event)
+	end
+
+	-- Typing "/w Thrall" in the default chat box means the player is about to
+	-- write to somebody, which is exactly the moment the thread should be in
+	-- front of them -- before the message is sent, not after.
+	if not Compat.HookWhisperCompose(ChatEvents.OnComposeWhisper) then
+		Debug.Log("compat", "chat compose hook unavailable on this client")
 	end
 
 	-- Registered once; the filter itself checks the setting so toggling it never

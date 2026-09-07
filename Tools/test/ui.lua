@@ -691,6 +691,77 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Closing a window must take everything it owns with it
+--------------------------------------------------------------------------------
+
+-- A drop shadow cannot be a child of the window it belongs to, because a child
+-- cannot draw behind its parent's own background. That makes it a sibling, and
+-- a sibling is not hidden when the window is -- which left a dark rectangle
+-- sitting on the world after every close until it was fixed. Anything else
+-- anchored to a window from outside it has the same hazard, so the test is
+-- about the general shape rather than about shadows.
+local function framesAnchoredTo(target)
+	local out = {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		if frame ~= target and frame._parent ~= target then
+			for p = 1, #(frame._points or {}) do
+				if frame._points[p][2] == target then
+					out[#out + 1] = frame
+					break
+				end
+			end
+		end
+	end
+	return out
+end
+
+do
+	local attached = framesAnchoredTo(window)
+	check("something outside the window is anchored to it", #attached > 0,
+		"nothing found; this check has stopped covering anything")
+
+	ns.UI.Hide()
+	M.RunFrames(20)
+	local ghosts, sample = 0, nil
+	for i = 1, #attached do
+		if attached[i]:IsShown() then
+			ghosts = ghosts + 1
+			sample = sample or describe(attached[i])
+		end
+	end
+	check("nothing anchored to the window is left on screen after closing it",
+		ghosts == 0, sample)
+
+	ns.UI.Show()
+	M.RunFrames(20)
+	local restored = 0
+	for i = 1, #attached do
+		if attached[i]:IsShown() then restored = restored + 1 end
+	end
+	check("and it comes back when the window reopens", restored == #attached,
+		("%d of %d returned"):format(restored, #attached))
+end
+
+-- The same for a popout, which is created and destroyed far more often.
+do
+	ns.UI.TogglePopout(thrall)
+	M.RunFrames(20)
+	local popoutWindow = ns.Popout.Get(thrall)
+	if popoutWindow then
+		local attached = framesAnchoredTo(popoutWindow)
+		ns.UI.DockConversation(thrall)
+		M.RunFrames(20)
+		local ghosts = 0
+		for i = 1, #attached do
+			if attached[i]:IsShown() then ghosts = ghosts + 1 end
+		end
+		check("docking a popout leaves nothing of it on screen", ghosts == 0,
+			("%d of %d still shown"):format(ghosts, #attached))
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Contrast
 --------------------------------------------------------------------------------
 
