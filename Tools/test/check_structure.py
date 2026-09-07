@@ -173,6 +173,42 @@ for offender in offenders:
 notes.append("%d SetPoint offsets checked against the spacing scale"
              % len(SPACING))
 
+# ---------------------------------------------------------------------------
+# Every XML file must actually be well-formed XML.
+#
+# This check exists because its absence shipped a broken build. Libs.xml carried
+# a double hyphen inside a comment, which is illegal in XML; the client refused
+# the whole file, so not one library loaded and every file in the addon died on
+# its first LibStub call. Nothing caught it, because the Lua harness reads these
+# manifests with a pattern match, and a pattern match does not care whether the
+# document is well-formed. The client's parser does.
+import xml.parsers.expat
+
+xml_files = []
+for base, dirs, files in os.walk(ADDON):
+    for name in sorted(files):
+        if name.endswith(".xml"):
+            xml_files.append(os.path.join(base, name))
+
+for path in xml_files:
+    rel = os.path.relpath(path, ADDON)
+    try:
+        parser = xml.parsers.expat.ParserCreate()
+        parser.Parse(open(path, "rb").read(), True)
+    except xml.parsers.expat.ExpatError as problem:
+        err("%s is not well-formed XML: %s" % (rel, problem))
+        continue
+    # Expat reports the position but not the cause, and the cause is nearly
+    # always this one, so name it: "--" may not appear inside an XML comment.
+    body = open(path, encoding="utf-8").read()
+    for match in re.finditer(r'<!--(.*?)-->', body, re.S):
+        if "--" in match.group(1):
+            line = body[:match.start()].count("\n") + 1
+            err("%s: comment starting at line %d contains a double hyphen, "
+                "which is illegal inside an XML comment" % (rel, line))
+
+notes.append("%d XML files parsed as the client parses them" % len(xml_files))
+
 print("\n".join("  " + n for n in notes))
 if errors:
     print("\nSTRUCTURE ERRORS:")

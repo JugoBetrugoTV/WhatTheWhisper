@@ -329,6 +329,27 @@ def _(p):
     p.line(32, 32, 40, 36, W - 0.6)
 
 
+@icon("map")
+def _(p):
+    # A folded map: three panels, the outer two lifted, the middle dropped, so
+    # the silhouette reads as a map rather than as a rectangle even at 12px.
+    # Drawn as one outline plus two creases; the creases are what carry the
+    # meaning, so they keep the full stroke weight rather than being hairlines.
+    p.polyline([(9, 18), (25, 12), (39, 18), (55, 12),
+                (55, 46), (39, 52), (25, 46), (9, 52), (9, 18)], W - 0.8)
+    p.line(25, 12, 25, 46, W - 1.4)
+    p.line(39, 18, 39, 52, W - 1.4)
+
+
+@icon("map_pin")
+def _(p):
+    # The teardrop pin, for a place rather than a map. The hole is knocked out
+    # with CLEAR so the glyph still reads when tinted onto a light surface.
+    p.circle(32, 25, 13, outline=(255, 255, 255, 255), w=W - 0.6)
+    p.poly([(32, 52), (22.5, 34), (41.5, 34)])
+    p.circle(32, 25, 5.4, fill=CLEAR)
+
+
 @icon("globe")
 def _(p):
     p.circle(32, 32, 14, outline=(255, 255, 255, 255), w=4.2)

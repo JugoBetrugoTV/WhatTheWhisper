@@ -39,6 +39,22 @@ local function collect(xmlPath, out, seen)
 	seen[xmlPath] = true
 
 	local dir = xmlPath:match("^(.*)/[^/]*$") .. "/"
+
+	-- A double hyphen is illegal inside an XML comment, and the client refuses
+	-- the whole file over it. This harness reads manifests with a pattern
+	-- match, which would happily sail past that and prove an addon works that
+	-- cannot load in the game -- which is exactly what happened once.
+	for comment in body:gmatch("<!%-%-(.-)%-%->") do
+		if comment:find("%-%-") then
+			error(xmlPath .. ": a comment contains a double hyphen, which is "
+				.. "illegal in XML; the client would refuse this whole file")
+		end
+	end
+
+	-- Comments are stripped before scanning, so an example entry written inside
+	-- one is not mistaken for a file the client would load.
+	body = body:gsub("<!%-%-.-%-%->", "")
+
 	-- One pass over the file so Script and Include stay in document order; the
 	-- client loads them in the order they appear, and so must we.
 	for tag, file in body:gmatch("<(%a+)%s+file=\"([^\"]+)\"") do
