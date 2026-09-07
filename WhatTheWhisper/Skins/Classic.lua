@@ -32,7 +32,7 @@ ns.Skins.Register("classic", {
 		textMuted      = "#8C7C5F",
 		textDisabled   = "#5F5340",
 
-		bubbleIn       = "#2C2317",
+		bubbleIn       = "#3D3428",
 		bubbleInText   = "#F2E6CE",
 		bubbleOut      = "#4A3818",
 		bubbleOutText  = "#FBF1DC",

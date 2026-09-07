@@ -31,7 +31,7 @@ ns.Skins.Register("dark", {
 		textMuted      = "#767676",
 		textDisabled   = "#4E4E4E",
 
-		bubbleIn       = "#242424",
+		bubbleIn       = "#353535",
 		bubbleInText   = "#EDEDED",
 		bubbleOut      = "#3A3A3A",
 		bubbleOutText  = "#F5F5F5",

@@ -416,7 +416,6 @@ end
 function ML:RenderHeader(entry)
 	local f = self.headerPool:Acquire()
 	f.entry = entry
-	local conv = self.conv
 	self:PositionElement(f, entry)
 
 	local outgoing = entry.dir == ns.DIR_OUT

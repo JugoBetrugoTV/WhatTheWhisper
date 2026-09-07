@@ -672,6 +672,22 @@ for _, id in ipairs(ns.Skins.order) do
 			("%s on %s is %.2f:1, want %.1f:1"):format(role, base, ratio, want))
 	end
 
+	-- A bubble has to read as a surface sitting on the panel, not as text
+	-- floating on it. Contrast guidance for a non-text boundary is about
+	-- 1.3:1 to be perceptible at all; below that the rounded rectangle is
+	-- there in the code and invisible on screen.
+	for _, pair in ipairs({
+		{ "bubbleIn", "bg1", "the incoming bubble" },
+		{ "bubbleOut", "bg1", "the outgoing bubble" },
+	}) do
+		local bg = over(ns.Theme.Get(pair[2]), { 0, 0, 0, 1 })
+		local surface = over(ns.Theme.Get(pair[1]), bg)
+		local separation = contrast(surface, bg)
+		check(("%s: %s separates from the thread behind it"):format(id, pair[3]),
+			separation >= 1.35,
+			("%s on %s is only %.2f:1"):format(pair[1], pair[2], separation))
+	end
+
 	-- An unresolved colour role renders magenta on purpose; none may survive.
 	for _, pair in ipairs(CONTRAST_PAIRS) do
 		for _, role in ipairs({ pair[1], pair[2] }) do
