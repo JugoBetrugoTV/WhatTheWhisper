@@ -119,6 +119,9 @@ local function acquireControl(kind, parent, factory)
 		pool = Pool.New(function() return factory(parent) end, function(_, control)
 			control:Hide()
 			control:ClearAllPoints()
+			-- The schema is rebuilt on every open; a pooled control must not
+			-- pin the previous one.
+			control.spec = nil
 		end)
 		controlPools[kind] = pool
 	end

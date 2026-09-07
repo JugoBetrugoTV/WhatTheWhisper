@@ -134,7 +134,9 @@ end
 local function step(name, fn, ...)
 	local ok, err = pcall(fn, ...)
 	if not ok then report(name, err) end
-	M.RunTimers(3)
+	-- Drive real frames, not just timers, so animation code runs and tweens
+	-- reach their completion callbacks.
+	M.RunFrames(4)
 	for i = 1, #M.errors do report(name .. " (deferred)", M.errors[i]) end
 	M.errors = {}
 	return ok

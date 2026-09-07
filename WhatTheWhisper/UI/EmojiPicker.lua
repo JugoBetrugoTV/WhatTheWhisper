@@ -49,6 +49,7 @@ local function resetCell(_, cell)
 	cell:Hide()
 	cell:ClearAllPoints()
 	cell.emojiName = nil
+	cell.__wtwTooltip = nil
 	cell.surface:SetColorOverride(0, 0, 0, 0)
 end
 

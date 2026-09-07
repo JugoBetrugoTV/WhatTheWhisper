@@ -168,7 +168,12 @@ local function resetElement(_, f)
 	if f.avatar then f.avatar:Hide() end
 	if f.status then f.status:Hide() end
 	if f.stamp then f.stamp:Hide() end
+	-- Drop every reference: a pooled bubble holding the last pointer to a
+	-- message would keep it alive after the thread was cleared.
 	f.entry = nil
+	f.msg = nil
+	f.showStamp = nil
+	f.__wtwTooltip = nil
 end
 
 --------------------------------------------------------------------------------

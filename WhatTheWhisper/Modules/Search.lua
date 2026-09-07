@@ -50,6 +50,10 @@ local function snippet(text, query, radius)
 	radius = radius or 42
 	local from = math.max(1, s - radius)
 	local to = math.min(#plain, s + #query + radius)
+	-- find() returned a byte offset, so both ends are snapped to character
+	-- boundaries before cutting.
+	from = Text.ByteFloor(plain, from)
+	to = Text.ByteCeil(plain, to)
 	local out = plain:sub(from, to)
 	if from > 1 then out = "..." .. out end
 	if to < #plain then out = out .. "..." end

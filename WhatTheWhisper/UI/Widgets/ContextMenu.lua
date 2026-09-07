@@ -77,9 +77,11 @@ local function resetItem(_, row)
 	row:Hide()
 	row:ClearAllPoints()
 	row.onClick = nil
+	row.entry = nil
 	row.danger = nil
 	row.secure = nil
 	row.isSeparator = nil
+	row.__wtwTooltip = nil
 	row:SetSelectedState(false)
 	row:SetEnabled(true)
 	row.separator:Hide()

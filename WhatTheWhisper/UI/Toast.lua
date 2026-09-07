@@ -85,6 +85,7 @@ local function resetToast(_, t)
 	t.convID = nil
 	t.paused = nil
 	t.count = 0
+	t.__wtwTooltip = nil
 	Anim.Stop(t.progress)
 	Anim.StopAll(t)
 end

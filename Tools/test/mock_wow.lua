@@ -573,6 +573,26 @@ function M.FireEvent(event, ...)
 	return count
 end
 
+-- Advances time and ticks every shown frame's OnUpdate, so animation code is
+-- exercised and tweens actually finish instead of sitting in the queue.
+function M.RunFrames(count, dt)
+	dt = dt or 0.05
+	for _ = 1, count or 20 do
+		M.now = M.now + dt
+		local snapshot = {}
+		for i = 1, #M.frames do snapshot[i] = M.frames[i] end
+		for i = 1, #snapshot do
+			local frame = snapshot[i]
+			local script = frame._shown ~= false and frame._scripts and frame._scripts.OnUpdate
+			if script then
+				local ok, err = pcall(script, frame, dt)
+				if not ok then M.errors[#M.errors + 1] = "OnUpdate: " .. tostring(err) end
+			end
+		end
+		M.RunTimers(1)
+	end
+end
+
 function M.RunTimers(rounds)
 	for _ = 1, rounds or 4 do
 		local queue = M.timers

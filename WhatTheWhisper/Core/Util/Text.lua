@@ -80,6 +80,34 @@ function Text.Trim(s)
 	return (gsub(s, "^%s*(.-)%s*$", "%1"))
 end
 
+-- Snaps a byte offset down to the start of the character containing it.
+function Text.ByteFloor(s, i)
+	if not s or i <= 1 then return 1 end
+	if i > len(s) then i = len(s) end
+	while i > 1 do
+		local b = byte(s, i)
+		if b < 0x80 or b >= 0xC0 then return i end
+		i = i - 1
+	end
+	return 1
+end
+
+-- Snaps a byte offset up to the last byte of the character containing it.
+function Text.ByteCeil(s, i)
+	if not s then return 0 end
+	local l = len(s)
+	if i >= l then return l end
+	if i < 1 then return 0 end
+	local start = Text.ByteFloor(s, i)
+	return math.min(l, start + Text.CharBytes(s, start) - 1)
+end
+
+-- Byte-range substring that can never cut a character in half.
+function Text.SafeByteSub(s, from, to)
+	if not s or s == "" then return "" end
+	return sub(s, Text.ByteFloor(s, from or 1), Text.ByteCeil(s, to or len(s)))
+end
+
 --------------------------------------------------------------------------------
 -- WoW escape sequences
 --------------------------------------------------------------------------------
@@ -267,6 +295,72 @@ end
 
 local ELLIPSIS = "..."
 
+-- Truncates to `maxChars` *visible* characters.
+--
+-- Escape sequences cost nothing and are never cut: stopping in the middle of a
+-- "|cffRRGGBB" or a hyperlink would leave the rest of the line rendering as raw
+-- markup. A colour opened before the cut is closed again.
+function Text.TruncateVisible(s, maxChars)
+	if not s or s == "" or maxChars <= 0 then return "" end
+
+	-- Each piece records whether it carried visible text, so trailing escapes
+	-- that ended up with nothing after them can be dropped rather than left as
+	-- an empty "|cffa335ee|r" at the end of the line.
+	local pieces, visible, budget, done = {}, {}, maxChars, false
+
+	local function emit(chunk, isVisible)
+		pieces[#pieces + 1] = chunk
+		visible[#pieces] = isVisible
+	end
+
+	Text.Walk(s,
+		function(chunk)
+			if done then return end
+			local taken, i, l = 0, 1, len(chunk)
+			while i <= l and budget > 0 do
+				local step = Text.CharBytes(chunk, i)
+				i = i + step
+				taken = taken + step
+				budget = budget - 1
+			end
+			if taken > 0 then emit(sub(chunk, 1, taken), true) end
+			if budget <= 0 and i <= l then done = true end
+		end,
+		function(chunk, kind, _, display)
+			if done then return end
+			if kind == "link" then
+				-- A link is atomic: it fits whole or it is left out entirely.
+				local cost = display and Text.Len(display) or 0
+				if cost > budget then
+					done = true
+					return
+				end
+				budget = budget - cost
+				emit(chunk, true)
+				return
+			end
+			emit(chunk, kind == "escape" or kind == "texture" or kind == "atlas")
+		end)
+
+	-- Drop trailing pieces that show nothing.
+	local last = #pieces
+	while last > 0 and not visible[last] do last = last - 1 end
+
+	local colourDepth = 0
+	for i = 1, last do
+		local piece = pieces[i]
+		if piece == "|r" then
+			colourDepth = math.max(0, colourDepth - 1)
+		elseif sub(piece, 1, 2) == "|c" and #piece == 10 then
+			colourDepth = colourDepth + 1
+		end
+	end
+
+	local result = tconcat(pieces, "", 1, last)
+	for _ = 1, colourDepth do result = result .. "|r" end
+	return result
+end
+
 -- Shortens `text` until it fits `maxWidth` in the given FontString, appending an
 -- ellipsis. Binary search keeps this at ~8 measurements even for long strings.
 function Text.Ellipsize(fontString, text, maxWidth)
@@ -282,7 +376,7 @@ function Text.Ellipsize(fontString, text, maxWidth)
 	local lo, hi, best = 0, total, ""
 	while lo <= hi do
 		local mid = floor((lo + hi) / 2)
-		local candidate = Text.Sub(text, 1, mid) .. ELLIPSIS
+		local candidate = Text.TruncateVisible(text, mid) .. ELLIPSIS
 		fontString:SetText(candidate)
 		if fontString:GetStringWidth() <= maxWidth then
 			best = candidate
