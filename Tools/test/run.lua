@@ -172,6 +172,14 @@ step("incoming whisper 2", whisper, "check https://wowhead.com/spell=133 pls", "
 step("incoming whisper 3", whisper, "und {rt1} setzen", "Thrall", "Player-1-AAAA")
 step("second player", whisper, "Portal in 5", "Jaina", "Player-1-BBBB")
 
+-- Traffic must not build the window: a player who never opens the messenger
+-- should not pay for its frames.
+step("lazy window", function()
+	assert(ns.MainWindow.Existing() == nil,
+		"main window was built before it was ever shown")
+	print(("  frames after four whispers, window unopened: %d"):format(#M.frames))
+end)
+
 step("show window", function() ns.UI.Show() end)
 step("select conversation", function() ns.ConversationManager.Select("Thrall-Blackrock") end)
 

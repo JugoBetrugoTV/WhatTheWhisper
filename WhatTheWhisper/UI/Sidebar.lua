@@ -18,6 +18,7 @@ ns.Sidebar = Sidebar
 local max, min, floor = math.max, math.min, math.floor
 
 local ACCENT_BAR_W = 3
+local STAMP_W = 64
 local S = {}
 
 --------------------------------------------------------------------------------
@@ -32,8 +33,10 @@ local function createRow(sidebar)
 
 	row.accent = CreateFrame("Frame", nil, row)
 	row.accent:SetWidth(ACCENT_BAR_W)
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -ns.S.MD)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, ns.S.MD)
+	-- Inset from the window edge so the bar reads as a marker rather than as the
+	-- window border bleeding colour.
+	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", 3, -ns.S.MD)
+	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 3, ns.S.MD)
 	row.accent.surface = W.Surface(row.accent, {
 		color = "accent", radius = ACCENT_BAR_W / 2, layer = "ARTWORK",
 	})
@@ -47,8 +50,8 @@ local function createRow(sidebar)
 	row.time = W.Text(row, "MICRO", "textMuted")
 	row.time:SetJustifyH("RIGHT")
 
-	row.pin = W.Icon(row, "pin_filled", 10, "textMuted")
-	row.mute = W.Icon(row, "bell_off", 11, "textMuted")
+	row.pin = W.Icon(row, "pin_filled", 11, "textMuted")
+	row.mute = W.Icon(row, "bell_off", 12, "textMuted")
 
 	row.badge = ns.Controls.Badge(row)
 
@@ -236,7 +239,7 @@ local function layoutRow(sb, row, compact)
 
 	row.time:ClearAllPoints()
 	row.time:SetPoint("TOPRIGHT", row, "TOPRIGHT", -pad, -(ns.S.MD + 2))
-	row.time:SetWidth(56)
+	row.time:SetWidth(STAMP_W)
 
 	row.preview:ClearAllPoints()
 	row.preview:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", textLeft, ns.S.MD + 1)
@@ -267,6 +270,11 @@ function S:RenderRow(conv, index)
 		local unread = conv.unread > 0
 		local nameColor = Theme.ClassColor(conv.class, "bg1")
 		if nameColor then
+			-- A muted thread has to look muted even when class colours are on,
+			-- so the class colour is pulled towards the muted text colour.
+			if conv.muted then
+				nameColor = ns.Color.Mix(nameColor, Theme.Get("textMuted"), 0.55)
+			end
 			row.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
 		else
 			W.SetTextRole(row.name, conv.muted and "textSecondary" or "textPrimary")
@@ -276,11 +284,12 @@ function S:RenderRow(conv, index)
 		local indicatorWidth = 0
 		row.pin:SetShown(conv.pinned)
 		row.mute:SetShown(conv.muted)
-		if conv.pinned then indicatorWidth = indicatorWidth + 14 end
-		if conv.muted then indicatorWidth = indicatorWidth + 15 end
+		if conv.pinned then indicatorWidth = indicatorWidth + 15 end
+		if conv.muted then indicatorWidth = indicatorWidth + 16 end
 
 		local textLeft = ns.S.LG + ns.SZ.AVATAR_LG + ns.S.MD
-		local available = max(30, (self:GetWidth() or 280) - textLeft - ns.S.LG - 56 - indicatorWidth)
+		local available = max(30, (self:GetWidth() or 280)
+			- textLeft - ns.S.LG - STAMP_W - ns.S.SM - indicatorWidth)
 		Text.Ellipsize(row.name, conv.name or conv.id, available)
 
 		local anchor = row.name
@@ -295,7 +304,9 @@ function S:RenderRow(conv, index)
 		end
 
 		row.time:SetText(Format.ListStamp(conv.lastActivity))
-		W.SetTextRole(row.time, unread and "accent" or "textMuted")
+		-- The badge already carries the accent; colouring the stamp too pulls the
+		-- eye away from the name for no extra information.
+		W.SetTextRole(row.time, unread and "textSecondary" or "textMuted")
 
 		local preview, direction = CM.Preview(conv)
 		if preview then

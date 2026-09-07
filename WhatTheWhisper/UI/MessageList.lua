@@ -348,6 +348,11 @@ end
 -- Rendering
 --------------------------------------------------------------------------------
 
+-- Scroll offset with the short-conversation push-down folded in.
+function ML:ContentShift()
+	return self:GetOffset() - (self.pushDown or 0)
+end
+
 local function bubbleColors(dir)
 	if dir == ns.DIR_OUT then
 		return "bubbleOut", "bubbleOutText"
@@ -361,7 +366,7 @@ function ML:RenderSeparator(entry)
 	local width = (f.label:GetStringWidth() or 40) + ns.S.MD * 2
 	f:SetSize(width, SEP_H - 6)
 	f:ClearAllPoints()
-	f:SetPoint("TOP", self.content, "TOP", -ns.SZ.SCROLLBAR_HIT / 2, -(entry.y - self:GetOffset()))
+	f:SetPoint("TOP", self.content, "TOP", -ns.SZ.SCROLLBAR_HIT / 2, -(entry.y - self:ContentShift()))
 	f.surface:SetRadius((SEP_H - 6) / 2)
 	f.surface:ApplyTheme()
 	f.surface:SetAlphaScale(0.55)
@@ -382,7 +387,7 @@ function ML:RenderHeader(entry)
 			and Format.Clock(entry.ts) or "")
 		f.timeRight:Show()
 		f:SetPoint("TOPRIGHT", self.content, "TOPRIGHT",
-			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:GetOffset()))
+			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:ContentShift()))
 		f:SetWidth(200)
 	else
 		local nameColor = Theme.ClassColor(conv and conv.class, "bg2")
@@ -395,7 +400,7 @@ function ML:RenderHeader(entry)
 		f.time:SetText(ns.db.profile.appearance.timestamps and Format.Clock(entry.ts) or "")
 		f.timeRight:SetText("")
 		f:SetPoint("TOPLEFT", self.content, "TOPLEFT",
-			pad + AVATAR + AVATAR_GAP, -(entry.y - self:GetOffset()))
+			pad + AVATAR + AVATAR_GAP, -(entry.y - self:ContentShift()))
 		f:SetWidth(240)
 	end
 	f:SetHeight(HEADER_H)
@@ -454,10 +459,10 @@ function ML:RenderBubble(entry)
 	f:ClearAllPoints()
 	if entry.dir == ns.DIR_OUT then
 		f:SetPoint("TOPRIGHT", self.content, "TOPRIGHT",
-			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:GetOffset()))
+			-(pad + ns.SZ.SCROLLBAR_HIT), -(entry.y - self:ContentShift()))
 	else
 		f:SetPoint("TOPLEFT", self.content, "TOPLEFT",
-			pad + AVATAR + AVATAR_GAP, -(entry.y - self:GetOffset()))
+			pad + AVATAR + AVATAR_GAP, -(entry.y - self:ContentShift()))
 	end
 
 	-- Avatar only on the first bubble of an incoming group.
@@ -543,12 +548,18 @@ function ML:UpdateVisible()
 		self.sepPool:ReleaseAll()
 		self.headerPool:ReleaseAll()
 		self.bubblePool:ReleaseAll()
+		self.pushDown = 0
 		return
 	end
 
 	local offset = self:GetOffset()
 	local viewHeight = self:GetViewHeight()
-	local top, bottom = offset, offset + viewHeight
+
+	-- A conversation shorter than the canvas is pushed down so it rests on the
+	-- composer. Text starting at the top of an empty canvas is the single most
+	-- obvious "this is a list widget, not a chat" tell.
+	self.pushDown = max(0, viewHeight - (self.totalHeight + ns.SZ.LIST_PAD_Y))
+	local top, bottom = offset - self.pushDown, offset + viewHeight - self.pushDown
 
 	self.sepPool:ReleaseAll()
 	self.headerPool:ReleaseAll()

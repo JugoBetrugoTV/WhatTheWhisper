@@ -73,10 +73,35 @@ function Avatar:SetAvatarSize(size)
 	self.initials.__wtwToken = size >= 36 and "BODY" or "MICRO"
 end
 
-local function classFill(classFile)
-	local c = classFile and ns.Color.Class(classFile)
+-- When the class is unknown, or class colours are switched off, the disc still
+-- has to distinguish one person from another -- so it is derived from the name
+-- the way every other messenger does it, then blended towards the skin so a
+-- palette of six never looks bolted on.
+local FALLBACK = {
+	"#5A7CFA", "#3FBF7F", "#E8B84B", "#E5484D", "#9B6BE8", "#2FA8C7", "#E07A3F", "#4FB3A5",
+}
+local fallbackCache = {}
+
+local function fallbackColor(key)
+	local cached = fallbackCache[key]
+	if cached then return cached end
+	local sum = 0
+	for i = 1, #key do sum = sum + key:byte(i) * i end
+	local base = ns.Color.FromHex(FALLBACK[(sum % #FALLBACK) + 1])
+	local blend = (Theme.m and Theme.m.classColorBlend) or 0
+	if blend > 0 then base = ns.Color.Mix(base, Theme.Get("textPrimary"), blend) end
+	fallbackCache[key] = base
+	return base
+end
+
+function Avatar.ResetFallbackCache()
+	wipe(fallbackCache)
+end
+
+local function discFill(conv)
+	local c = Theme.ClassColor(conv.class)
 	if c then return c end
-	return Theme.Get("bg3")
+	return fallbackColor(conv.id or conv.name or "?")
 end
 
 function Avatar:SetConversation(conv)
@@ -91,7 +116,7 @@ function Avatar:SetConversation(conv)
 	local style = ap.avatarStyle
 	local classFile = conv.class
 
-	local fill = classFill(classFile)
+	local fill = discFill(conv)
 	self.disc:SetVertexColor(fill[1], fill[2], fill[3], 1)
 
 	local usedImage = false

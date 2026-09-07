@@ -35,7 +35,7 @@ ns.Skins.Register("minimal", {
 
 		textPrimary    = "#E6E9EF",
 		textSecondary  = "#9AA1AC",
-		textMuted      = "#666D78",
+		textMuted      = "#737B86",
 		textDisabled   = "#454A52",
 
 		bubbleIn       = { "#FFFFFF", 0.05 },

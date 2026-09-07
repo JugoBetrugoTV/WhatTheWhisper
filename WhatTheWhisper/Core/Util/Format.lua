@@ -101,7 +101,24 @@ function Format.DayLabel(ts)
 	return Format.ShortDate(ts)
 end
 
--- Compact stamp used in the sidebar rows and tabs.
+-- Compact stamp for sidebar rows and tabs.
+--
+-- A full "05.09.2026" needs about 70px at the micro size, which does not fit
+-- beside a name and a badge, so anything older than a week collapses to day and
+-- month, and only a different year carries a (two digit) year.
+function Format.CompactDate(ts)
+	local style = opt("appearance.dateFormat", "auto")
+	local sameYear = date("%Y", ts) == date("%Y")
+	if style == "iso" then
+		return sameYear and date("%m-%d", ts) or date("%y-%m-%d", ts)
+	end
+	local locale = GetLocale and GetLocale() or "enUS"
+	if style == "mdy" or (style == "auto" and (locale == "enUS" or locale == "enGB")) then
+		return sameYear and date("%m/%d", ts) or date("%m/%d/%y", ts)
+	end
+	return sameYear and date("%d.%m.", ts) or date("%d.%m.%y", ts)
+end
+
 function Format.ListStamp(ts)
 	if not ts or ts == 0 then return "" end
 	local today = dayStart(time())
@@ -112,7 +129,7 @@ function Format.ListStamp(ts)
 		local name = weekdayName(ts)
 		return ns.Text.Sub(name, 1, 3)
 	end
-	return Format.ShortDate(ts)
+	return Format.CompactDate(ts)
 end
 
 --------------------------------------------------------------------------------

@@ -24,6 +24,13 @@ local frame
 -- Construction
 --------------------------------------------------------------------------------
 
+-- Returns the window only if it has already been built. Used by the event
+-- handlers so a player who never opens the messenger never pays for its ~250
+-- frames; the window catches up with a full refresh the first time it is shown.
+function MainWindow.Existing()
+	return frame
+end
+
 function MainWindow.Get()
 	if frame then return frame end
 
@@ -229,6 +236,11 @@ function M:Relayout()
 	else
 		self.view:SetPoint("TOP", self, "TOP", 0, -ns.SZ.TITLEBAR_H)
 	end
+
+	-- Round whichever surfaces touch the window's own corners.
+	self.view:SetOuterCorners(false, false, not showSidebar, true)
+	self.sidebar.surface:SetRadius(ns.R.LG)
+	self.sidebar.surface:SetCorners(false, false, showSidebar, false)
 
 	-- Give the conversation room before the sidebar gets its ideal width.
 	if showSidebar then

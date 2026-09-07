@@ -111,6 +111,7 @@ local function create(conv)
 		compactHeader = true,
 	})
 	win.view:SetAllPoints()
+	win.view:SetOuterCorners(true, true, true, true)
 
 	win.view:AddHeaderButton("dock", L["Dock"], function()
 		ns.UI.DockConversation(win.convID)
@@ -223,6 +224,7 @@ function P:ToggleMinimized(force)
 		self.view.composer:Show()
 		self:SetHeight(self.restoreHeight or ns.SZ.POPOUT_H)
 	end
+	self.view:SetHeaderIsBottom(minimize)
 	self:SaveGeometry()
 end
 

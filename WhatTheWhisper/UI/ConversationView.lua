@@ -168,6 +168,27 @@ end
 -- Layout
 --------------------------------------------------------------------------------
 
+-- The window plate is drawn with a corner radius, but the surfaces sitting on
+-- top of it are rectangles and would square those corners off again. Whichever
+-- child actually touches a window corner has to carry the rounding.
+function V:SetOuterCorners(topLeft, topRight, bottomLeft, bottomRight, base)
+	base = base or ns.R.LG
+	self.surface:SetRadius(base)
+	self.surface:SetCorners(topLeft, topRight, bottomLeft, bottomRight)
+	self.header.surface:SetRadius(base)
+	self.header.surface:SetCorners(topLeft, topRight, false, false)
+	self.composer.surface:SetRadius(base)
+	self.composer.surface:SetCorners(false, false, bottomLeft, bottomRight)
+	self.outerCorners = { topLeft, topRight, bottomLeft, bottomRight, base }
+end
+
+-- While a popout is collapsed to its header, the header is the bottom edge too.
+function V:SetHeaderIsBottom(isBottom)
+	local o = self.outerCorners
+	if not o then return end
+	self.header.surface:SetCorners(o[1], o[2], isBottom and o[3], isBottom and o[4])
+end
+
 function V:Relayout()
 	local top = (self.opts.headerHeight or ns.SZ.HEADER_H)
 	if self.searchBar:IsShown() then top = top + SEARCHBAR_H end

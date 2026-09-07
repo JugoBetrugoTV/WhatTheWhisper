@@ -228,16 +228,22 @@ function Theme.Refresh()
 
 	buildFonts()
 	Color.ResetClassCache()
+	if ns.Avatar then ns.Avatar.ResetFallbackCache() end
 
 	ns.Bus.Fire(ns.EV.THEME_CHANGED)
 end
 
--- Class colour, contrast-corrected against the surface it will sit on.
+-- Class colour, blended towards the skin's palette and then contrast-corrected
+-- against the surface it will actually sit on.
 function Theme.ClassColor(classFile, surfaceRole)
 	local ap = appearance()
 	if not ap.classColors or not classFile then return nil end
 	local c = Color.Class(classFile)
 	if not c then return nil end
+	local blend = Theme.m.classColorBlend or 0
+	if blend > 0 then
+		c = Color.Mix(c, Theme.Get("textPrimary"), blend)
+	end
 	if surfaceRole then
 		return Color.EnsureContrast(c, Theme.Get(surfaceRole), 0.22)
 	end

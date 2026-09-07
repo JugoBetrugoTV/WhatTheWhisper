@@ -73,5 +73,9 @@ Skins.DEFAULT_METRICS = {
 	shadow        = 1,     -- drop shadow strength (0 disables)
 	surfaceAlpha  = 1,     -- extra multiplier on top of the user opacity slider
 	accentBar     = true,  -- draw the accent bar on the selected sidebar row
+	-- How far class colours are pulled towards the skin's own text colour. 0
+	-- keeps them exact; a warm or low-chroma skin raises this so a cyan mage
+	-- name does not tear a hole in the palette.
+	classColorBlend = 0,
 	sortIndex     = 50,
 }

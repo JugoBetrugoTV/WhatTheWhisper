@@ -17,6 +17,14 @@ OUT = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "WhatTheWhisper", "Art"))
 os.makedirs(OUT, exist_ok=True)
 
+
+def preview(name):
+    """Design previews live outside the addon folder; only .tga ships."""
+    directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "preview")
+    os.makedirs(directory, exist_ok=True)
+    return os.path.join(directory, name)
+
+
 SS = 8
 
 
@@ -33,7 +41,7 @@ d = ImageDraw.Draw(a)
 d.ellipse([0, 0, N * SS - 1, N * SS - 1], fill=255)
 a = a.resize((N, N), Image.LANCZOS)
 write_tga(os.path.join(OUT, "Round.tga"), white_alpha(a))
-white_alpha(a).save(os.path.join(OUT, "_preview_round.png"))
+white_alpha(a).save(preview("round.png"))
 
 # --------------------------------------------------------------- Shadow ----
 a = Image.new("L", (N, N), 0)
@@ -41,7 +49,7 @@ d = ImageDraw.Draw(a)
 d.rounded_rectangle([26, 26, N - 27, N - 27], radius=18, fill=255)
 a = a.filter(ImageFilter.GaussianBlur(11))
 write_tga(os.path.join(OUT, "Shadow.tga"), white_alpha(a))
-white_alpha(a).save(os.path.join(OUT, "_preview_shadow.png"))
+white_alpha(a).save(preview("shadow.png"))
 
 print("shapes written to", OUT)
 
@@ -58,5 +66,5 @@ for cx in (23, 32, 41):
     d.ellipse([(cx - 3) * s, (28 - 3) * s, (cx + 3) * s, (28 + 3) * s], fill=(90, 124, 250, 255))
 img = img.resize((N2, N2), Image.LANCZOS)
 write_tga(os.path.join(OUT, "Logo.tga"), img)
-img.save(os.path.join(OUT, "_preview_logo.png"))
+img.save(preview("logo.png"))
 print("logo written")

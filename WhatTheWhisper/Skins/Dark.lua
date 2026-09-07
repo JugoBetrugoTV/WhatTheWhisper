@@ -4,7 +4,7 @@ local _, ns = ...
 ns.Skins.Register("dark", {
 	name = "Dark",
 	description = "Pure neutral greys for people who do not want a colour.",
-	metrics = { sortIndex = 30 },
+	metrics = { sortIndex = 30, classColorBlend = 0.30 },
 	colors = {
 		bg0            = "#121212",
 		bg1            = "#171717",

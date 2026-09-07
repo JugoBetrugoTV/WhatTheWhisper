@@ -23,6 +23,11 @@ local function main()
 	return ns.MainWindow.Get()
 end
 
+-- nil until the window has actually been built.
+local function existing()
+	return ns.MainWindow.Existing()
+end
+
 function UI.Show()
 	local window = main()
 	if window:IsShown() then
@@ -41,15 +46,16 @@ function UI.Show()
 end
 
 function UI.Hide()
-	local window = main()
-	if not window:IsShown() then return end
+	local window = existing()
+	if not window or not window:IsShown() then return end
 	Anim.FadeOut(window, Theme.Duration("FAST"), function() window:Hide() end)
 	ns.Menu.Close()
 	ns.EmojiPicker.Close()
 end
 
 function UI.Toggle()
-	if main():IsShown() then UI.Hide() else UI.Show() end
+	local window = existing()
+	if window and window:IsShown() then UI.Hide() else UI.Show() end
 end
 
 function UI.Minimize()
@@ -57,7 +63,8 @@ function UI.Minimize()
 end
 
 function UI.IsAnyWindowShown()
-	if main():IsShown() then return true end
+	local window = existing()
+	if window and window:IsShown() then return true end
 	local any = false
 	ns.Popout.Each(function() any = true end)
 	return any
@@ -68,8 +75,8 @@ end
 function UI.IsConversationVisible(id)
 	local popout = ns.Popout.Get(id)
 	if popout and popout:IsShown() and not popout.minimized then return true end
-	local window = main()
-	if window:IsShown() and CM.SelectedID() == id then return true end
+	local window = existing()
+	if window and window:IsShown() and CM.SelectedID() == id then return true end
 	return false
 end
 
@@ -113,7 +120,8 @@ function UI.EnsureConversationOpen(id, focus)
 				if not victimIndex then break end
 				table.remove(tabOrder, victimIndex)
 			end
-			if main().tabs then main().tabs:Refresh() end
+			local window = existing()
+			if window then window.tabs:Refresh() end
 		end
 	end
 	if focus then
@@ -142,7 +150,8 @@ function UI.CloseConversation(id)
 		end
 		CM.Select(nextID)
 	end
-	if main().tabs then main().tabs:Refresh() end
+	local window = existing()
+	if window then window.tabs:Refresh() end
 end
 
 function UI.ScheduleTabSweep()
@@ -163,7 +172,8 @@ function UI.ScheduleTabSweep()
 				table.remove(tabOrder, i)
 			end
 		end
-		if main().tabs then main().tabs:Refresh() end
+		local window = existing()
+		if window then window.tabs:Refresh() end
 		UI.ScheduleTabSweep()
 	end)
 end
@@ -351,14 +361,15 @@ end
 --------------------------------------------------------------------------------
 
 function UI.CaptureVisibility()
-	local state = { main = main():IsShown(), popouts = {} }
+	local window = existing()
+	local state = { main = window and window:IsShown() or false, popouts = {} }
 	ns.Popout.Each(function(id, win) state.popouts[id] = not win.minimized end)
 	return state
 end
 
 function UI.RestoreVisibility(state)
 	if not state then return end
-	if state.main and not main():IsShown() then UI.Show() end
+	if state.main and not (existing() and existing():IsShown()) then UI.Show() end
 	for id, wasOpen in pairs(state.popouts) do
 		local win = ns.Popout.Get(id)
 		if win then
@@ -370,17 +381,20 @@ end
 
 function UI.SetCombatFade(opacity)
 	local alpha = opacity or 1
-	main():SetAlpha(alpha)
+	local window = existing()
+	if window then window:SetAlpha(alpha) end
 	ns.Popout.Each(function(_, win) win:SetAlpha(alpha) end)
 end
 
 function UI.MinimizeAll()
-	main():Hide()
+	local window = existing()
+	if window then window:Hide() end
 	ns.Popout.Each(function(_, win) win:ToggleMinimized(true) end)
 end
 
 function UI.HideAll()
-	main():Hide()
+	local window = existing()
+	if window then window:Hide() end
 	ns.Popout.Each(function(_, win) win:Hide() end)
 end
 
@@ -389,7 +403,8 @@ end
 --------------------------------------------------------------------------------
 
 function UI.RefreshLayout()
-	local window = main()
+	local window = existing()
+	if not window then return end
 	window:Relayout()
 	window:SetSidebarWidth(ns.db.profile.layout.sidebarWidth or ns.SZ.SIDEBAR_W)
 	window.tabs:Refresh()
@@ -397,7 +412,8 @@ function UI.RefreshLayout()
 end
 
 function UI.RefreshAll()
-	local window = main()
+	local window = existing()
+	if not window then return end
 	window.sidebar:Refresh()
 	window.tabs:Refresh()
 	window.view:SetConversation(CM.Selected())
@@ -410,7 +426,8 @@ function UI.RefreshAll()
 end
 
 function UI.ApplyTheme()
-	main():ApplyTheme()
+	local window = existing()
+	if window then window:ApplyTheme() end
 	ns.Popout.ApplyTheme()
 	ns.Toast.ApplyTheme()
 	ns.Tooltip.ApplyTheme()
@@ -434,7 +451,8 @@ function UI.Init()
 	end)
 
 	Bus.Register(EV.CONVERSATION_ADDED, "UI", function(conv)
-		main().sidebar:Refresh()
+		local window = existing()
+		if window then window.sidebar:Refresh() end
 		if ns.db.profile.layout.tabAutoOpen then UI.EnsureConversationOpen(conv.id, false) end
 	end)
 
@@ -443,50 +461,65 @@ function UI.Init()
 		for i = 1, #tabOrder do if tabOrder[i] == id then index = i break end end
 		if index then table.remove(tabOrder, index) end
 		ns.Popout.Close(id)
-		main().sidebar:Refresh()
-		main().tabs:Refresh()
+		local window = existing()
+		if window then
+			window.sidebar:Refresh()
+			window.tabs:Refresh()
+		end
 	end)
 
 	Bus.Register(EV.CONVERSATION_UPDATED, "UI", function(conv)
-		main().sidebar:Refresh()
-		main().tabs:Refresh()
-		main().view:OnConversationUpdated(conv)
+		local window = existing()
+		if window then
+			window.sidebar:Refresh()
+			window.tabs:Refresh()
+			window.view:OnConversationUpdated(conv)
+		end
 		ns.Popout.OnConversationUpdated(conv)
 	end)
 
 	Bus.Register(EV.CONVERSATION_SELECTED, "UI", function(id)
 		local conv = id and CM.Get(id) or nil
-		main().view:SetConversation(conv)
-		main().sidebar:Refresh()
-		main().sidebar:ScrollToConversation(id)
-		main().tabs:Refresh()
+		local window = existing()
+		if window then
+			window.view:SetConversation(conv)
+			window.sidebar:Refresh()
+			window.sidebar:ScrollToConversation(id)
+			window.tabs:Refresh()
+		end
 		if conv then UI.EnsureConversationOpen(id, false) end
 		ns.Toast.DismissFor(id)
 	end)
 
 	Bus.Register(EV.MESSAGE_ADDED, "UI", function(conv, msg, index)
-		main().view:OnMessageAdded(conv, msg, index)
+		local window = existing()
+		if window then
+			window.view:OnMessageAdded(conv, msg, index)
+			window.sidebar:Refresh()
+			window.tabs:Refresh()
+		end
 		ns.Popout.OnMessageAdded(conv, msg, index)
-		main().sidebar:Refresh()
-		main().tabs:Refresh()
 	end)
 
 	Bus.Register(EV.MESSAGE_UPDATED, "UI", function(conv, msg)
-		main().view:OnMessageUpdated(conv, msg)
+		local window = existing()
+		if window then window.view:OnMessageUpdated(conv, msg) end
 		ns.Popout.OnMessageUpdated(conv, msg)
 	end)
 
 	Bus.Register(EV.UNREAD_CHANGED, "UI", function()
-		main():RefreshUnreadBadge()
+		local window = existing()
+		if window then window:RefreshUnreadBadge() end
 		ns.Minimap.Update()
 	end)
 
 	Bus.Register(EV.PLAYER_INFO_UPDATED, "UI", function(fullName)
-		if not main():IsShown() then return end
-		main().sidebar:Refresh()
+		local window = existing()
+		if not window or not window:IsShown() then return end
+		window.sidebar:Refresh()
 		local selected = CM.Selected()
 		if selected and (not fullName or selected.id == fullName) then
-			main().view:RefreshHeader()
+			window.view:RefreshHeader()
 		end
 	end)
 

@@ -29,7 +29,7 @@ ns.Skins.Register("messenger", {
 
 		textPrimary    = "#E9EDEF",
 		textSecondary  = "#8696A0",
-		textMuted      = "#667781",
+		textMuted      = "#75858F",
 		textDisabled   = "#46545C",
 
 		bubbleIn       = "#202C33",
