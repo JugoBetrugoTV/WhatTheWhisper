@@ -16,6 +16,10 @@ ns.Anim = Anim
 
 local min = math.min
 
+-- The dimmest point of the attention breath: still legible, still obviously
+-- moving. Below about a third the badge reads as broken rather than waiting.
+local ATTENTION_LOW = 0.4
+
 --------------------------------------------------------------------------------
 -- Easing
 --------------------------------------------------------------------------------
@@ -291,6 +295,55 @@ function Anim.Pulse(frame, strength)
 		frame.__wtwPulseDown:SetScale(1 / s, 1 / s)
 	end
 	ag:Stop()
+	ag:Play()
+end
+
+-- A slow repeating breath, for something that is waiting rather than something
+-- that just happened: the unread badge on the minimap button, which has to be
+-- noticeable from the corner of the eye without ever being the brightest thing
+-- on the screen.
+--
+-- Unlike Pulse this keeps going, so it is switched off explicitly when the
+-- reason for it goes away -- and it restores full alpha when it does, because a
+-- stopped animation leaves the frame wherever the last frame put it.
+function Anim.Attention(frame, on)
+	if not frame then return end
+	local ag = frame.__wtwAttention
+	if not on then
+		if ag then ag:Stop() end
+		frame:SetAlpha(1)
+		frame.__wtwAttentionOn = false
+		return
+	end
+	if not Theme.AnimationsEnabled() then
+		frame:SetAlpha(1)
+		return
+	end
+	if frame.__wtwAttentionOn and ag then return end
+	if not ag then
+		ag = frame:CreateAnimationGroup()
+		local out = ag:CreateAnimation("Alpha")
+		out:SetOrder(1)
+		out:SetDuration(0.6)
+		out:SetSmoothing("IN_OUT")
+		local back = ag:CreateAnimation("Alpha")
+		back:SetOrder(2)
+		back:SetDuration(0.6)
+		back:SetSmoothing("IN_OUT")
+		if HAS_FROM_ALPHA then
+			out:SetFromAlpha(1)
+			out:SetToAlpha(ATTENTION_LOW)
+			back:SetFromAlpha(ATTENTION_LOW)
+			back:SetToAlpha(1)
+		else
+			out:SetChange(ATTENTION_LOW - 1)
+			back:SetChange(1 - ATTENTION_LOW)
+		end
+		ag:SetLooping("REPEAT")
+		frame.__wtwAttention = ag
+	end
+	frame.__wtwAttentionOn = true
+	frame:SetAlpha(1)
 	ag:Play()
 end
 

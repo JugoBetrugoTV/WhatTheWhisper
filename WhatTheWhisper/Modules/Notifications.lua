@@ -60,14 +60,20 @@ function Notifications.OnIncoming(conv, msg, isMention)
 	-- the taskbar flash already respected that; opening the window did not, so a
 	-- muted conversation still shoved the messenger in front of the player --
 	-- which is the loudest interruption of the three.
+	--
+	-- Opening the messenger because of a message and then showing a different
+	-- thread is worse than leaving it shut, so the window that pops up is
+	-- always on the message that caused it. autoSwitch is a different question
+	-- -- whether to interrupt a conversation already on screen -- and only
+	-- applies once the window is up.
 	local ms = messageSettings()
-	if ms.openOnWhisper and UI and not conv.muted then
-		UI.Show()
-		if ms.autoSwitch then
+	if UI and not conv.muted and not visible then
+		if ms.openOnWhisper and not UI.IsShown() then
+			UI.Show()
+			ns.ConversationManager.Select(conv.id)
+		elseif ms.autoSwitch and UI.IsShown() then
 			ns.ConversationManager.Select(conv.id)
 		end
-	elseif ms.autoSwitch and windowShown and not conv.muted then
-		ns.ConversationManager.Select(conv.id)
 	end
 
 	if UI and UI.EnsureConversationOpen then

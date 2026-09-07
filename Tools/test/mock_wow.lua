@@ -1071,7 +1071,14 @@ end
 -- Clicks a widget the way a player does: enter, press, release, leave. Buttons
 -- in this addon check IsMouseOver inside OnMouseUp, so a bare script call would
 -- silently do nothing and the test would pass for the wrong reason.
-function M.Click(frame, button)
+-- A click the way a player makes one: press, at least one frame passes, release.
+--
+-- The frame in the middle is not decoration. Anything that installs an OnUpdate
+-- on press -- a drag handler, say -- gets to run before the release, which is
+-- how a drag handler with no movement threshold ends up eating every click. A
+-- press and release with nothing between them proves the button works in a
+-- world where time does not pass.
+function M.Click(frame, button, heldFrames)
 	assert(frame, "M.Click on a nil frame")
 	assert(frame:IsShown(), "M.Click on a hidden frame")
 	button = button or "LeftButton"
@@ -1080,6 +1087,8 @@ function M.Click(frame, button)
 	local scripts = frame._scripts or {}
 	if scripts.OnEnter then scripts.OnEnter(frame) end
 	if scripts.OnMouseDown then scripts.OnMouseDown(frame, button) end
+	M.RunFrames(heldFrames or 1)
+	scripts = frame._scripts or {}
 	if scripts.OnMouseUp then scripts.OnMouseUp(frame, button) end
 	if scripts.OnClick then scripts.OnClick(frame, button) end
 	if scripts.OnLeave then scripts.OnLeave(frame) end

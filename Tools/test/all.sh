@@ -62,6 +62,9 @@ lua5.1 Tools/test/commands.lua | tail -1
 echo "== search =="
 lua5.1 Tools/test/search.lua | tail -1
 
+echo "== minimap button =="
+lua5.1 Tools/test/minimap.lua | tail -1
+
 echo "== ui geometry and contrast =="
 lua5.1 Tools/test/ui.lua | tail -1
 

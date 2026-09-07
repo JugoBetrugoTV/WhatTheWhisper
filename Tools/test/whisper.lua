@@ -315,5 +315,59 @@ CM.Select("Thrall-Blackrock")
 M.RunTimers(2)
 eq("reopening preserves history", #CM.Get("Thrall-Blackrock").messages, before)
 
+--------------------------------------------------------------------------------
+-- The window opening on its own
+--------------------------------------------------------------------------------
+
+-- A messenger that stays shut when somebody writes to you is a messenger you
+-- miss messages in. It has to open for a whisper from the game and for one from
+-- a Battle.net friend alike -- and it has to open *on the thread that caused
+-- it*, because opening on somebody else's conversation is worse than not
+-- opening at all.
+ns.db.profile.messages.openOnWhisper = true
+ns.db.profile.messages.autoSwitch = false
+
+ns.UI.Hide()
+M.RunFrames(12)
+check("closed to begin with", ns.UI.IsShown() == false)
+
+whisper("bist du wach?", "Muradin", "G-MURADIN")
+M.RunFrames(8)
+check("an incoming whisper opens the messenger", ns.UI.IsShown())
+eq("on the thread it arrived in", CM.SelectedID(), "Muradin-Blackrock")
+
+-- Battle.net takes the same route, and used to be worth checking separately
+-- because it enters through a different event with a different id scheme.
+M.bnet = { [77] = { tag = "Somebody#1234", name = "Somebody", character = "Alt" } }
+ns.UI.Hide()
+M.RunFrames(12)
+check("closed again", ns.UI.IsShown() == false)
+-- bnSenderID is the thirteenth argument, after the guid slot the game leaves
+-- empty for Battle.net.
+M.FireEvent("CHAT_MSG_BN_WHISPER", "hallo aus dem launcher", "Somebody",
+	"", "", "", "", 0, 0, "", 0, 1, "", 77)
+M.RunTimers(2)
+M.RunFrames(8)
+check("a Battle.net whisper opens it too", ns.UI.IsShown())
+eq("on the Battle.net thread", CM.SelectedID(), "BN:Somebody#1234")
+
+-- Muted means do not interrupt me, and opening the window is the loudest
+-- interruption there is.
+CM.SetMuted("Muradin-Blackrock", true)
+ns.UI.Hide()
+M.RunFrames(12)
+whisper("und jetzt?", "Muradin", "G-MURADIN")
+M.RunFrames(8)
+check("a muted thread does not open the window", ns.UI.IsShown() == false)
+eq("but the message is still stored", count("Muradin-Blackrock", "und jetzt?"), 1)
+CM.SetMuted("Muradin-Blackrock", false)
+
+ns.db.profile.messages.openOnWhisper = false
+ns.UI.Hide()
+M.RunFrames(12)
+whisper("stillschweigend", "Muradin", "G-MURADIN")
+M.RunFrames(8)
+check("and the setting genuinely switches it off", ns.UI.IsShown() == false)
+
 print(("\n%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -262,6 +262,9 @@ L["Message too long, sent as %d parts."] = "Nachricht zu lang, als %d Teile gese
 -- Slash-Befehle
 L["Commands:"] = "Befehle:"
 L["/wtw - toggle the messenger"] = "/wtw - Messenger umschalten"
+L["Right-click for the list"] = "Rechtsklick für die Liste"
+L["Mark all as read"] = "Alle als gelesen markieren"
+L["Hide minimap button"] = "Minimap-Button ausblenden"
 L["/wtw config - open settings"] = "/wtw config - Einstellungen öffnen"
 L["/wtw <name> - open a conversation"] = "/wtw <Name> - Unterhaltung öffnen"
 L["/wtw clear - clear all history"] = "/wtw clear - gesamten Verlauf löschen"

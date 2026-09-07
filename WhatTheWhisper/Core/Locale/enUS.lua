@@ -267,6 +267,9 @@ L["Message too long, sent as %d parts."] = true
 -- Slash command help
 L["Commands:"] = true
 L["/wtw - toggle the messenger"] = true
+L["Right-click for the list"] = true
+L["Mark all as read"] = true
+L["Hide minimap button"] = true
 L["/wtw config - open settings"] = true
 L["/wtw <name> - open a conversation"] = true
 L["/wtw clear - clear all history"] = true

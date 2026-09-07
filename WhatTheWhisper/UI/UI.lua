@@ -58,6 +58,13 @@ function UI.Toggle()
 	if window and window:IsShown() then UI.Hide() else UI.Show() end
 end
 
+-- The main window specifically, not the popouts: this is what the minimap
+-- button toggles.
+function UI.IsShown()
+	local window = existing()
+	return window ~= nil and window:IsShown()
+end
+
 function UI.Minimize()
 	UI.Hide()
 end
