@@ -154,7 +154,9 @@ local function build()
 	frame.surface = W.Surface(frame, {
 		color = "bg3", border = "borderStrong", radius = ns.R.MD, shadow = 16,
 	})
-	frame:SetScript("OnHide", function() Menu.Close() end)
+	frame:HookScript("OnHide", function()
+		if not Menu.closing then Menu.Close() end
+	end)
 
 	-- Escape closes it, exactly like every other panel in the game.
 	if type(_G.UISpecialFrames) == "table" then
@@ -285,9 +287,13 @@ function Menu.Close()
 	if itemPool then itemPool:ReleaseAll() end
 	catcher:Hide()
 	Anim.StopAll(frame)
-	frame:SetScript("OnHide", nil)
+	-- A guard rather than clearing the script. SetScript("OnHide", nil) removes
+	-- every handler on that frame, hooks included, and the drop shadow follows
+	-- its window by hooking exactly this -- so wiping it left the shadow of a
+	-- closed menu sitting on the screen.
+	Menu.closing = true
 	frame:Hide()
-	frame:SetScript("OnHide", function() Menu.Close() end)
+	Menu.closing = false
 	ns.Tooltip.Hide()
 end
 

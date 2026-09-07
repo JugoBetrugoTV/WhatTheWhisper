@@ -177,6 +177,9 @@ function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 	orderDirty = true
 
 	if direction == ns.DIR_IN then
+		-- They wrote, so they exist and they are online: whatever the server
+		-- said about the name earlier is stale.
+		conv.notFound = nil
 		if selectedID ~= id or not ns.UI or not ns.UI.IsConversationVisible(id) then
 			conv.unread = conv.unread + 1
 			totalUnread = totalUnread + 1
@@ -197,6 +200,33 @@ function CM.UpdateMessageStatus(conv, index, status)
 	if msg[MSG_STATUS] == status then return end
 	msg[MSG_STATUS] = status
 	ns.Bus.Fire(ns.EV.MESSAGE_UPDATED, conv, msg, index)
+end
+
+-- Marks the most recent outgoing message as not delivered.
+--
+-- The server's "no player named" answer arrives after the client has already
+-- echoed the whisper back, so by then the bubble usually says sent. Only ever
+-- touching pending messages would leave a delivered-looking bubble for a message
+-- nobody received, which is the one thing delivery state exists to prevent.
+--
+-- Exactly one message is failed per call, because the server sends one error per
+-- whisper -- a long message split into parts produces one error for each part.
+function CM.FailLastOutgoing(conv, maxAge)
+	if not conv then return nil end
+	local list = conv.messages
+	if not list then return nil end
+	local now = Compat.GetServerTime()
+	for i = #list, math.max(1, #list - 20), -1 do
+		local m = list[i]
+		if m and m[MSG_DIR] == ns.DIR_OUT
+			and m[MSG_STATUS] ~= ns.SEND_FAILED
+			and (now - (m[MSG_TS] or 0)) <= (maxAge or 30) then
+			m[MSG_STATUS] = ns.SEND_FAILED
+			ns.Bus.Fire(ns.EV.MESSAGE_UPDATED, conv, m, i)
+			return m, i
+		end
+	end
+	return nil
 end
 
 -- Finds the most recent outgoing message matching `text` that is still pending.
@@ -346,6 +376,10 @@ function CM.SendMessage(id, text)
 
 	local parts = ns.Text.SplitForSend(text, ns.MAX_MESSAGE_BYTES)
 	local sentAny = false
+
+	-- Every attempt starts from a clean slate: they may have logged in since
+	-- the last one. If they still are not there, the server says so again.
+	conv.notFound = nil
 
 	for i = 1, #parts do
 		local part = parts[i]

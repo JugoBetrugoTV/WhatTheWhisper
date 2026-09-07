@@ -231,6 +231,64 @@ function Compat.IsCrossRealm(fullName)
 	return realm ~= nil and realm ~= Compat.GetRealmName()
 end
 
+-- The client's own naming rules, applied before anything is sent.
+--
+-- This is not cosmetic. SendChatMessage accepts any string: whisper a name that
+-- cannot exist and the message is added, echoed nowhere, and the only sign that
+-- nobody received it is one line in the default chat frame -- which this addon
+-- may well be hiding. So a name that the game could never issue is refused at
+-- the point the player types it, and the ones that merely turn out not to be
+-- online are caught afterwards by the server's reply.
+--
+-- Returns true, or false plus a reason token the caller turns into text.
+local NAME_MIN_CHARS, NAME_MAX_CHARS = 2, 12
+local REALM_MAX_CHARS = 32
+
+function Compat.ValidatePlayerName(name)
+	if type(name) ~= "string" then return false, "empty" end
+	name = gsub(gsub(name, "^%s+", ""), "%s+$", "")
+	if name == "" then return false, "empty" end
+
+	-- A BattleTag is a different namespace with different rules: digits are part
+	-- of it, and the discriminator is what makes it unique.
+	if strfind(name, "^BN:") or strfind(name, "#") then
+		local tag = gsub(name, "^BN:", "")
+		local base, discriminator = strmatch(tag, "^([^#]+)#(%d+)$")
+		if not base or base == "" then return false, "battletag" end
+		if #discriminator < 3 then return false, "battletag" end
+		return true
+	end
+
+	local base, realm = strmatch(name, "^([^%-]+)%-(.+)$")
+	base = base or name
+
+	-- Escape sequences would be interpreted by the chat frame, so they are
+	-- rejected before length is even considered.
+	if strfind(base, "|") or (realm and strfind(realm, "|")) then
+		return false, "name"
+	end
+	-- Letters only. Bytes above 0x7F are left alone because that is where every
+	-- accented letter in a European name lives; what is refused is what the
+	-- client refuses -- digits, spaces and punctuation.
+	if strfind(base, "%d") or strfind(base, "%s") or strfind(base, "%p") then
+		return false, "name"
+	end
+	local length = ns.Text.Len(base)
+	if length < NAME_MIN_CHARS or length > NAME_MAX_CHARS then
+		return false, "length"
+	end
+
+	if realm then
+		realm = gsub(realm, "%s+", "")
+		if realm == "" then return false, "realm" end
+		if strfind(realm, "%d") then return false, "realm" end
+		if ns.Text.Len(realm) > REALM_MAX_CHARS then return false, "realm" end
+	end
+	return true
+end
+
+Compat.NAME_MIN_CHARS, Compat.NAME_MAX_CHARS = NAME_MIN_CHARS, NAME_MAX_CHARS
+
 function Compat.IsBattleNet(key)
 	return key and strfind(key, "^BN:") ~= nil
 end

@@ -133,12 +133,25 @@ local function buildCopy()
 		text, truncated = ns.Text.SafeByteLimit(text, MAX_CHARS)
 		d.content = text
 		edit:SetText(text)
+		d.truncated = truncated
+		d:RefreshHint()
+		if d:IsShown() then d:FocusContent() end
+	end
+
+	-- The whole dialog is one gesture: everything selected, keyboard focus in
+	-- the box, Ctrl+C. All three only take on an edit box that is already on
+	-- screen -- the client ignores SetFocus on a hidden one -- so this is never
+	-- called before the window is up, and it is called again on every show.
+	function d:FocusContent()
 		edit:SetCursorPosition(0)
 		edit:HighlightText()
 		edit:SetFocus()
-		d.truncated = truncated
-		d:RefreshHint()
 	end
+
+	d:HookScript("OnShow", function() d:FocusContent() end)
+	-- A focused edit box swallows the movement keys, so the focus goes back to
+	-- the world the moment the dialog does.
+	d:HookScript("OnHide", function() edit:ClearFocus() end)
 
 	function d:RefreshHint()
 		local hint = d.baseHint or L["Press Ctrl+C to copy, then Esc to close."]
@@ -179,8 +192,9 @@ function Dialogs.ShowCopy(text, title, hint)
 	d.box:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -ns.S.LG, ns.S.LG)
 	local lines = select(2, text:gsub("\n", "")) + 1
 	d:SetSize(560, min(420, max(180, 120 + lines * 16)))
-	d:SetContent(text)
+	-- Shown first, filled second: see FocusContent.
 	d:Show()
+	d:SetContent(text)
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 end
 
@@ -206,8 +220,8 @@ function Dialogs.ShowExport(conv)
 	d.box:SetPoint("TOPLEFT", d.formats, "BOTTOMLEFT", 0, -ns.S.MD)
 	d.box:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -ns.S.LG, ns.S.LG)
 	d:SetSize(620, 460)
-	d:SetContent(Export.Conversation(conv, d.format or "text"))
 	d:Show()
+	d:SetContent(Export.Conversation(conv, d.format or "text"))
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 end
 
@@ -281,23 +295,55 @@ end
 
 local promptDialog
 
-function Dialogs.Prompt(title, label, placeholder, acceptLabel, onAccept)
+-- Two lines of MICRO text, reserved whether or not there is anything to say, so
+-- that a rejected name does not make the dialog jump under the cursor.
+local PROMPT_ERROR_H = 30
+
+function Dialogs.Prompt(title, label, placeholder, acceptLabel, onAccept, validate)
 	if not promptDialog then
-		local d = makeDialog("WhatTheWhisperPromptDialog", 380, 180)
+		local d = makeDialog("WhatTheWhisperPromptDialog", 380, 180 + PROMPT_ERROR_H)
 		d.label = W.Text(d, "SMALL", "textSecondary")
 		d.label:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.LG)
 
 		d.input = ns.Input.New(d, { minHeight = 32, radius = ns.R.MD,
-			onEnter = function() d.accept:GetScript("OnMouseUp")(d.accept, "LeftButton") end })
+			onEnter = function() d.accept:GetScript("OnMouseUp")(d.accept, "LeftButton") end,
+			-- Typing is the player answering the complaint, so the complaint goes
+			-- away as they do it rather than sitting there being wrong.
+			onChange = function() d:SetError(nil) end })
 		d.input:SetPoint("TOPLEFT", d.label, "BOTTOMLEFT", 0, -ns.S.SM)
 		d.input:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
+
+		d.error = W.Text(d, "MICRO", "danger")
+		d.error:SetPoint("TOPLEFT", d.input, "BOTTOMLEFT", ns.S.XS, -ns.S.SM)
+		d.error:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
+		d.error:SetHeight(PROMPT_ERROR_H - ns.S.SM)
+		d.error:SetJustifyH("LEFT")
+		d.error:SetJustifyV("TOP")
+		d.error:SetWordWrap(true)
+		d.error:Hide()
+
+		function d:SetError(message)
+			d.error:SetText(message or "")
+			d.error:SetShown(message ~= nil and message ~= "")
+		end
 
 		d.accept = ns.Button.Text(d, {
 			text = "", variant = "primary", minWidth = 96,
 			onClick = function()
 				local value = ns.Text.Trim(d.input:GetText())
-				local callback = d.callback
 				if value == "" then return end
+				-- Refused here rather than three frames later in the chat
+				-- stream, where a name that cannot exist looks exactly like a
+				-- message that was delivered.
+				if d.validate then
+					local complaint = d.validate(value)
+					if complaint then
+						d:SetError(complaint)
+						d.input:Focus()
+						return
+					end
+				end
+				local callback = d.callback
 				d:Hide()
 				if callback then ns.Guard("Dialogs.prompt", callback, value) end
 			end,
@@ -315,6 +361,7 @@ function Dialogs.Prompt(title, label, placeholder, acceptLabel, onAccept)
 			d.header.divider:ApplyTheme()
 			W.RefreshText(d.title)
 			W.RefreshText(d.label)
+			W.RefreshText(d.error)
 			d.close:ApplyTheme()
 			d.input:ApplyTheme()
 			d.accept:ApplyTheme()
@@ -332,6 +379,8 @@ function Dialogs.Prompt(title, label, placeholder, acceptLabel, onAccept)
 	d.input:SetText("")
 	d.accept:SetText(acceptLabel or L["Open"])
 	d.callback = onAccept
+	d.validate = validate
+	d:SetError(nil)
 	d:Show()
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 	d.input:Focus()

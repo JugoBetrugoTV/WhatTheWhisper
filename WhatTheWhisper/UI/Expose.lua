@@ -77,6 +77,12 @@ local function build()
 	scrim.tex = scrim:CreateTexture(nil, "BACKGROUND")
 	scrim.tex:SetAllPoints()
 	scrim:SetScript("OnMouseDown", function() Expose.Close() end)
+	-- Installed once, and guarded, so that anything else hiding the scrim still
+	-- tears the overview down. Previously this was re-installed from inside the
+	-- fade callback, which meant it did not exist until the first close.
+	scrim:SetScript("OnHide", function()
+		if isOpen and not Expose.closing then Expose.Close() end
+	end)
 
 	hint = W.Text(scrim, "SMALL", "textSecondary")
 	hint:SetPoint("TOP", scrim, "TOP", 0, -ns.S.HUGE)
@@ -218,11 +224,11 @@ function Expose.Close(focusWindow, convID)
 	activeCards = {}
 
 	if overlayPool then overlayPool:ReleaseAll() end
-	scrim:SetScript("OnHide", nil)
+	-- Guarded rather than cleared: SetScript("OnHide", nil) drops every handler
+	-- on the frame, including hooks other code installed to follow it.
+	Expose.closing = true
 	Anim.FadeOut(scrim, Theme.Duration("FAST"), function()
-		scrim:SetScript("OnHide", function()
-			if isOpen then Expose.Close() end
-		end)
+		Expose.closing = false
 	end)
 
 	if focusWindow then

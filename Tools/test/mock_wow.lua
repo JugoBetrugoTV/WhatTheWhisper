@@ -363,6 +363,12 @@ local function setShown(region, shown)
 	region._shown = shown
 	local isVisible = effectivelyVisible(region)
 	if wasVisible ~= isVisible then fireVisibility(region, isVisible) end
+	-- An edit box that goes off screen loses keyboard focus, the same way the
+	-- client drops it when the frame holding it is hidden.
+	if M.focus and not effectivelyVisible(M.focus) then
+		M.focus._focus = false
+		M.focus = nil
+	end
 end
 
 function regionMethods:Show() setShown(self, true) end
@@ -778,9 +784,29 @@ end
 function frameMethods:GetText() return self._text or "" end
 function frameMethods:SetCursorPosition(p) self._cursor = p end
 function frameMethods:GetCursorPosition() return self._cursor or 0 end
-function frameMethods:HighlightText() end
-function frameMethods:SetFocus() self._focus = true end
-function frameMethods:ClearFocus() self._focus = false end
+-- Selection, as an edit box records it: no arguments means everything.
+function frameMethods:HighlightText(from, to)
+	self._highlight = { from or 0, to or -1 }
+end
+function frameMethods:GetHighlight() return self._highlight end
+
+-- Keyboard focus needs an edit box that is actually on screen. In the client,
+-- SetFocus on a hidden edit box -- or one inside a window that has not been
+-- shown yet -- does nothing, and hiding a focused edit box drops the focus.
+--
+-- Modelling that is the point: a copy dialog that fills its box and focuses it
+-- before the window is up looks perfect in a mock that just sets a flag, and in
+-- the game it hands the player an unfocused box where Ctrl+C copies nothing.
+function frameMethods:SetFocus()
+	if not effectivelyVisible(self) then return end
+	if M.focus and M.focus ~= self then M.focus._focus = false end
+	self._focus = true
+	M.focus = self
+end
+function frameMethods:ClearFocus()
+	self._focus = false
+	if M.focus == self then M.focus = nil end
+end
 function frameMethods:HasFocus() return self._focus or false end
 function frameMethods:Insert(v) self:SetText((self._text or "") .. (v or "")) end
 function frameMethods:GetNumLetters() return #(self._text or "") end

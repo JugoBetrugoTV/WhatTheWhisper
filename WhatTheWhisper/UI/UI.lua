@@ -332,6 +332,14 @@ function UI.ConfirmResetSettings()
 		end, true)
 end
 
+-- Turns the reason the name was refused into something a player can act on.
+local NAME_COMPLAINT = {
+	name   = "Character names are 2 to 12 letters, with no spaces, numbers or punctuation.",
+	length = "Character names are 2 to 12 letters, with no spaces, numbers or punctuation.",
+	realm  = "That realm name is not valid.",
+	battletag = "A BattleTag looks like Name#1234.",
+}
+
 function UI.PromptNewConversation()
 	ns.Dialogs.Prompt(L["New conversation"], L["Whisper a player"],
 		L["Enter a character name"], L["Open"], function(value)
@@ -341,6 +349,14 @@ function UI.PromptNewConversation()
 			CM.Select(id)
 			UI.EnsureConversationOpen(id, true)
 			Anim.After(0.05, function() main().view:Focus() end)
+		end,
+		-- A thread opened on a name the game could never issue is worse than no
+		-- thread: every message in it looks sent and none of them arrives.
+		function(value)
+			local ok, reason = Compat.ValidatePlayerName(value)
+			if ok then return nil end
+			local key = NAME_COMPLAINT[reason]
+			return key and L[key] or nil
 		end)
 end
 

@@ -384,17 +384,28 @@ function Draw.NewShadow(target, spread)
 	-- window's parent chain, so nothing tells it to go away, and a closed window
 	-- leaves a dark rectangle sitting on the world.
 	--
-	-- So visibility is mirrored explicitly. OnHide fires when a frame becomes
-	-- hidden for any reason, a hidden ancestor included, which covers closing
-	-- the window, hiding the whole UI, and a popout being docked.
+	-- So visibility is mirrored explicitly, and it is watched from a private
+	-- one pixel child of the window rather than by hooking the window itself.
+	--
+	-- Hooking the target directly is fragile in a way that already shipped once:
+	-- any later SetScript("OnHide", ...) on that frame replaces every handler on
+	-- it, hooks included, and the shadow is orphaned with no sign that anything
+	-- broke. Nobody else ever touches this child, and a child's OnHide fires
+	-- whenever it stops being visible, an ancestor hiding included, so it covers
+	-- closing the window, docking a popout and hiding the whole interface.
+	--
 	-- Re-evaluates, never records: passing a value here would write "hidden" as
 	-- the caller's intent the first time the window closed, and the shadow would
 	-- never come back.
 	local function follow()
 		o:SetShown()
 	end
-	target:HookScript("OnShow", follow)
-	target:HookScript("OnHide", follow)
+	local watcher = CreateFrame("Frame", nil, target)
+	watcher:SetSize(1, 1)
+	watcher:SetPoint("TOPLEFT", target, "TOPLEFT", 0, 0)
+	watcher:SetScript("OnShow", follow)
+	watcher:SetScript("OnHide", follow)
+	o.watcher = watcher
 	frame:SetShown(target:IsShown())
 
 	local function piece(u1, u2, v1, v2)

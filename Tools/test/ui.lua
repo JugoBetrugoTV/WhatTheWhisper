@@ -752,13 +752,113 @@ do
 		local attached = framesAnchoredTo(popoutWindow)
 		ns.UI.DockConversation(thrall)
 		M.RunFrames(20)
+		-- "Left on screen" means effectively visible: a child of the window
+		-- that closed still reports IsShown, it is simply not drawn any more.
 		local ghosts = 0
 		for i = 1, #attached do
-			if attached[i]:IsShown() then ghosts = ghosts + 1 end
+			if M.EffectivelyVisible(attached[i]) then ghosts = ghosts + 1 end
 		end
 		check("docking a popout leaves nothing of it on screen", ghosts == 0,
 			("%d of %d still shown"):format(ghosts, #attached))
 	end
+end
+
+-- The context menu, which is also what a dropdown opens. Its close path used to
+-- clear OnHide outright to avoid recursing, and that removed every hook on the
+-- frame -- including the one the drop shadow follows, so a closed menu left its
+-- shadow behind. Every dropdown in the settings window did it.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(8)
+	local menuFrame = _G.WhatTheWhisperContextMenu
+	check("the context menu opened", ns.Menu.IsOpen())
+
+	local attached = {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		for p = 1, #(frame._points or {}) do
+			local ref = frame._points[p][2]
+			if ref and ref ~= frame and menuFrame and ref == menuFrame then
+				attached[#attached + 1] = frame
+				break
+			end
+		end
+	end
+
+	ns.Menu.Close()
+	M.RunFrames(20)
+	check("the menu closed", not ns.Menu.IsOpen())
+	local ghosts = 0
+	for i = 1, #attached do
+		if M.EffectivelyVisible(attached[i]) then ghosts = ghosts + 1 end
+	end
+	local ghostDesc
+	for i = 1, #attached do
+		if M.EffectivelyVisible(attached[i]) then
+			ghostDesc = ghostDesc or describe(attached[i])
+		end
+	end
+	check("closing the menu leaves nothing of it on screen", ghosts == 0,
+		("%d of %d still shown: %s"):format(ghosts, #attached, tostring(ghostDesc)))
+
+	-- Reopening has to work after all that, which is what a guard buys over
+	-- clearing the script.
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(8)
+	check("the menu reopens afterwards", ns.Menu.IsOpen())
+	ns.Menu.Close()
+	M.RunFrames(20)
+	check("and closes again", not ns.Menu.IsOpen())
+end
+
+-- Copy and export. There is no clipboard API in the client, so the entire
+-- feature is one gesture: the text selected, the keyboard focus in the box,
+-- Ctrl+C. Focus is the part that silently fails -- the client ignores SetFocus
+-- on an edit box that is not on screen yet -- and both dialogs used to fill
+-- themselves and take focus before showing, which is a dialog full of text that
+-- Ctrl+C does nothing with.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	check("the conversation has something to export", #conv.messages > 0)
+
+	ns.Dialogs.ShowExport(conv)
+	M.RunFrames(8)
+	local dialog = _G.WhatTheWhisperCopyDialog
+	check("the export dialog opened", dialog ~= nil and dialog:IsShown())
+
+	local body = dialog.edit:GetText()
+	check("the export dialog has the conversation in it",
+		body:find(conv.messages[1][ns.MSG_TEXT], 1, true) ~= nil,
+		("%d characters"):format(#body))
+	check("the export box has keyboard focus", dialog.edit:HasFocus())
+	local highlight = dialog.edit:GetHighlight()
+	check("all of it is selected, so Ctrl+C takes the lot",
+		highlight ~= nil and highlight[1] == 0 and highlight[2] == -1)
+
+	-- Switching format refills the box, and has to leave it just as copyable.
+	for _, format in ipairs({ "markdown", "bbcode", "csv", "text" }) do
+		local out = ns.Export.Conversation(conv, format)
+		check("export produces " .. format, type(out) == "string" and #out > 0)
+		dialog:SetContent(out)
+		check(format .. ": the box keeps focus after a format change",
+			dialog.edit:HasFocus())
+	end
+
+	dialog:Hide()
+	M.RunFrames(8)
+	-- A focused edit box eats the movement keys; leaving one focused behind a
+	-- closed dialog is how an addon locks a player in place.
+	check("closing the dialog gives the keyboard back", not dialog.edit:HasFocus())
+
+	-- The plain copy path takes the same route.
+	ns.Dialogs.ShowCopy("https://example.com/some/path", "Copy URL")
+	M.RunFrames(8)
+	check("the copy dialog has focus too", dialog.edit:HasFocus())
+	eq("and holds exactly what was asked for",
+		dialog.edit:GetText(), "https://example.com/some/path")
+	dialog:Hide()
+	M.RunFrames(8)
 end
 
 --------------------------------------------------------------------------------

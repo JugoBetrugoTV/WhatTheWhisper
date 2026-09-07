@@ -54,14 +54,19 @@ function Notifications.OnIncoming(conv, msg, isMention)
 		pcall(_G.FlashClientIcon)
 	end
 
-	-- Window behaviour
+	-- Window behaviour.
+	--
+	-- Muting a thread means "do not interrupt me about this one". The toast and
+	-- the taskbar flash already respected that; opening the window did not, so a
+	-- muted conversation still shoved the messenger in front of the player --
+	-- which is the loudest interruption of the three.
 	local ms = messageSettings()
-	if ms.openOnWhisper and UI then
+	if ms.openOnWhisper and UI and not conv.muted then
 		UI.Show()
 		if ms.autoSwitch then
 			ns.ConversationManager.Select(conv.id)
 		end
-	elseif ms.autoSwitch and windowShown then
+	elseif ms.autoSwitch and windowShown and not conv.muted then
 		ns.ConversationManager.Select(conv.id)
 	end
 

@@ -164,6 +164,83 @@ M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Jaina' is currently playing.")
 M.RunTimers(1)
 eq("marked failed", jaina.messages[#jaina.messages][MSG_STATUS], ns.SEND_FAILED)
 eq("no duplicate from the failure path", count("Jaina-Blackrock", "bist du da?"), 1)
+check("the thread knows the name is wrong", jaina.notFound == true)
+
+-- The other ordering, and the one that was actually broken. On a client that
+-- echoes the whisper back before the server answers, the echo has already
+-- upgraded the bubble to "sent" by the time the error lands -- so the player
+-- was shown an ordinary delivered message that nobody ever received.
+CM.SendMessage("Jaina-Blackrock", "und jetzt?")
+M.RunTimers(1)
+inform("und jetzt?", "Jaina", "G-JAINA")
+eq("the echo marks it sent first", jaina.messages[#jaina.messages][MSG_STATUS], ns.SEND_OK)
+M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Jaina' is currently playing.")
+M.RunTimers(1)
+eq("the server's answer overrides the echo",
+	jaina.messages[#jaina.messages][MSG_STATUS], ns.SEND_FAILED)
+eq("and still no duplicate", count("Jaina-Blackrock", "und jetzt?"), 1)
+
+-- One error fails one message, because the server sends one per whisper.
+local before = #jaina.messages
+M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Jaina' is currently playing.")
+M.RunTimers(1)
+eq("a second error adds nothing", #jaina.messages, before)
+
+-- A reply proves the name was fine after all.
+whisper("doch da", "Jaina", "G-JAINA")
+check("hearing from them clears the not-found mark", jaina.notFound == nil)
+
+-- An error long after the fact belongs to a different attempt and must not
+-- reach back and fail a message the player watched arrive.
+local settled = CM.AddMessage("Jaina-Blackrock", ns.DIR_OUT, "laengst zugestellt",
+	ns.MSG_WHISPER, ns.Compat.GetServerTime() - 600, ns.SEND_OK)
+M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Jaina' is currently playing.")
+M.RunTimers(1)
+eq("an old message is out of reach", settled[MSG_STATUS], ns.SEND_OK)
+
+--------------------------------------------------------------------------------
+-- Names the game could never issue
+--------------------------------------------------------------------------------
+
+-- SendChatMessage accepts anything, so a name that cannot exist produces a
+-- perfectly ordinary looking outgoing message. These are refused before that.
+local valid = {
+	"Thrall", "Jaina", "Thrall-Blackrock", "Thrall-Argent Dawn",
+	"Muradin", "Sylvanas-Draenor", "BN:Somebody#1234", "Somebody#1234",
+	"\195\132gidius", "\195\150zil", "Ab",
+}
+for i = 1, #valid do
+	check("accepted: " .. valid[i], ns.Compat.ValidatePlayerName(valid[i]) == true)
+end
+
+local invalid = {
+	["A"] = "length",
+	["Averyverylongname"] = "length",
+	["Thr all"] = "name",
+	["Thrall2"] = "name",
+	["Thr'all"] = "name",
+	["|cffff0000Thrall|r"] = "name",
+	[""] = "empty",
+	["Thrall-"] = "name",
+	["Somebody#12"] = "battletag",
+	["#1234"] = "battletag",
+}
+for name, reason in pairs(invalid) do
+	local ok, got = ns.Compat.ValidatePlayerName(name)
+	check("refused: " .. (name == "" and "(empty)" or name), ok == false, tostring(got))
+	eq("reason for " .. (name == "" and "(empty)" or name), got, reason)
+end
+
+-- A twelve character name is the longest the game issues, and it must pass.
+check("twelve characters is fine",
+	ns.Compat.ValidatePlayerName(("a"):rep(12)) == true)
+check("thirteen is not", ns.Compat.ValidatePlayerName(("a"):rep(13)) == false)
+-- Counted in characters, not bytes: an accented name is not shorter than it
+-- looks just because it takes more room.
+check("accents count as one character each",
+	ns.Compat.ValidatePlayerName(("\195\164"):rep(12)) == true)
+check("and thirteen of them is still too many",
+	ns.Compat.ValidatePlayerName(("\195\164"):rep(13)) == false)
 
 --------------------------------------------------------------------------------
 -- Splitting

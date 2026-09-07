@@ -511,8 +511,12 @@ function ML:RenderBubble(entry)
 			f.status:SetPoint("BOTTOMRIGHT", f, "BOTTOMLEFT", -ns.S.SM, 2)
 			f.status:Show()
 			if status == ns.SEND_FAILED then
-				W.SetTooltip(f, L["Not delivered"],
-					L["%s is not online"]:format(conv.name or ""))
+				-- Two different failures, and the difference matters: one is
+				-- worth retrying later, the other means the name is wrong.
+				local who = ns.ConversationManager.DisplayName(conv)
+				W.SetTooltip(f, L["Not delivered"], conv.notFound
+					and L["There is no character named %s."]:format(who)
+					or L["%s is not online"]:format(who))
 			else
 				W.SetTooltip(f, nil)
 			end

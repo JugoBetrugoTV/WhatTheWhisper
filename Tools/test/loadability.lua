@@ -205,8 +205,18 @@ check("the tooltip sits above the messenger",
 
 -- Keyboard focus: the composer must take focus without stealing it forever, and
 -- Escape has to hand it back or the player cannot move.
+--
+-- A thread has to be open first. With nothing selected the window shows its
+-- empty state and the composer is not on screen, and the client will not give
+-- keyboard focus to an edit box the player cannot see -- so focusing it there
+-- proves nothing.
+ns.ConversationManager.GetOrCreate(ns.Compat.NormalizeName("Thrall"))
+ns.ConversationManager.Select(ns.Compat.NormalizeName("Thrall"))
+M.RunFrames(8)
 local composer = window.view.composer
 check("the composer has an edit box", composer.input ~= nil)
+check("the composer is on screen once a thread is open",
+	M.EffectivelyVisible(composer.input.editBox or composer.input))
 composer.input:Focus()
 M.RunFrames(2)
 check("focusing the composer works", composer.input:HasFocus())

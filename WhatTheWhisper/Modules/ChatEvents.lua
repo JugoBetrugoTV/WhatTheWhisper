@@ -223,20 +223,34 @@ local function buildSystemPatterns()
 	end
 end
 
+-- How far back an error is allowed to reach. The server answers within a second
+-- or two; anything older than this belongs to a different attempt.
+local NOT_FOUND_WINDOW = 30
+
 local function onSystem(text)
 	if not notFoundPattern or not text then return end
 	local name = text:match(notFoundPattern)
 	if not name then return end
 	name = name:gsub("^['\"]", ""):gsub("['\"%.]$", "")
-	local id = Compat.NormalizeName(name)
-	if failPendingFor(id) then
-		Debug.Log("events", "server reports no player named %s", id)
-		local conv = CM.Get(id)
-		if conv then
-			PlayerInfo.Set(id, { online = false })
-			ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv)
-		end
+	local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
+	if not id then return end
+	local conv = CM.Get(id)
+	if not conv then return end
+
+	-- Two orderings, both real. On some clients the whisper is echoed back
+	-- before the error arrives, which consumes the pending entry and leaves the
+	-- bubble marked sent; on others the error is all that comes. So the pending
+	-- queue is tried first, and if it has nothing left, the message the echo
+	-- already marked as delivered is corrected. Without the second half the
+	-- player is shown a perfectly ordinary sent message that never arrived.
+	if not failPendingFor(id) then
+		CM.FailLastOutgoing(conv, NOT_FOUND_WINDOW)
 	end
+
+	Debug.Log("events", "server reports no player named %s", id)
+	conv.notFound = true
+	PlayerInfo.Set(id, { online = false })
+	ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv)
 end
 
 --------------------------------------------------------------------------------
