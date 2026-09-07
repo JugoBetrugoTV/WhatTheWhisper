@@ -322,10 +322,13 @@ def _(p):
 
 @emoji("warn")
 def _(p):
-    p.poly([(32, 5), (61, 56), (3, 56)], fill=(255, 204, 77, 255))
-    p.polyline([(32, 5), (61, 56), (3, 56), (32, 5)], 7.0, fill=(255, 204, 77, 255))
-    p.line(32, 24, 32, 40, 5.0, fill=DARK)
-    p.circle(32, 47, 3.2, fill=DARK)
+    # Inset to the same margin every other glyph keeps: the stroke is centred on
+    # the outline, so the vertices have to sit half a stroke inside the cell or
+    # the neighbouring emoji bleeds in when the sheet is filtered.
+    p.poly([(32, 10), (56, 54), (8, 54)], fill=(255, 204, 77, 255))
+    p.polyline([(32, 10), (56, 54), (8, 54), (32, 10)], 6.0, fill=(255, 204, 77, 255))
+    p.line(32, 26, 32, 40, 5.0, fill=DARK)
+    p.circle(32, 46, 3.2, fill=DARK)
 
 
 @emoji("question")
@@ -344,7 +347,7 @@ def main():
         d = ImageDraw.Draw(cell)
         fn(Pen(d, SS))
         cell = cell.resize((CELL, CELL), Image.LANCZOS)
-        cell = bleed(cell, passes=3)
+        cell = bleed(cell)
         atlas.paste(cell, ((idx % COLS) * CELL, (idx // COLS) * CELL))
         names.append(name)
 

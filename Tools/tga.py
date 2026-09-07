@@ -33,12 +33,21 @@ def write_tga(path, img):
         fh.write(bytes(out))
 
 
-def bleed(img, passes=6):
-    """Push colour outwards into transparent pixels.
+# A pixel this faint contributes no visible coverage, but its RGB is still read
+# by the filter, so its colour has to be repaired like a fully transparent one.
+# Repairing only alpha == 0 leaves a ring of near-black pixels at alpha 1..8
+# around every antialiased edge -- which is the halo this function exists to
+# prevent, one pixel further out.
+BLEED_FAINT = 8
 
-    Bilinear filtering samples RGB even where alpha is 0, so transparent black
+
+def bleed(img, passes=6):
+    """Push colour outwards into transparent and near-transparent pixels.
+
+    Bilinear filtering samples RGB regardless of alpha, so transparent black
     would produce dark fringes around every antialiased edge. Dilating the
-    colour into the transparent region removes that entirely.
+    colour outwards removes that entirely. Alpha is never changed: only the
+    colour underneath it.
     """
     from PIL import Image
     w, h = img.size
@@ -50,7 +59,7 @@ def bleed(img, passes=6):
             base = y * w
             for x in range(w):
                 i = base + x
-                if px[i][3] != 0:
+                if px[i][3] > BLEED_FAINT:
                     continue
                 r = g = b = n = 0
                 for dy in (-1, 0, 1):
@@ -62,11 +71,16 @@ def bleed(img, passes=6):
                         if xx < 0 or xx >= w:
                             continue
                         p = px[yy * w + xx]
-                        if p[3] != 0:
+                        # Only pixels that are actually drawn seed the colour;
+                        # otherwise faint pixels would average each other and
+                        # the black would spread instead of being replaced.
+                        if p[3] > BLEED_FAINT:
                             r += p[0]; g += p[1]; b += p[2]; n += 1
                 if n:
-                    new[i] = (r // n, g // n, b // n, 0)
-                    changed = True
+                    candidate = (r // n, g // n, b // n, px[i][3])
+                    if candidate != px[i]:
+                        new[i] = candidate
+                        changed = True
         px = new
         if not changed:
             break

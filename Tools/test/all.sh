@@ -14,6 +14,9 @@ luacheck WhatTheWhisper --no-color | tail -1
 echo "== atlases =="
 python3 Tools/test/check_icons.py
 
+echo "== textures =="
+python3 Tools/test/check_textures.py | tail -1
+
 echo "== locales =="
 python3 Tools/test/check_locales.py
 

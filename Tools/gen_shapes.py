@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
-from tga import write_tga  # noqa: E402
+from tga import write_tga, bleed  # noqa: E402
 
 OUT = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "WhatTheWhisper", "Art"))
@@ -65,6 +65,10 @@ d.polygon([(22 * s, 40 * s), (22 * s, 53 * s), (35 * s, 41 * s)], fill=(255, 255
 for cx in (23, 32, 41):
     d.ellipse([(cx - 3) * s, (28 - 3) * s, (cx + 3) * s, (28 + 3) * s], fill=(90, 124, 250, 255))
 img = img.resize((N2, N2), Image.LANCZOS)
+# The logo is the only coloured art with an alpha edge, so it is the only one
+# that showed a dark halo: without dilating the colour outwards, the client's
+# filtering samples transparent black around every rounded corner.
+img = bleed(img)
 write_tga(os.path.join(OUT, "Logo.tga"), img)
 img.save(preview("logo.png"))
 print("logo written")

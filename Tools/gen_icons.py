@@ -156,9 +156,11 @@ def _(p):
 
 @icon("check_double")
 def _(p):
-    p.polyline([(12, 33), (20, 42), (35, 23)], 4.2)
-    p.polyline([(24, 33), (32, 42), (47, 23)], 8.4, fill=CLEAR)
-    p.polyline([(24, 33), (32, 42), (47, 23)], 4.2)
+    # Both ticks shifted right so the pair sits centred in the cell rather than
+    # hanging to the left of it, which showed up beside the single tick.
+    p.polyline([(14.5, 33), (22.5, 42), (37.5, 23)], 4.2)
+    p.polyline([(26.5, 33), (34.5, 42), (49.5, 23)], 8.4, fill=CLEAR)
+    p.polyline([(26.5, 33), (34.5, 42), (49.5, 23)], 4.2)
 
 
 @icon("chevron_down")
@@ -271,18 +273,22 @@ def _(p):
 
 @icon("person_plus")
 def _(p):
-    p.circle(26, 24, 8, outline=(255, 255, 255, 255), w=W - 0.4)
-    p.arc(26, 52, 14, 205, 335, W - 0.4)
-    p.line(48, 24, 48, 38, W - 0.6)
-    p.line(41, 31, 55, 31, W - 0.6)
+    # The figure plus its "+" is one glyph; it was composed around the figure,
+    # which left the whole thing sitting right of centre.
+    p.circle(23.5, 24, 8, outline=(255, 255, 255, 255), w=W - 0.4)
+    p.arc(23.5, 52, 14, 205, 335, W - 0.4)
+    p.line(45.5, 24, 45.5, 38, W - 0.6)
+    p.line(38.5, 31, 52.5, 31, W - 0.6)
 
 
 @icon("users")
 def _(p):
-    p.circle(25, 25, 7.5, outline=(255, 255, 255, 255), w=W - 0.6)
-    p.arc(25, 51, 13, 205, 335, W - 0.6)
-    p.arc(44, 24, 7.5, 250, 470, W - 0.6)
-    p.arc(44, 51, 13, 285, 340, W - 0.6)
+    # Two overlapping figures: the pair's bounding box, not the front figure,
+    # is what has to be centred.
+    p.circle(22, 25, 7.5, outline=(255, 255, 255, 255), w=W - 0.6)
+    p.arc(22, 51, 13, 205, 335, W - 0.6)
+    p.arc(41, 24, 7.5, 250, 470, W - 0.6)
+    p.arc(41, 51, 13, 285, 340, W - 0.6)
 
 
 @icon("export")
