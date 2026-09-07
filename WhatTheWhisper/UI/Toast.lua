@@ -213,6 +213,18 @@ function Toast.DismissFor(convID)
 	if t then Toast.Dismiss(t) end
 end
 
+-- How many toasts are on screen, and how many frames the pool ever made. Both
+-- are answers to "did a burst of whispers turn into a burst of frames", which
+-- is the question worth being able to ask from outside.
+function Toast.ActiveCount()
+	return #active
+end
+
+function Toast.PoolStats()
+	if not pool then return 0, 0, 0 end
+	return pool:Stats()
+end
+
 function Toast.DismissAll()
 	for i = #active, 1, -1 do Toast.Dismiss(active[i]) end
 end
