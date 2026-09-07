@@ -69,6 +69,11 @@ function Bus.Fire(event, ...)
 	firing[event] = nil
 end
 
+function Bus.CountListeners(event)
+	local list = listeners[event]
+	return list and #list or 0
+end
+
 -- Event names, kept here so a typo is a nil index rather than a silent no-op.
 ns.EV = setmetatable({}, {
 	__index = function(_, k) error("unknown addon event: " .. tostring(k), 2) end,

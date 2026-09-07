@@ -44,3 +44,19 @@ write_tga(os.path.join(OUT, "Shadow.tga"), white_alpha(a))
 white_alpha(a).save(os.path.join(OUT, "_preview_shadow.png"))
 
 print("shapes written to", OUT)
+
+# ----------------------------------------------------------------- Logo ----
+# Addon list icon: an accent tile with a speech bubble knocked out of it.
+N2 = 64
+img = Image.new("RGBA", (N2 * SS, N2 * SS), (0, 0, 0, 0))
+d = ImageDraw.Draw(img)
+s = SS
+d.rounded_rectangle([2 * s, 2 * s, 62 * s, 62 * s], radius=14 * s, fill=(90, 124, 250, 255))
+d.rounded_rectangle([13 * s, 15 * s, 51 * s, 42 * s], radius=9 * s, fill=(255, 255, 255, 255))
+d.polygon([(22 * s, 40 * s), (22 * s, 53 * s), (35 * s, 41 * s)], fill=(255, 255, 255, 255))
+for cx in (23, 32, 41):
+    d.ellipse([(cx - 3) * s, (28 - 3) * s, (cx + 3) * s, (28 + 3) * s], fill=(90, 124, 250, 255))
+img = img.resize((N2, N2), Image.LANCZOS)
+write_tga(os.path.join(OUT, "Logo.tga"), img)
+img.save(os.path.join(OUT, "_preview_logo.png"))
+print("logo written")

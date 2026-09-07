@@ -52,8 +52,8 @@ local function newConversation(id, opts)
 		poppedOut    = false,
 	}
 
-	if History.IsPersistent() then
-		local rec = History.GetRecord(id, true)
+	local rec = History.IsPersistent() and History.GetRecord(id, true) or nil
+	if rec then
 		conv.record = rec
 		conv.messages = rec.msgs
 		conv.name = rec.n or conv.name

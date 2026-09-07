@@ -267,3 +267,23 @@ L["/wtw config - open settings"] = true
 L["/wtw <name> - open a conversation"] = true
 L["/wtw clear - clear all history"] = true
 L["/wtw diag - print client diagnostics"] = true
+
+-- Settings labels added with the schema
+L["Drop shadows"] = true
+L["Square"] = true
+L["Round"] = true
+L["Always"] = true
+L["Realm"] = true
+L["Timestamp on hover"] = true
+L["Maximum toasts"] = true
+L["Show delivery state"] = true
+L["Show whether the server accepted each message you send."] = true
+L["Mark read when focused"] = true
+L["Timestamps"] = true
+L["Reset all settings?"] = true
+L["Every option goes back to its default. Message history is not touched."] = true
+L["Reset"] = true
+L["Enter a character name"] = true
+L["Name"] = true
+L["Open"] = true
+L["Whisper a player"] = true

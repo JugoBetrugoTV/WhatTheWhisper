@@ -28,7 +28,7 @@ ns.defaults = {
 
 		appearance = {
 			skin           = "midnight",
-			font           = nil,        -- nil = the client's own chat font
+			font           = false,      -- false = the client's own chat font
 			fontScale      = 0,          -- -2 .. +4, applied to the whole type scale
 			opacity        = 0.97,
 			bubbleOpacity  = 1,

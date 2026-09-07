@@ -1,0 +1,14 @@
+## Interface: 50504
+## Title: WhatTheWhisper
+## Notes: A modern messenger for whispers: one thread per player, with history, search, popouts and notifications.
+## Notes-deDE: Ein moderner Messenger für Flüsternachrichten: ein Verlauf pro Spieler, mit History, Suche, Popouts und Benachrichtigungen.
+## Author: WhatTheWhisper
+## Version: 1.0.0
+## X-Flavor: Mists
+## X-Category: Chat & Communication
+## IconTexture: Interface\AddOns\WhatTheWhisper\Art\Logo
+## Dependencies: Ace3
+## SavedVariables: WhatTheWhisperDB, WhatTheWhisperHistoryDB
+
+WhatTheWhisper.xml
+Bindings.xml

@@ -271,48 +271,57 @@ end
 local OutlinedMT = {}
 OutlinedMT.__index = OutlinedMT
 
--- Draws the border as a slightly larger rounded rect behind the fill. Two
--- rounded rects is still only fourteen textures and it produces a clean, evenly
--- thick outline at any radius -- which stroking four sides cannot.
+-- The outline is the *outer* rounded rect and the fill is inset inside it by the
+-- border thickness. Drawing it this way keeps the whole surface inside the
+-- frame's bounds (so a row highlight never bleeds into its neighbour) and gives
+-- an evenly thick stroke at any radius, which stroking four sides cannot.
 function Draw.NewOutlined(parent, layer, subLevel)
-	local o = setmetatable({ parent = parent }, OutlinedMT)
-	o.border = Draw.NewRounded(parent, layer or "BACKGROUND", (subLevel or 0) - 1)
-	o.fill = Draw.NewRounded(parent, layer or "BACKGROUND", subLevel or 0)
-	o.thickness = 0
+	local o = setmetatable({
+		parent = parent,
+		radius = 0,
+		thickness = 0,
+		insets = { 0, 0, 0, 0 },
+	}, OutlinedMT)
+	o.border = Draw.NewRounded(parent, layer or "BACKGROUND", (subLevel or 0))
+	o.fill = Draw.NewRounded(parent, layer or "BACKGROUND", (subLevel or 0) + 1)
+	o.border:Hide()
 	return o
 end
 
-function OutlinedMT:SetRadius(radius)
-	self.radius = radius
-	self.border:SetRadius(radius + (self.thickness or 0))
-	self.fill:SetRadius(radius)
+function OutlinedMT:Apply()
+	local i, t = self.insets, self.thickness or 0
+	self.border:SetInsets(i[1], i[2], i[3], i[4])
+	self.border:SetRadius(self.radius)
+	self.fill:SetInsets(i[1] + t, i[2] + t, i[3] + t, i[4] + t)
+	self.fill:SetRadius(math.max(0, self.radius - t))
+	self.border:SetShown(t > 0)
 	return self
 end
 
+function OutlinedMT:SetRadius(radius)
+	self.radius = radius or 0
+	return self:Apply()
+end
+
 function OutlinedMT:SetInsets(l, r, t, b)
-	self._i = { l or 0, r or 0, t or 0, b or 0 }
-	local th = self.thickness or 0
-	self.border:SetInsets((l or 0) - th, (r or 0) - th, (t or 0) - th, (b or 0) - th)
-	self.fill:SetInsets(l, r, t, b)
-	return self
+	self.insets[1], self.insets[2] = l or 0, r or 0
+	self.insets[3], self.insets[4] = t or 0, b or 0
+	return self:Apply()
 end
 
 function OutlinedMT:SetBorder(thickness, r, g, b, a)
 	self.thickness = thickness or 0
-	if self._i then
-		self:SetInsets(self._i[1], self._i[2], self._i[3], self._i[4])
-	else
-		self.border:SetInsets(-self.thickness, -self.thickness, -self.thickness, -self.thickness)
-	end
-	if self.radius then self:SetRadius(self.radius) end
-	self.border:SetColor(r, g, b, a)
-	self.border:SetShown(self.thickness > 0)
-	return self
+	if r then self.border:SetColor(r, g, b, a) end
+	return self:Apply()
 end
 
 function OutlinedMT:SetColor(...)
 	self.fill:SetColor(...)
 	return self
+end
+
+function OutlinedMT:GetColor()
+	return self.fill:GetColor()
 end
 
 function OutlinedMT:SetCorners(...)
@@ -339,8 +348,8 @@ function OutlinedMT:SetAlpha(a)
 end
 
 function OutlinedMT:SetDrawLayer(layer, sub)
-	self.border:SetDrawLayer(layer, (sub or 0) - 1)
-	self.fill:SetDrawLayer(layer, sub or 0)
+	self.border:SetDrawLayer(layer, sub or 0)
+	self.fill:SetDrawLayer(layer, (sub or 0) + 1)
 	return self
 end
 

@@ -1,0 +1,91 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<!--
+		Single load manifest shared by all four client TOCs, so the file list can
+		never drift between Retail, MoP Classic, TBC and Classic Era.
+		Order matters: each file may reference anything loaded above it at file
+		scope, and nothing below it.
+	-->
+
+	<!-- Foundation -->
+	<Script file="Core\Namespace.lua"/>
+	<Script file="Core\Compat\Compat.lua"/>
+	<Script file="Core\Compat\Retail.lua"/>
+	<Script file="Core\Compat\Mists.lua"/>
+	<Script file="Core\Compat\TBC.lua"/>
+	<Script file="Core\Compat\Classic.lua"/>
+	<Script file="Core\Compat\Fallback.lua"/>
+
+	<!-- Localisation -->
+	<Script file="Core\Locale\enUS.lua"/>
+	<Script file="Core\Locale\deDE.lua"/>
+
+	<!-- Utilities -->
+	<Script file="Core\Util\Pixel.lua"/>
+	<Script file="Core\Util\Text.lua"/>
+	<Script file="Core\Util\Color.lua"/>
+	<Script file="Core\Util\Pool.lua"/>
+	<Script file="Core\Util\EventBus.lua"/>
+	<Script file="Core\Util\Format.lua"/>
+	<Script file="Core\Defaults.lua"/>
+	<Script file="Core\Options.lua"/>
+
+	<!-- Generated art coordinates -->
+	<Script file="UI\IconAtlas.lua"/>
+	<Script file="UI\EmojiAtlas.lua"/>
+
+	<!-- Skins and the resolved theme -->
+	<Script file="Skins\Skins.lua"/>
+	<Script file="Skins\Midnight.lua"/>
+	<Script file="Skins\WhatsApp.lua"/>
+	<Script file="Skins\Dark.lua"/>
+	<Script file="Skins\Minimal.lua"/>
+	<Script file="Skins\Glass.lua"/>
+	<Script file="Skins\Classic.lua"/>
+	<Script file="UI\Theme.lua"/>
+
+	<!-- Drawing and motion -->
+	<Script file="UI\Draw.lua"/>
+	<Script file="UI\Anim.lua"/>
+
+	<!-- Widget toolkit -->
+	<Script file="UI\Widgets\Widgets.lua"/>
+	<Script file="UI\Widgets\Tooltip.lua"/>
+	<Script file="UI\Widgets\Button.lua"/>
+	<Script file="UI\Widgets\Avatar.lua"/>
+	<Script file="UI\Widgets\ScrollArea.lua"/>
+	<Script file="UI\Widgets\EditBox.lua"/>
+	<Script file="UI\Widgets\ContextMenu.lua"/>
+	<Script file="UI\Widgets\Controls.lua"/>
+
+	<!-- Model and services -->
+	<Script file="Modules\History.lua"/>
+	<Script file="Modules\PlayerInfo.lua"/>
+	<Script file="Modules\ConversationManager.lua"/>
+	<Script file="Modules\Sounds.lua"/>
+	<Script file="Modules\Notifications.lua"/>
+	<Script file="Modules\ChatEvents.lua"/>
+	<Script file="Modules\URLs.lua"/>
+	<Script file="Modules\Emoticons.lua"/>
+	<Script file="Modules\Export.lua"/>
+	<Script file="Modules\Combat.lua"/>
+	<Script file="Modules\Search.lua"/>
+
+	<!-- Views -->
+	<Script file="UI\MessageList.lua"/>
+	<Script file="UI\Composer.lua"/>
+	<Script file="UI\ConversationView.lua"/>
+	<Script file="UI\Sidebar.lua"/>
+	<Script file="UI\Tabs.lua"/>
+	<Script file="UI\MainWindow.lua"/>
+	<Script file="UI\PopoutWindow.lua"/>
+	<Script file="UI\Toast.lua"/>
+	<Script file="UI\Expose.lua"/>
+	<Script file="UI\EmojiPicker.lua"/>
+	<Script file="UI\Dialogs.lua"/>
+	<Script file="UI\Minimap.lua"/>
+	<Script file="UI\SettingsUI.lua"/>
+	<Script file="UI\UI.lua"/>
+
+	<!-- Lifecycle -->
+	<Script file="Core\Core.lua"/>
+</Ui>

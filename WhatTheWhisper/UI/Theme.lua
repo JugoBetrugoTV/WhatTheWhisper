@@ -49,7 +49,7 @@ local FONT_TOKENS = { "MICRO", "SMALL", "BODY", "TITLE", "DISPLAY" }
 local function buildFonts()
 	local ap = appearance()
 	local path = ap.font
-	if not path or not Compat.ValidateFont(path) then
+	if not path or path == "" or not Compat.ValidateFont(path) then
 		path = Compat.GetDefaultFont()
 	end
 	Theme.fontPath = path

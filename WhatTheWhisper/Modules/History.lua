@@ -26,12 +26,24 @@ local charStore -- root.chars[playerKey]
 -- Setup
 --------------------------------------------------------------------------------
 
-local function settings()
-	return (ns.db and ns.db.profile and ns.db.profile.history) or ns.defaults.profile.history
+-- Read one history setting.
+--
+-- Deliberately per key rather than "grab the table once": AceDB strips values
+-- that equal their default out of the profile during PLAYER_LOGOUT so they are
+-- not written to the SavedVariables file, and handler order at logout is not
+-- defined. Pruning runs at logout, so it has to survive reading a stripped
+-- table -- hence the explicit fallback to the shipped defaults.
+local function setting(key)
+	local db = ns.db
+	local profile = db and db.profile and db.profile.history
+	local value = profile and profile[key]
+	if value == nil then value = ns.defaults.profile.history[key] end
+	return value
 end
+History.Setting = setting
 
 function History.IsPersistent()
-	local r = settings().retention
+	local r = setting("retention")
 	return r ~= "off" and r ~= "session"
 end
 
@@ -104,7 +116,7 @@ end
 local TRIM_SLACK = 0.10
 
 function History.Trim(messages, limit)
-	limit = limit or settings().maxPerConversation
+	limit = limit or setting("maxPerConversation")
 	if limit <= 0 then return end
 	local n = #messages
 	local ceiling = limit + max(16, floor(limit * TRIM_SLACK))
@@ -121,7 +133,7 @@ end
 function History.Append(conv, message)
 	local list = conv.messages
 	list[#list + 1] = message
-	History.Trim(list, settings().maxPerConversation)
+	History.Trim(list, setting("maxPerConversation"))
 	if conv.record then
 		conv.record.t = message[MSG_TS]
 	end
@@ -132,7 +144,7 @@ end
 --------------------------------------------------------------------------------
 
 local function retentionCutoff()
-	local seconds = ns.RETENTION_SECONDS[settings().retention]
+	local seconds = ns.RETENTION_SECONDS[setting("retention")]
 	if not seconds or seconds < 0 then return nil end   -- forever / session
 	if seconds == 0 then return math.huge end           -- off: drop everything
 	return time() - seconds
@@ -146,7 +158,7 @@ function History.Prune()
 	local conv = charStore.conv
 	local cutoff = retentionCutoff()
 	local removedMessages, removedConversations = 0, 0
-	local limit = settings().maxPerConversation
+	local limit = setting("maxPerConversation")
 
 	for id, rec in pairs(conv) do
 		local msgs = rec.msgs
@@ -179,7 +191,7 @@ function History.Prune()
 	end
 
 	-- Conversation cap: keep pinned threads and the most recently active ones.
-	local maxConv = settings().maxConversations
+	local maxConv = setting("maxConversations") or 0
 	local ordered = {}
 	for id, rec in pairs(conv) do
 		ordered[#ordered + 1] = { id = id, rec = rec }
