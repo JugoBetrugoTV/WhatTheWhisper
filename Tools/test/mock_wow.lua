@@ -402,8 +402,8 @@ function fsMethods:GetStringHeight()
 	local lines = math.max(1, math.ceil(natural / width))
 	return lines * (size + (self._spacing or 0)) + 2
 end
-function fsMethods:SetJustifyH() end
-function fsMethods:SetJustifyV() end
+function fsMethods:SetJustifyH(v) self._justifyH = v end
+function fsMethods:SetJustifyV(v) self._justifyV = v end
 function fsMethods:SetWordWrap(v) self._wordWrap = (v ~= false) end
 function fsMethods:SetNonSpaceWrap() end
 function fsMethods:SetSpacing(v) self._spacing = v end

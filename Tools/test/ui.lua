@@ -488,6 +488,85 @@ for i = 1, #durations do
 end
 
 --------------------------------------------------------------------------------
+-- Pixel quality: even heights, centred text, no half-pixel edges
+--------------------------------------------------------------------------------
+
+-- Rows in one list must all be the same height. One row a pixel taller than
+-- its neighbours is the most visible kind of sloppiness there is.
+if #rows > 1 then
+	local heights = {}
+	for i = 1, #rows do heights[i] = select(4, rect(rows[i])) end
+	local uneven, worst = 0, nil
+	for i = 2, #heights do
+		if math.abs(heights[i] - heights[1]) > EPS then
+			uneven = uneven + 1
+			worst = worst or ("%.2f vs %.2f"):format(heights[i], heights[1])
+		end
+	end
+	check("every sidebar row is the same height", uneven == 0, worst)
+end
+
+-- Text that is meant to sit in the middle of a control has to actually sit
+-- there. A label a pixel or two high in its row reads as misaligned even when
+-- nobody can say why.
+local function checkVerticalCentring(label, root)
+	local off, sample, inspected = 0, nil, 0
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= ""
+			and node._justifyV == "MIDDLE" then
+			local parent = node._parent
+			if parent and M.EffectivelyShown(parent, root) then
+				local _, pb, _, ph = rect(parent)
+				local _, nb, _, nh = rect(node)
+				-- Only judge a label that is meant to fill its parent's height.
+				if ph > nh and ph < nh * 4 then
+					inspected = inspected + 1
+					local drift = ((nb + nh / 2) - (pb + ph / 2))
+					if math.abs(drift) > 1.01 then
+						off = off + 1
+						sample = sample or (describe(node)
+							.. (" sits %.2f off its container's middle"):format(drift))
+					end
+				end
+			end
+		end
+	end
+	check(label, off == 0, sample)
+	return inspected
+end
+
+local centred = checkVerticalCentring("centred text really is centred", window)
+check("centred text was actually inspected", centred > 4,
+	("only %d labels considered; this check has stopped covering anything"):format(centred))
+
+-- Every edge the addon positions itself must land on a whole pixel at the
+-- current scale. A border on a half pixel is drawn across two rows of pixels
+-- at half strength each, which is what "blurry 1px border" means.
+do
+	local px = ns.Pixel.Size(_G.UIParent)
+	local blurry, sample = 0, nil
+	local nodes = auditable(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.__wtwHairline then
+			local l, b, w, h = rect(node)
+			for _, edge in ipairs({ l, b, l + w, b + h }) do
+				local inPixels = edge / px
+				if math.abs(inPixels - math.floor(inPixels + 0.5)) > 0.02 then
+					blurry = blurry + 1
+					sample = sample or (describe(node)
+						.. (" has an edge at %.4f, which is %.3f pixels"):format(edge, inPixels))
+					break
+				end
+			end
+		end
+	end
+	check("no hairline lands on a fractional pixel", blurry == 0, sample)
+end
+
+--------------------------------------------------------------------------------
 -- Truncation: constrained text must be ellipsized, never drawn past its box
 --------------------------------------------------------------------------------
 
