@@ -431,6 +431,10 @@ function UI.RefreshLayout()
 	window:Relayout()
 	window:SetSidebarWidth(ns.db.profile.layout.sidebarWidth or ns.SZ.SIDEBAR_W)
 	window.tabs:Refresh()
+	-- The details panel is a layout setting like any other, so the checkbox in
+	-- the settings window and the header button move the same thing.
+	window.view:ApplyProfileState()
+	ns.Popout.Each(function(_, win) win.view:ApplyProfileState() end)
 	UI.ScheduleTabSweep()
 end
 
@@ -543,7 +547,17 @@ function UI.Init()
 		local selected = CM.Selected()
 		if selected and (not fullName or selected.id == fullName) then
 			window.view:RefreshHeader()
+			-- The details panel is the whole reason a lookup was sent; it has to
+			-- show the answer without the player closing and reopening the
+			-- thread to make it notice.
+			window.view.profile:Refresh()
 		end
+		ns.Popout.Each(function(id, win)
+			if not fullName or id == fullName then
+				win.view:RefreshHeader()
+				win.view.profile:Refresh()
+			end
+		end)
 	end)
 
 	Bus.Register(EV.HISTORY_CLEARED, "UI", function()

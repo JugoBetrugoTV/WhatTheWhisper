@@ -90,6 +90,14 @@ function ConversationView.New(parent, opts)
 	bar.count:SetWidth(58)
 	bar.box:SetPoint("RIGHT", bar.count, "LEFT", -ns.S.SM, 0)
 
+	----------------------------------------------------------- profile panel
+	-- Who this actually is, in long form. The header line has room for a few
+	-- words before it truncates; this has room for the facts.
+	v.profile = ns.ProfilePanel.New(v)
+	v.profile:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, 0)
+	v.profile:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+	v.profile.onResize = function() v:Relayout() end
+
 	------------------------------------------------------------------ content
 	v.composer = ns.Composer.New(v, {
 		onResize = function() v:Relayout() end,
@@ -118,6 +126,8 @@ function ConversationView.New(parent, opts)
 	v.emptyTitle:SetText(L["Pick a conversation"])
 	v.emptyBody:SetText(L["Your whispers are kept here, one thread per player."])
 
+	v:AddHeaderButton("info", L["Character details"], function() v:ToggleProfile() end)
+	v.header.info = v.header.actions[#v.header.actions].button
 	v:AddHeaderButton("search", L["Search messages"], function() v:ToggleSearch() end)
 	v.header.search = v.header.actions[#v.header.actions].button
 	if opts.showPopout ~= false then
@@ -196,6 +206,7 @@ end
 function V:Relayout()
 	local top = (self.opts.headerHeight or ns.SZ.HEADER_H)
 	if self.searchBar:IsShown() then top = top + SEARCHBAR_H end
+	if self.profile:IsShown() then top = top + (self.profile:GetHeight() or 0) end
 	self.list:ClearAllPoints()
 	self.list:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -top)
 	self.list:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, -top)
@@ -216,10 +227,14 @@ function V:SetConversation(conv)
 	self.list:SetShown(hasConv)
 	self.composer:SetShown(hasConv)
 	self.empty:SetShown(not hasConv)
+	self.profile:SetConversation(conv)
 	if not hasConv then
 		self:ToggleSearch(false)
+		self.profile:Hide()
+		self:Relayout()
 		return
 	end
+	self:ApplyProfileState()
 
 	self:RefreshHeader()
 
@@ -320,6 +335,41 @@ function V:RefreshHeader()
 end
 
 --------------------------------------------------------------------------------
+-- Character details
+--------------------------------------------------------------------------------
+
+-- The panel hangs off whatever is above it, and what is above it depends on
+-- whether the search bar is open.
+function V:AnchorProfile()
+	local above = self.searchBar:IsShown() and self.searchBar or self.header
+	self.profile:ClearAllPoints()
+	self.profile:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, 0)
+	self.profile:SetPoint("TOPRIGHT", above, "BOTTOMRIGHT", 0, 0)
+end
+
+function V:ToggleProfile(force)
+	local show = force
+	if show == nil then show = not self.profile:IsShown() end
+	local db = ns.db
+	if db and db.profile then db.profile.layout.showProfile = show and true or false end
+	self:ApplyProfileState()
+end
+
+-- Reads the setting rather than a local, so the checkbox in the settings window
+-- and the header button are the same switch rather than two that disagree.
+function V:ApplyProfileState()
+	local db = ns.db
+	local wanted = db and db.profile and db.profile.layout.showProfile
+	if wanted == nil then wanted = ns.defaults.profile.layout.showProfile end
+	local show = wanted and self.conv ~= nil
+	self.profile:SetShown(show)
+	self.header.info:SetSelectedState(wanted and true or false)
+	self:AnchorProfile()
+	if show then self.profile:Refresh() end
+	self:Relayout()
+end
+
+--------------------------------------------------------------------------------
 -- Search inside the conversation
 --------------------------------------------------------------------------------
 
@@ -328,6 +378,7 @@ function V:ToggleSearch(force)
 	if show == nil then show = not self.searchBar:IsShown() end
 	self.searchBar:SetShown(show)
 	self.header.search:SetSelectedState(show)
+	self:AnchorProfile()
 	self:Relayout()
 	if show then
 		self.searchBar.box:Focus()
@@ -443,6 +494,7 @@ function V:ApplyTheme()
 	self.searchBar.prev:ApplyTheme()
 	W.RefreshText(self.searchBar.count)
 
+	self.profile:ApplyTheme()
 	self.list:ApplyTheme()
 	self.composer:ApplyTheme()
 	W.RefreshIcon(self.emptyIcon)

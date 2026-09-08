@@ -75,6 +75,7 @@
 	<!-- Views -->
 	<Script file="UI\MessageList.lua"/>
 	<Script file="UI\Composer.lua"/>
+	<Script file="UI\ProfilePanel.lua"/>
 	<Script file="UI\ConversationView.lua"/>
 	<Script file="UI\Sidebar.lua"/>
 	<Script file="UI\Tabs.lua"/>

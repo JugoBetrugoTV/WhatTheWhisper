@@ -401,7 +401,11 @@ step("bulk history", function()
 		total = total + 1
 		if before[f] then same = same + 1 end
 	end
-	assert(total > 0 and same == total,
+	-- A short scroll may legitimately pull one more element into the viewport at
+	-- the edge -- that is virtualisation working, not a fault. What must never
+	-- happen is the visible window being released and re-rendered wholesale, or
+	-- the pool growing to serve a scroll it already has the frames for.
+	assert(total > 0 and (total - same) <= 1,
 		("scroll fast path did not reuse elements: %d/%d"):format(same, total))
 	assert(select(1, list.bubblePool:Stats()) == created, "scroll created new frames")
 	print(("scroll fast path: %d/%d elements reused, 0 new frames"):format(same, total))

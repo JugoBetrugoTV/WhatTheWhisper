@@ -286,6 +286,8 @@ function Options.BuildSchema()
 						}),
 						slider("layout.sidebarWidth", L["Sidebar width"],
 							ns.SZ.SIDEBAR_RAIL_W, ns.SZ.SIDEBAR_MAX_W, 4, plain),
+						toggle("layout.showProfile", L["Character details"],
+							L["Class, level, guild, zone and realm under the header."]),
 					},
 				},
 				{

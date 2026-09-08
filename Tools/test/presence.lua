@@ -170,6 +170,59 @@ check("no /who across realms", PI.EnsureDetails("Thrall-Draenor") == false)
 eq("and none sent", #M.whoSent, 0)
 
 --------------------------------------------------------------------------------
+-- The details panel
+--------------------------------------------------------------------------------
+
+-- The long form of the same facts. Its whole point is that a field the client
+-- has never answered says so, instead of leaving a gap that reads as a bug.
+CM.Select(thrall)
+M.RunFrames(8)
+local panel = ns.MainWindow.Get().view.profile
+check("the details panel is open by default", panel:IsShown())
+
+local function panelText()
+	local out = {}
+	for i = 1, #panel.rows do
+		if panel.rows[i]:IsShown() then
+			out[#out + 1] = (panel.rows[i].label:GetText() or "")
+				.. "=" .. (panel.rows[i].value:GetText() or "")
+		end
+	end
+	return table.concat(out, " | ")
+end
+
+local shown = panelText()
+check("it names the class", shown:find("Shaman", 1, true) ~= nil, shown)
+check("the level", shown:find("70", 1, true) ~= nil, shown)
+check("the guild", shown:find("Wildhammer Clan", 1, true) ~= nil, shown)
+check("the zone", shown:find("Orgrimmar", 1, true) ~= nil, shown)
+-- The realm was the one thing the header only showed for cross-realm players,
+-- and the one thing the report asked for by name.
+check("and the realm", shown:find("Blackrock", 1, true) ~= nil, shown)
+
+-- A thread with nothing known keeps every row and says which are blank, so the
+-- player can see the addon knows the field exists.
+CM.GetOrCreate("Unknownperson-Blackrock")
+CM.Select("Unknownperson-Blackrock")
+M.RunFrames(8)
+local blank = panelText()
+check("an unknown player still gets every row",
+	select(2, blank:gsub("|", "")) >= 4, blank)
+check("and the blanks say so", blank:find("not known", 1, true) ~= nil, blank)
+check("with a way to fill them in", panel.lookup:IsShown())
+
+-- Switching it off is a setting, not a local flag, so the checkbox and the
+-- header button are the same switch.
+ns.Options.Set("layout.showProfile", false)
+M.RunFrames(6)
+check("the setting closes the panel", not panel:IsShown())
+ns.Options.Set("layout.showProfile", true)
+M.RunFrames(6)
+check("and opens it again", panel:IsShown())
+CM.Select(thrall)
+M.RunFrames(6)
+
+--------------------------------------------------------------------------------
 -- Battle.net
 --------------------------------------------------------------------------------
 

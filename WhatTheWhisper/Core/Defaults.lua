@@ -23,6 +23,10 @@ ns.defaults = {
 			tabBlink      = true,
 			tabAutoOpen   = true,
 			maxTabs       = 8,
+			-- The character details panel under the header. On by default: the
+			-- most common complaint about a whisper window is not knowing who
+			-- you are talking to.
+			showProfile   = true,
 		},
 
 		appearance = {
