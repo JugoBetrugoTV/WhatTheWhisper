@@ -190,8 +190,13 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
             cv.icon("search", S["MD"] + S["MD"], fy + (fh - 14) / 2, 14, c["textMuted"])
             cv.text(S["MD"] + S["HUGE"], fy + fh / 2, "Search conversations", T["SMALL"],
                     c["textMuted"])
-        cv.icon("message_plus", sidebar_w - S["SM"] - SZ["ICON_BTN"] + (SZ["ICON_BTN"] - 16) / 2,
-                title_h + (head_h - 16) / 2, 16, c["textSecondary"])
+        # Filled: the sidebar's primary action, same weight as the send button.
+        nc_x = sidebar_w - S["SM"] - SZ["ICON_BTN"]
+        nc_y = title_h + (head_h - SZ["ICON_BTN"]) / 2
+        cv.circle(nc_x + SZ["ICON_BTN"] / 2, nc_y + SZ["ICON_BTN"] / 2,
+                  SZ["ICON_BTN"] / 2, fill=c["accent"])
+        cv.icon("message_plus", nc_x + (SZ["ICON_BTN"] - 16) / 2,
+                nc_y + (SZ["ICON_BTN"] - 16) / 2, 16, c["onAccent"])
 
         row_h = SZ["ROW_H"]
         y = title_h + head_h
@@ -257,10 +262,20 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
         tabs = [("Thrall", True, 0), ("Jaina", False, 2), ("Sylvanas", False, 0)]
         tw_each = min(SZ["TAB_MAX_W"], (content_w - S["XS"] * 2) / max(3, len(tabs)))
         tx = content_x + S["XS"]
-        for label, active, unread in tabs:
+        for index, (label, active, unread) in enumerate(tabs):
+            # A divider between two resting tabs, dropped next to the active
+            # one: without it the inactive tabs read as floating text.
+            following = tabs[index + 1] if index + 1 < len(tabs) else None
+            if not active and following is not None and not following[1]:
+                cv.rect(tx + tw_each - 1, top + S["SM"], 1,
+                        tab_h - S["SM"] * 2, c["borderSubtle"])
             if active:
                 cv.rrect(tx, top, tw_each, tab_h, radius(R["MD"]), fill=c["bg2"],
                          corners=(True, True, False, False))
+                # The raised fill alone is invisible in some skins; the accent
+                # bar is what actually says which tab you are on.
+                cv.rect(tx + radius(R["MD"]), top,
+                        tw_each - radius(R["MD"]) * 2, SZ["ACCENT_BAR_W"], c["accent"])
             lx = tx + S["MD"]
             if unread:
                 cv.circle(lx + 3, top + tab_h / 2, 3, fill=c["accent"])

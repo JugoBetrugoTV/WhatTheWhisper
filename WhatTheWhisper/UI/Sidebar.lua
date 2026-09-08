@@ -108,8 +108,12 @@ function Sidebar.New(parent)
 	header:SetPoint("TOPRIGHT")
 	sb.header = header
 
+	-- The one creative action in the sidebar. As a ghost glyph beside the search
+	-- field it read as decoration; filled, it reads as the button it is -- the
+	-- same weight the send button carries in the composer, for the same reason.
 	header.newChat = ns.Button.Icon(header, {
 		icon = "message_plus", tooltip = L["New conversation"],
+		variant = "primary", radius = ns.SZ.ICON_BTN / 2,
 		onClick = function(self) ns.UI.PromptNewConversation(self) end,
 	})
 	header.newChat:SetPoint("RIGHT", header, "RIGHT", -ns.S.SM, 0)

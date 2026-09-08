@@ -15,6 +15,11 @@ local max, min, floor, abs = math.max, math.min, math.floor, math.abs
 
 local T = {}
 local DOT = 6
+-- The close button on a tab, and the vertical inset of the divider between two
+-- of them. The close size was written once here and once inside the width
+-- arithmetic that reserves room for it, with nothing tying the two together.
+local CLOSE_SIZE = 18
+local SEPARATOR_INSET = ns.S.SM
 
 --------------------------------------------------------------------------------
 -- Tab frames
@@ -26,6 +31,20 @@ local function createTab(strip)
 	tab.surface = W.Surface(tab, { radius = ns.R.MD })
 	tab.surface:SetCorners(true, true, false, false)
 
+	-- Which tab you are on cannot rest on the raised fill alone. That fill is
+	-- bg2 against the strip's bg1, and several skins put those within a percent
+	-- of each other -- in Minimal they are the same colour, so the active tab
+	-- was invisible. An accent bar along the top edge says it whatever the
+	-- palette does, the way every editor with tabs does.
+	tab.marker = CreateFrame("Frame", nil, tab)
+	tab.marker:SetHeight(ns.SZ.ACCENT_BAR_W)
+	tab.marker:SetPoint("TOPLEFT", tab, "TOPLEFT", ns.R.MD, 0)
+	tab.marker:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -ns.R.MD, 0)
+	tab.marker.surface = W.Surface(tab.marker, {
+		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
+	})
+	tab.marker:Hide()
+
 	tab.dot = tab:CreateTexture(nil, "OVERLAY")
 	tab.dot:SetTexture(ns.Draw.TEX_ROUND, "CLAMP", "CLAMP")
 	tab.dot:SetSize(DOT, DOT)
@@ -36,11 +55,21 @@ local function createTab(strip)
 	tab.label:SetPoint("LEFT", tab, "LEFT", ns.S.MD, 0)
 
 	tab.close = ns.Button.Icon(tab, {
-		icon = "close", size = 18, glyph = 9, radius = 9,
+		icon = "close", size = CLOSE_SIZE, glyph = 9, radius = CLOSE_SIZE / 2,
 		onClick = function() if tab.conv then ns.UI.CloseConversation(tab.conv.id) end end,
 	})
 	tab.close:SetPoint("RIGHT", tab, "RIGHT", -ns.S.SM, 0)
 	tab.close:Hide()
+
+	-- Tabs sit edge to edge with no gap, which without a divider leaves two
+	-- resting tabs reading as one strip of floating text rather than as tabs.
+	-- The divider disappears next to the tab you are on or pointing at, the way
+	-- a browser does it, so the raised tab keeps a clean edge.
+	tab.divider = W.Hairline(tab, "vertical", {
+		anchor = "RIGHT", color = "borderSubtle",
+		insetStart = SEPARATOR_INSET, insetEnd = SEPARATOR_INSET,
+	})
+	tab.divider:SetShown(false)
 
 	W.MakeInteractive(tab, function(state, instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
@@ -54,6 +83,9 @@ local function createTab(strip)
 		W.SetTextRole(tab.label, tab.active and "textPrimary"
 			or (state == "hover" and "textPrimary" or "textSecondary"))
 		tab.close:SetShown(tab.active or state == "hover" or state == "pressed")
+		tab.marker:SetShown(tab.active and true or false)
+		tab.hovered = (state == "hover" or state == "pressed") or nil
+		strip:RefreshDividers()
 	end)
 
 	tab:HookScript("OnMouseUp", function(self, button)
@@ -96,6 +128,9 @@ end
 local function resetTab(_, tab)
 	tab:Hide()
 	tab:ClearAllPoints()
+	tab.divider:SetShown(false)
+	tab.marker:Hide()
+	tab.hovered = nil
 	tab.conv = nil
 	tab.active = nil
 	tab.dragging = false
@@ -179,6 +214,19 @@ function T:Refresh()
 			end
 		end
 	end
+	self:RefreshDividers()
+end
+
+-- A divider belongs between two tabs that are both at rest. Next to the active
+-- one, or the one under the cursor, it would cut into a raised edge.
+function T:RefreshDividers()
+	local rendered = self.rendered
+	for i = 1, #rendered do
+		local tab, next = rendered[i], rendered[i + 1]
+		local quiet = not tab.active and not tab.hovered
+		local nextQuiet = next ~= nil and not next.active and not next.hovered
+		tab.divider:SetShown(quiet and nextQuiet)
+	end
 end
 
 function T:PaintTab(tab, conv, width)
@@ -194,7 +242,8 @@ function T:PaintTab(tab, conv, width)
 		tab.label:SetPoint("LEFT", tab, "LEFT", ns.S.MD, 0)
 	end
 
-	local reserved = ns.S.MD + (unread and (DOT + ns.S.SM - 1) or 0) + 18 + ns.S.SM * 2
+	local reserved = ns.S.MD + (unread and (DOT + ns.S.SM - 1) or 0)
+		+ CLOSE_SIZE + ns.S.SM * 2
 	Text.Ellipsize(tab.label, CM.DisplayName(conv), max(20, width - reserved))
 	tab.UpdateVisualState(true)
 
@@ -238,6 +287,8 @@ function T:ApplyTheme()
 	local function refresh(tab)
 		tab.surface:ApplyTheme()
 		tab.surface:SetCorners(true, true, false, false)
+		tab.marker.surface:ApplyTheme()
+		tab.divider:ApplyTheme()
 		W.RefreshText(tab.label)
 		tab.close:ApplyTheme()
 	end

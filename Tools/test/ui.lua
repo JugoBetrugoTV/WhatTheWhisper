@@ -959,6 +959,18 @@ for _, id in ipairs(ns.Skins.order) do
 			("%s on %s is only %.2f:1"):format(pair[1], pair[2], separation))
 	end
 
+	-- Which tab you are on must be visible in every skin. The raised fill alone
+	-- is not enough: bg2 against bg1 is a 1% difference in Dark and exactly zero
+	-- in Minimal, where the active tab was simply invisible. So the marker is
+	-- what carries it, and the marker's colour has to separate from the strip.
+	do
+		local bg = over(ns.Theme.Get("bg1"), { 0, 0, 0, 1 })
+		local marker = over(ns.Theme.Get("accent"), bg)
+		check(("%s: the active tab marker is visible on the strip"):format(id),
+			contrast(marker, bg) >= 1.35,
+			("accent on bg1 is only %.2f:1"):format(contrast(marker, bg)))
+	end
+
 	-- An unresolved colour role renders magenta on purpose; none may survive.
 	for _, pair in ipairs(CONTRAST_PAIRS) do
 		for _, role in ipairs({ pair[1], pair[2] }) do
@@ -973,6 +985,28 @@ end
 ns.Options.Set("appearance.skin", "midnight")
 ns.UI.RefreshAll()
 M.RunFrames(4)
+
+-- ...and it is on exactly one tab: the one that is selected.
+do
+	local strip = window.tabs
+	if strip and strip.rendered then
+		ns.ConversationManager.Select(thrall)
+		ns.UI.RefreshAll()
+		M.RunFrames(6)
+		local marked, active, wrong = 0, 0, nil
+		for i = 1, #strip.rendered do
+			local tab = strip.rendered[i]
+			if tab.active then active = active + 1 end
+			if tab.marker:IsShown() then
+				marked = marked + 1
+				if not tab.active then wrong = tab.label:GetText() end
+			end
+		end
+		check("there are tabs to check", #strip.rendered > 0, tostring(#strip.rendered))
+		eq("exactly one tab is marked active", marked, active)
+		check("and it is the selected one", wrong == nil, tostring(wrong))
+	end
+end
 
 --------------------------------------------------------------------------------
 -- Pixel snapping across UI scales
