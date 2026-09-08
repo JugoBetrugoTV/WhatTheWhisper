@@ -121,6 +121,12 @@ ns.SZ = {
 	SETTINGS_ROW_H    = 32,
 	SETTINGS_MAX_CONTENT = 560,
 
+	-- Empty states: a large, faded glyph over two centred lines. Shared so that
+	-- "no conversation selected" and "no settings match" are the same thing
+	-- twice rather than two designs that happen to look similar.
+	EMPTY_ICON        = 44,
+	EMPTY_TEXT_W      = 340,
+
 	TOGGLE_W          = 36,
 	TOGGLE_H          = 20,
 	TOGGLE_KNOB       = 16,

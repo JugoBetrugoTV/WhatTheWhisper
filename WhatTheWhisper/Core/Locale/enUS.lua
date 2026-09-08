@@ -10,6 +10,7 @@ L["Search messages"] = true
 L["New conversation"] = true
 L["Settings"] = true
 L["Overview"] = true
+L["Click a window to go to it, or press Escape"] = true
 L["Minimize"] = true
 L["Close"] = true
 L["Maximize"] = true
@@ -118,6 +119,9 @@ L["Links"] = true
 L["Emoticons"] = true
 L["Advanced"] = true
 L["Search settings"] = true
+L["No settings match your search"] = true
+L["Try a shorter word, or clear the search."] = true
+L["Nothing here yet"] = true
 
 -- Settings: general
 L["Enable WhatTheWhisper"] = true

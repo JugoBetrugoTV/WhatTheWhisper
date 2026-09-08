@@ -324,6 +324,71 @@ check("toast position is applied", true)
 ns.Options.Set("notifications.position", "topright")
 
 --------------------------------------------------------------------------------
+-- Searching the settings
+--------------------------------------------------------------------------------
+
+-- Search used to filter only the category the player happened to be standing
+-- in, so typing a word that lives one click away found nothing and said nothing
+-- about why.
+local function shownRows()
+	local rows = {}
+	for row in ns.SettingsUI.RowPool():EnumerateActive() do
+		rows[#rows + 1] = (row.label and row.label:GetText()) or ""
+	end
+	return rows
+end
+
+local function findRow(needle)
+	local rows = shownRows()
+	for i = 1, #rows do
+		if rows[i]:lower():find(needle:lower(), 1, true) then return rows[i] end
+	end
+	return nil
+end
+
+ns.SettingsUI.Show()
+M.RunFrames(4)
+local schema = ns.Options.BuildSchema()
+
+-- Pick a setting that lives in some category other than the first one, and
+-- search for it from the first one.
+local firstCategory = schema[1].id
+local elsewhere
+for i = 2, #schema do
+	for _, card in ipairs(schema[i].cards) do
+		for _, row in ipairs(card.rows) do
+			if not elsewhere and (row.label or ""):find("%s") then
+				elsewhere = { label = row.label, category = schema[i].id }
+			end
+		end
+	end
+end
+check("there is a setting outside the first category", elsewhere ~= nil)
+
+if elsewhere then
+	ns.SettingsUI.SelectCategory(firstCategory)
+	M.RunFrames(3)
+	ns.SettingsUI.SetFilter(elsewhere.label)
+	M.RunFrames(3)
+	check("a search finds a setting from another category",
+		findRow(elsewhere.label) ~= nil,
+		table.concat(shownRows(), " | "))
+end
+
+-- Nothing matching must say so rather than leaving a blank panel.
+ns.SettingsUI.SetFilter("zzzzzznothingmatchesthis")
+M.RunFrames(3)
+eq("no rows for a search that matches nothing", #shownRows(), 0)
+check("and the panel explains itself", ns.SettingsUI.IsEmptyShown())
+
+ns.SettingsUI.SetFilter("")
+M.RunFrames(3)
+check("clearing the search brings the settings back", #shownRows() > 0)
+check("and the empty state goes away", not ns.SettingsUI.IsEmptyShown())
+ns.SettingsUI.Hide()
+M.RunFrames(3)
+
+--------------------------------------------------------------------------------
 -- Profile reset
 --------------------------------------------------------------------------------
 

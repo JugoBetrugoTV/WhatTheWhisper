@@ -24,6 +24,11 @@ local CONTROL_W = 190
 -- desktop apps do. Inside the card it competed with the first row's label,
 -- which reads as two headings for the same thing.
 local SECTION_H = 22
+-- The settings search box, and the gap between navigation rows. Both were bare
+-- numbers written twice: the box height had to match the one passed to
+-- SearchBox, and nothing said so.
+local NAV_SEARCH_H = 28
+local NAV_ROW_GAP = 2
 
 local frame, schema, activeCategory
 
@@ -332,7 +337,7 @@ local function build()
 	frame.nav = nav
 
 	nav.search = Controls.SearchBox(nav, {
-		placeholder = L["Search settings"], height = 28,
+		placeholder = L["Search settings"], height = NAV_SEARCH_H,
 		onChange = function(value) SettingsUI.SetFilter(value) end,
 	})
 	nav.search:SetPoint("TOPLEFT", nav, "TOPLEFT", ns.S.MD, -ns.S.MD)
@@ -346,6 +351,27 @@ local function build()
 	content:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
 	content.OnScrollChanged = function() SettingsUI.Reflow() end
 	frame.content = content
+
+	-- Sits over the scroll viewport rather than inside it: it is not content, it
+	-- is the absence of content, and it should not scroll away from the player.
+	local empty = CreateFrame("Frame", nil, frame)
+	empty:SetPoint("TOPLEFT", content, "TOPLEFT")
+	empty:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT")
+	empty:Hide()
+	frame.empty = empty
+	frame.emptyIcon = W.Icon(empty, "search", ns.SZ.EMPTY_ICON, "textMuted")
+	frame.emptyIcon:SetPoint("CENTER", empty, "CENTER", 0, ns.S.XXL)
+	frame.emptyIcon:SetAlpha(0.22)
+	frame.emptyTitle = W.Text(empty, "BODY", "textSecondary")
+	frame.emptyTitle:ClearAllPoints()
+	frame.emptyTitle:SetPoint("TOP", frame.emptyIcon, "BOTTOM", 0, -ns.S.LG)
+	frame.emptyTitle:SetJustifyH("CENTER")
+	frame.emptyTitle:SetWidth(ns.SZ.EMPTY_TEXT_W)
+	frame.emptyBody = W.Text(empty, "SMALL", "textMuted")
+	frame.emptyBody:ClearAllPoints()
+	frame.emptyBody:SetPoint("TOP", frame.emptyTitle, "BOTTOM", 0, -ns.S.SM)
+	frame.emptyBody:SetJustifyH("CENTER")
+	frame.emptyBody:SetWidth(ns.SZ.EMPTY_TEXT_W)
 
 	frame.cardPool = Pool.New(function() return createCard(content.viewport) end, resetCard, "settings.card")
 	frame.rowPool = Pool.New(function() return createRowFrame(content.viewport) end, resetRowFrame, "settings.row")
@@ -371,7 +397,7 @@ local function renderNav()
 	local nav = frame.nav
 	for i = 1, #nav.rows do nav.rows[i]:Hide() end
 
-	local y = -(ns.S.MD + 28 + ns.S.MD)
+	local y = -(ns.S.MD + NAV_SEARCH_H + ns.S.MD)
 	for i = 1, #schema do
 		local category = schema[i]
 		local row = nav.rows[i]
@@ -388,7 +414,7 @@ local function renderNav()
 		row:SetPoint("TOPRIGHT", nav, "TOPRIGHT", 0, y)
 		row:SetSelectedState(category.id == activeCategory)
 		row:Show()
-		y = y - ns.SZ.SETTINGS_ROW_H - 2
+		y = y - ns.SZ.SETTINGS_ROW_H - NAV_ROW_GAP
 	end
 end
 
@@ -407,19 +433,30 @@ function SettingsUI.Refresh()
 	frame.rowPool:ReleaseAll()
 	for _, pool in pairs(controlPools) do pool:ReleaseAll() end
 
-	local category
-	for i = 1, #schema do
-		if schema[i].id == activeCategory then category = schema[i] break end
-	end
-	if not category then return end
-
 	local viewport = frame.content.viewport
 	local available = min(ns.SZ.SETTINGS_MAX_CONTENT,
 		(viewport:GetWidth() or 600) - ns.S.XXL * 2)
 	local left = max(ns.S.XL, ((viewport:GetWidth() or 600) - available) / 2)
 	local filter = frame.filter
+	local searching = filter ~= nil and filter ~= ""
+
+	-- Searching looks everywhere. Filtering only the category the player happens
+	-- to be standing in meant typing "sound" while on Appearance found nothing,
+	-- and the box gave no hint that the answer was one click away.
+	local categories = {}
+	if searching then
+		for i = 1, #schema do categories[#categories + 1] = schema[i] end
+	else
+		for i = 1, #schema do
+			if schema[i].id == activeCategory then categories[1] = schema[i] break end
+		end
+	end
+	if #categories == 0 then return end
 
 	local y = ns.S.XL
+	local shownRows = 0
+	for k = 1, #categories do
+	local category = categories[k]
 	for c = 1, #category.cards do
 		local cardSpec = category.cards[c]
 
@@ -430,12 +467,17 @@ function SettingsUI.Refresh()
 			end
 		end
 		if #rows > 0 then
+			shownRows = shownRows + #rows
 			local card = frame.cardPool:Acquire()
 			card:ClearAllPoints()
 			card:SetPoint("TOPLEFT", viewport, "TOPLEFT", left,
 				-(y + SECTION_H - frame.content:GetOffset()))
 			card:SetWidth(available)
-			card.title:SetText(cardSpec.title or "")
+			-- While searching, a card has to say which category it came from or
+			-- the results are a list of headings with no context.
+			card.title:SetText(searching
+				and ((category.label or "") .. " \194\183 " .. (cardSpec.title or ""))
+				or (cardSpec.title or ""))
 
 			local rowY = CARD_PAD
 			for r = 1, #rows do
@@ -478,6 +520,16 @@ function SettingsUI.Refresh()
 			y = y + SECTION_H + cardHeight + CARD_GAP
 		end
 	end
+	end
+
+	-- A search that finds nothing used to leave a blank panel, which reads as a
+	-- broken window rather than an answer.
+	frame.empty:SetShown(shownRows == 0)
+	if shownRows == 0 then
+		frame.emptyTitle:SetText(searching and L["No settings match your search"]
+			or L["Nothing here yet"])
+		frame.emptyBody:SetText(searching and L["Try a shorter word, or clear the search."] or "")
+	end
 
 	frame.content:SetContentHeight(y + ns.S.XL, false)
 end
@@ -506,6 +558,17 @@ function SettingsUI.SelectCategory(id)
 	frame.content:ScrollToTop(false)
 	renderNav()
 	SettingsUI.Refresh()
+end
+
+-- Read by the suite: whether the panel is currently showing its empty state,
+-- and the pool the visible rows come from. Both are things the window already
+-- knows and nothing else can see from outside.
+function SettingsUI.IsEmptyShown()
+	return frame ~= nil and frame.empty ~= nil and frame.empty:IsShown()
+end
+
+function SettingsUI.RowPool()
+	return frame and frame.rowPool
 end
 
 function SettingsUI.SetFilter(value)
@@ -556,6 +619,9 @@ function SettingsUI.ApplyTheme()
 		W.RefreshIcon(row.icon)
 	end
 	frame.content:ApplyTheme()
+	W.RefreshIcon(frame.emptyIcon)
+	W.RefreshText(frame.emptyTitle)
+	W.RefreshText(frame.emptyBody)
 	for _, pool in pairs(controlPools) do
 		for control in pool:EnumerateActive() do
 			if control.ApplyTheme then control:ApplyTheme() end

@@ -21,6 +21,13 @@ local isOpen = false
 
 local MARGIN = 60
 local GAP = ns.S.XL
+-- The card outline, at rest and on hover. One width, so hovering changes the
+-- colour and nothing moves.
+local RING_W = 2
+-- Between a card and the label above it.
+local LABEL_GAP = ns.S.SM
+-- Where the "click a window" hint sits, measured from the top of the screen.
+local HINT_TOP = ns.S.HUGE
 
 --------------------------------------------------------------------------------
 -- Overlay cards
@@ -39,13 +46,20 @@ local function createOverlay()
 	o.label:SetPoint("BOTTOM", o, "TOP", 0, ns.S.SM)
 	o.label:SetJustifyH("CENTER")
 
+	-- A card with no ring until you touch it reads as a picture, not a target.
+	-- There is always an edge; hovering only changes what colour it is.
+	local function ring(self, role, alpha)
+		local c = Theme.Get(role)
+		self.ring:SetBorder(RING_W, c[1], c[2], c[3], alpha)
+	end
+	o.restingRing = function(self) ring(self, "borderStrong", 0.55) end
+
 	o:SetScript("OnEnter", function(self)
-		local c = Theme.Get("accent")
-		self.ring:SetBorder(2, c[1], c[2], c[3], 1)
+		ring(self, "accent", 1)
 		W.SetTextRole(self.label, "textPrimary")
 	end)
 	o:SetScript("OnLeave", function(self)
-		self.ring:SetBorder(0)
+		self:restingRing()
 		W.SetTextRole(self.label, "textSecondary")
 	end)
 	o:SetScript("OnMouseUp", function(self)
@@ -60,6 +74,7 @@ local function resetOverlay(_, o)
 	o.target = nil
 	o.convID = nil
 	o.ring:SetBorder(0)
+	o.label:SetWidth(0)
 end
 
 --------------------------------------------------------------------------------
@@ -85,7 +100,7 @@ local function build()
 	end)
 
 	hint = W.Text(scrim, "SMALL", "textSecondary")
-	hint:SetPoint("TOP", scrim, "TOP", 0, -ns.S.HUGE)
+	hint:SetPoint("TOP", scrim, "TOP", 0, -HINT_TOP)
 	hint:SetJustifyH("CENTER")
 
 	overlayPool = Pool.New(createOverlay, resetOverlay, "expose.overlay")
@@ -97,9 +112,6 @@ local function build()
 		end
 		if not found then table.insert(_G.UISpecialFrames, "WhatTheWhisperExpose") end
 	end
-	scrim:HookScript("OnHide", function()
-		if isOpen then Expose.Close() end
-	end)
 end
 
 --------------------------------------------------------------------------------
@@ -143,7 +155,8 @@ function Expose.Open()
 
 	local c = Theme.Get("scrim")
 	scrim.tex:SetColorTexture(c[1], c[2], c[3], c[4] or 0.6)
-	hint:SetText(L["Overview"])
+	-- Say what to do, not what this is. The player can see what it is.
+	hint:SetText(L["Click a window to go to it, or press Escape"])
 	scrim:Show()
 	Anim.FadeIn(scrim, Theme.Duration("BASE"))
 
@@ -151,8 +164,15 @@ function Expose.Open()
 	local count = #windows
 	local columns = max(1, ceil(sqrt(count)))
 	local rows = ceil(count / columns)
+
+	-- The top margin is not the same as the others: the hint lives up there, and
+	-- every card in the first row carries a label above it. Reserving that space
+	-- is what stops a tall window's label from being written over the hint.
+	local labelHeight = Theme.Measure("SMALL"):GetStringHeight() or 14
+	local marginTop = HINT_TOP + (hint:GetStringHeight() or labelHeight)
+		+ ns.S.LG + labelHeight + LABEL_GAP
 	local cellW = (screenW - MARGIN * 2 - GAP * (columns - 1)) / columns
-	local cellH = (screenH - MARGIN * 2 - GAP * (rows - 1)) / rows
+	local cellH = (screenH - marginTop - MARGIN - GAP * (rows - 1)) / rows
 
 	for i = 1, count do
 		local entry = windows[i]
@@ -171,7 +191,7 @@ function Expose.Open()
 
 		local scale = min(1, cellW / max(1, win:GetWidth()), cellH / max(1, win:GetHeight()))
 		local centreX = MARGIN + cellW / 2 + column * (cellW + GAP) - screenW / 2
-		local centreY = screenH / 2 - (MARGIN + cellH / 2 + row * (cellH + GAP))
+		local centreY = screenH / 2 - (marginTop + cellH / 2 + row * (cellH + GAP))
 
 		win:SetFrameStrata("FULLSCREEN")
 		win:SetFrameLevel(10 + i * 4)
@@ -188,9 +208,14 @@ function Expose.Open()
 		overlay:ClearAllPoints()
 		overlay:SetSize(win:GetWidth() * scale, win:GetHeight() * scale)
 		overlay:SetPoint("CENTER", UIParent, "CENTER", centreX, centreY)
-		overlay.label:SetText(entry.label)
+		-- Bounded to the card it names, so two long names side by side cannot
+		-- run into each other over the gap between them.
+		overlay.label:SetWidth(0)
+		ns.Text.Ellipsize(overlay.label, entry.label, overlay:GetWidth() or cellW)
+		overlay.label:SetWidth(overlay:GetWidth() or cellW)
 		W.SetTextRole(overlay.label, "textSecondary")
 		overlay.ring:SetRadius(Theme.Radius(ns.R.LG))
+		overlay:restingRing()
 		overlay:Show()
 		if Theme.IsFancy() then
 			Anim.PopIn(overlay, Theme.Duration("WINDOW"), 0.94)

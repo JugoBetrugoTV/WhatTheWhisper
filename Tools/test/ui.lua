@@ -1210,10 +1210,87 @@ end
 ns.UI.DockConversation(thrall)
 M.RunFrames(6)
 
-ns.Expose.Toggle()
-M.RunFrames(8)
-ns.Expose.Toggle()
-M.RunFrames(8)
+--------------------------------------------------------------------------------
+-- The overview
+--------------------------------------------------------------------------------
+
+-- Real windows moved into a grid, each with its name written above it. Toggling
+-- it and asserting nothing errored is not a design check: what matters is that
+-- the labels stay off the hint and off each other, and that a card and its name
+-- are both on the screen.
+do
+	-- Enough windows for more than one row, so the grid is actually exercised.
+	for _, id in ipairs({ thrall, ns.Compat.NormalizeName("Jaina") }) do
+		ns.UI.TogglePopout(id)
+	end
+	M.RunFrames(10)
+
+	ns.Expose.Open()
+	M.RunFrames(12)
+	check("the overview opened", ns.Expose.IsOpen())
+
+	local scrimFrame = _G.WhatTheWhisperExpose
+	local cards, labels = {}, {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		if frame.restingRing and M.EffectivelyVisible(frame) then
+			cards[#cards + 1] = frame
+			labels[#labels + 1] = frame.label
+		end
+	end
+	check("every window is on the board", #cards >= 3, tostring(#cards))
+
+	local sw, sh = _G.UIParent:GetWidth(), _G.UIParent:GetHeight()
+	local hintFrame
+	for i = 1, #M.frames do
+		if M.frames[i] == scrimFrame then hintFrame = nil end
+	end
+	-- The hint is the only FontString parented straight to the scrim.
+	for _, region in ipairs(M.regions or {}) do
+		if region._parent == scrimFrame and region._kind == "FontString" then
+			hintFrame = region
+		end
+	end
+
+	local offScreen, collided, overHint = 0, 0, 0
+	for i = 1, #cards do
+		local cl, cb, cw, ch = rect(cards[i])
+		if cl < 0 or cb < 0 or cl + cw > sw or cb + ch > sh then offScreen = offScreen + 1 end
+		local ll, lb, lw, lh = rect(labels[i])
+		if ll < 0 or lb < 0 or ll + lw > sw or lb + lh > sh then offScreen = offScreen + 1 end
+		if hintFrame then
+			local hl, hb, hw, hh = rect(hintFrame)
+			if ll < hl + hw and ll + lw > hl and lb < hb + hh and lb + lh > hb then
+				overHint = overHint + 1
+			end
+		end
+		for j = i + 1, #cards do
+			local ol, ob, ow, oh = rect(labels[j])
+			if ll < ol + ow and ll + lw > ol and lb < ob + oh and lb + lh > ob then
+				collided = collided + 1
+			end
+		end
+	end
+	eq("nothing on the board is off screen", offScreen, 0)
+	eq("no two window names overlap", collided, 0)
+	eq("and none of them is written over the hint", overHint, 0)
+
+	-- The ring is the affordance: a card with no edge until you touch it reads
+	-- as a picture rather than a target.
+	local ringed = 0
+	for i = 1, #cards do
+		if (cards[i].ring and cards[i].ring.thickness or 0) > 0 then ringed = ringed + 1 end
+	end
+	eq("every card has a resting outline", ringed, #cards)
+
+	ns.Expose.Close()
+	M.RunFrames(12)
+	check("the overview closed", not ns.Expose.IsOpen())
+	for _, id in ipairs({ thrall, ns.Compat.NormalizeName("Jaina") }) do
+		ns.UI.DockConversation(id)
+	end
+	M.RunFrames(10)
+end
 
 --------------------------------------------------------------------------------
 -- Icon atlas: every icon the UI asks for has to be inside the sheet
