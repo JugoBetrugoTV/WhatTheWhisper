@@ -35,6 +35,20 @@ ICON_COORDS = json.loads(subprocess.check_output(
      'print("{"..table.concat(out,",").."}")' % ROOT]).decode())
 
 
+# The groove of a slider or a switch. Derived exactly the way Theme.lua derives
+# it -- the raised surface lifted towards the text colour -- so the review render
+# and the addon agree about how visible a control at rest is.
+TRACK_LIFT = 0.16
+
+
+def track_colour(colours):
+    raised = colours["bg3"]
+    text = colours["textPrimary"]
+    return tuple(
+        int(round(raised[i] + (text[i] - raised[i]) * TRACK_LIFT)) for i in range(3)
+    ) + (raised[3] if len(raised) > 3 else 255,)
+
+
 def font(size, bold=False):
     return ImageFont.truetype(FONT_PATH, int(size * SCALE))
 
@@ -139,6 +153,7 @@ THREAD = [
 def render(skin_id, layout="hybrid", width=None, height=None, path=None):
     skin = tokens["skins"][skin_id]
     c = {k: rgba(v) for k, v in skin["colors"].items()}
+    c["trackBg"] = track_colour(c)
     raw = skin["colors"]
     m = skin["metrics"]
     radius = lambda base: base * m.get("radiusScale", 1)
@@ -450,6 +465,7 @@ def render_settings(skin_id="midnight", path=None):
     """Renders the settings window from the same tokens the addon uses."""
     skin = tokens["skins"][skin_id]
     c = {k: rgba(v) for k, v in skin["colors"].items()}
+    c["trackBg"] = track_colour(c)
     m = skin["metrics"]
     radius = lambda base: base * m.get("radiusScale", 1)
 
@@ -546,7 +562,7 @@ def render_settings(skin_id="midnight", path=None):
                 tw, th, knob = SZ["TOGGLE_W"], SZ["TOGGLE_H"], SZ["TOGGLE_KNOB"]
                 tx = left + available - card_pad - tw
                 cv.rrect(tx, cy - th / 2, tw, th, th / 2,
-                         fill=c["accent"] if value else c["hover"])
+                         fill=c["accent"] if value else c["trackBg"])
                 kx = tx + (tw - knob - 2 if value else 2)
                 cv.circle(kx + knob / 2, cy, knob / 2,
                           fill=c["onAccent"] if value else c["textSecondary"])
@@ -558,7 +574,7 @@ def render_settings(skin_id="midnight", path=None):
             else:
                 track = control_w - 46
                 cv.rrect(cx + SZ["SLIDER_THUMB"] / 2, cy - 2, track - SZ["SLIDER_THUMB"], 4, 2,
-                         fill=c["hover"])
+                         fill=c["trackBg"])
                 cv.rrect(cx + SZ["SLIDER_THUMB"] / 2, cy - 2,
                          (track - SZ["SLIDER_THUMB"]) * 0.75, 4, 2, fill=c["accent"])
                 cv.circle(cx + SZ["SLIDER_THUMB"] / 2 + (track - SZ["SLIDER_THUMB"]) * 0.75, cy,

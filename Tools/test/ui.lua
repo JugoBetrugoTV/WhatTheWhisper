@@ -950,11 +950,15 @@ for _, id in ipairs(ns.Skins.order) do
 	for _, pair in ipairs({
 		{ "bubbleIn", "bg1", "the incoming bubble" },
 		{ "bubbleOut", "bg1", "the outgoing bubble" },
+		-- The groove of a slider or a switch is the same kind of boundary: it
+		-- has to be visible before anyone knows there is a control there. Using
+		-- the hover tint for it left an off switch with no switch in it.
+		{ "trackBg", "bg3", "the groove of a slider or switch" },
 	}) do
 		local bg = over(ns.Theme.Get(pair[2]), { 0, 0, 0, 1 })
 		local surface = over(ns.Theme.Get(pair[1]), bg)
 		local separation = contrast(surface, bg)
-		check(("%s: %s separates from the thread behind it"):format(id, pair[3]),
+		check(("%s: %s separates from what is behind it"):format(id, pair[3]),
 			separation >= 1.35,
 			("%s on %s is only %.2f:1"):format(pair[1], pair[2], separation))
 	end
@@ -1226,6 +1230,63 @@ if settings then
 			end
 			check("settings: " .. schema[i].id .. " controls share a right column",
 				ragged == 0, worst)
+		end
+
+		-- The other edge of the same rule. A label column that wanders is just
+		-- as loud as a control column that does, and nothing was checking it.
+		local labels, cards = {}, {}
+		for row in settings.rowPool:EnumerateActive() do
+			if row.label and M.EffectivelyShown(row.label, settings) then
+				labels[#labels + 1] = row
+			end
+		end
+		for card in settings.cardPool:EnumerateActive() do
+			if M.EffectivelyShown(card, settings) then cards[#cards + 1] = card end
+		end
+		if #labels > 1 then
+			local first = select(1, rect(labels[1].label))
+			local ragged, worst = 0, nil
+			for k = 2, #labels do
+				local edge = select(1, rect(labels[k].label))
+				if math.abs(edge - first) > EPS then
+					ragged = ragged + 1
+					worst = worst or ("%.2f vs %.2f"):format(edge, first)
+				end
+			end
+			check("settings: " .. schema[i].id .. " labels share a left column",
+				ragged == 0, worst)
+		end
+
+		-- And a label must stop before the control it belongs to starts, or the
+		-- two overlap at the long end of a translation.
+		local collisions, sample = 0, nil
+		for k = 1, #labels do
+			local row = labels[k]
+			if row.control and M.EffectivelyShown(row.control, settings) then
+				local labelRight = select(5, rect(row.label))
+				local controlLeft = select(1, rect(row.control))
+				if labelRight > controlLeft + EPS then
+					collisions = collisions + 1
+					sample = sample or (tostring(row.label:GetText())
+						.. (" ends at %.1f, control starts at %.1f"):format(
+							labelRight, controlLeft))
+				end
+			end
+		end
+		eq("settings: " .. schema[i].id .. " no label runs into its control",
+			collisions, 0, sample)
+
+		-- Cards are one column: a card that starts somewhere else reads as a
+		-- different panel rather than the next section of this one.
+		if #cards > 1 then
+			local first = select(1, rect(cards[1]))
+			local ragged = 0
+			for k = 2, #cards do
+				if math.abs(select(1, rect(cards[k])) - first) > EPS then
+					ragged = ragged + 1
+				end
+			end
+			eq("settings: " .. schema[i].id .. " cards share a left edge", ragged, 0)
 		end
 	end
 end

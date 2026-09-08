@@ -25,6 +25,11 @@ local RAISED_ROLES = {
 	bg3 = 1, inputBg = 1,
 }
 
+-- How far the control groove is lifted from the surface it sits in. Chosen from
+-- the palettes rather than by eye: this is the smallest lift that clears the
+-- ~1.35:1 perceptibility floor in all six skins, with headroom.
+local TRACK_LIFT = 0.16
+
 local RADIUS_SCALE = { [0] = 0, [1] = 1, [2] = 1.6 }
 local SPACING_SCALE = { [0] = 0.7, [1] = 1, [2] = 1.4 }
 
@@ -212,6 +217,22 @@ function Theme.Refresh()
 			end
 			Theme.c[role] = c
 		end
+	end
+
+	-- A derived role: the groove of a control -- the empty half of a slider, the
+	-- off state of a toggle. Both were using "hover", and hover is a whisper of
+	-- a tint by design: against the card behind it that came out between 1.1 and
+	-- 1.3 to 1, below the point where a boundary is visible at all. So an off
+	-- switch had no switch and a slider showed no remaining range.
+	--
+	-- Derived rather than added to six skin files: the raised surface lifted
+	-- towards the text colour lands in the right place in every palette, and a
+	-- skin cannot forget to define it.
+	local raised = Theme.c.bg3 or fallbackSkin.colors.bg3
+	if raised then
+		local lifted = Color.Mix(raised, Theme.c.textPrimary or { 1, 1, 1, 1 }, TRACK_LIFT)
+		lifted[4] = raised[4] or 1
+		Theme.c.trackBg = lifted
 	end
 
 	-- user link colour override

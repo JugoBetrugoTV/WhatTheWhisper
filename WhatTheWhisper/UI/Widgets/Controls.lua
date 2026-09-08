@@ -71,7 +71,7 @@ function Controls.Toggle(parent, opts)
 	t:SetSize(ns.SZ.TOGGLE_W, ns.SZ.TOGGLE_H)
 	t.value = false
 
-	t.surface = W.Surface(t, { color = "hover", radius = ns.SZ.TOGGLE_H / 2 })
+	t.surface = W.Surface(t, { color = "trackBg", radius = ns.SZ.TOGGLE_H / 2 })
 
 	t.knob = CreateFrame("Frame", nil, t)
 	t.knob:SetSize(ns.SZ.TOGGLE_KNOB, ns.SZ.TOGGLE_KNOB)
@@ -84,10 +84,10 @@ function Controls.Toggle(parent, opts)
 
 	local function paint(instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
-		local trackRole = t.value and "accent" or "hover"
+		local trackRole = t.value and "accent" or "trackBg"
 		local knobRole = t.value and "onAccent" or "textSecondary"
 		if not t.__wtwEnabled then
-			trackRole = "hover"
+			trackRole = "trackBg"
 			knobRole = "textDisabled"
 		end
 		W.FadeSurfaceTo(t.surface, t, trackRole, duration)
@@ -162,7 +162,7 @@ function Controls.Slider(parent, opts)
 	s.track:SetPoint("LEFT", s, "LEFT", ns.SZ.SLIDER_THUMB / 2, 0)
 	s.track:SetPoint("RIGHT", s, "RIGHT",
 		-(ns.SZ.SLIDER_THUMB / 2 + ns.SZ.SLIDER_VALUE_W + ns.SZ.SLIDER_VALUE_GAP), 0)
-	s.track.surface = W.Surface(s.track, { color = "hover", radius = ns.SZ.SLIDER_TRACK / 2 })
+	s.track.surface = W.Surface(s.track, { color = "trackBg", radius = ns.SZ.SLIDER_TRACK / 2 })
 
 	s.fill = CreateFrame("Frame", nil, s.track)
 	s.fill:SetHeight(ns.SZ.SLIDER_TRACK)
