@@ -62,6 +62,9 @@ lua5.1 Tools/test/commands.lua | tail -1
 echo "== search =="
 lua5.1 Tools/test/search.lua | tail -1
 
+echo "== presence and profile =="
+lua5.1 Tools/test/presence.lua | tail -1
+
 echo "== minimap button =="
 lua5.1 Tools/test/minimap.lua | tail -1
 

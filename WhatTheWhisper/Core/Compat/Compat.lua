@@ -660,6 +660,15 @@ end
 
 local SOUNDKIT = _G.SOUNDKIT or {}
 
+-- Battle.net presence, which is the one case the client answers directly rather
+-- than leaving the addon to infer it. Returns nil when it does not know.
+function Compat.IsBNOnline(bnetAccountID)
+	if not bnetAccountID then return nil end
+	local tag, _, online = Compat.GetBNAccountInfoByID(bnetAccountID)
+	if tag == nil then return nil end
+	return online and true or false
+end
+
 function Compat.PlaySoundKit(kitID, channel)
 	if not kitID then return false end
 	if type(_G.PlaySound) ~= "function" then return false end

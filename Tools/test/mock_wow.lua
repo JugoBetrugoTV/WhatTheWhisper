@@ -1196,10 +1196,24 @@ _G.C_FriendList = {
 	AddFriend = function() end,
 	AddOrDelIgnore = function() end,
 	IsIgnored = function() return false end,
-	SendWho = function() end,
-	GetNumWhoResults = function() return 0 end,
-	GetWhoInfo = function() return nil end,
+	-- /who, driven by the test: M.whoSent records the queries, M.whoResults is
+	-- what the server would answer with.
+	SendWho = function(query)
+		M.whoSent = M.whoSent or {}
+		M.whoSent[#M.whoSent + 1] = query
+	end,
+	GetNumWhoResults = function() return #(M.whoResults or {}) end,
+	GetWhoInfo = function(index)
+		local row = M.whoResults and M.whoResults[index]
+		if not row then return nil end
+		return { fullName = row.name, level = row.level, filename = row.class,
+			fullGuildName = row.guild, area = row.zone, raceStr = row.race }
+	end,
 }
+-- The Blizzard Who window. Present so an addon can check whether the player is
+-- reading their own results before replacing them.
+_G.WhoFrame = CreateFrame("Frame", "WhoFrame", UIParent)
+WhoFrame:Hide()
 _G.C_PartyInfo = { InviteUnit = function() end }
 _G.C_BattleNet = {
 	GetFriendAccountInfo = function() return nil end,
@@ -1235,6 +1249,15 @@ for cls in pairs(RAID_CLASS_COLORS) do CLASS_ICON_TCOORDS[cls] = { 0, 0.25, 0, 0
 _G.LOCALIZED_CLASS_NAMES_MALE = { MAGE = "Mage", SHAMAN = "Shaman", ROGUE = "Rogue" }
 _G.SOUNDKIT = { TELL_MESSAGE = 3081, RAID_WARNING = 8959, READY_CHECK = 8960 }
 _G.ERR_CHAT_PLAYER_NOT_FOUND_S = "No player named '%s' is currently playing."
+_G.ERR_FRIEND_ONLINE_SS = "|Hplayer:%s|h[%s]|h has come online."
+_G.ERR_FRIEND_OFFLINE_S = "%s has gone offline."
+_G.LEVEL = "Level"
+_G.LOCALIZED_CLASS_NAMES_MALE = {
+	SHAMAN = "Shaman", MAGE = "Mage", WARRIOR = "Warrior", PRIEST = "Priest",
+	ROGUE = "Rogue", DRUID = "Druid", HUNTER = "Hunter", WARLOCK = "Warlock",
+	PALADIN = "Paladin", DEATHKNIGHT = "Death Knight", MONK = "Monk",
+	DEMONHUNTER = "Demon Hunter", EVOKER = "Evoker",
+}
 _G.LEVEL = "Level"
 _G.WEEKDAY_SUNDAY, _G.WEEKDAY_MONDAY, _G.WEEKDAY_TUESDAY = "Sunday", "Monday", "Tuesday"
 _G.WEEKDAY_WEDNESDAY, _G.WEEKDAY_THURSDAY = "Wednesday", "Thursday"

@@ -153,6 +153,12 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 	local kind = ns.MSG_WHISPER
 	if flags == "GM" or flags == "DEV" then kind = ns.MSG_SYSTEM end
 
+	-- They just wrote, so they are online. This is the only presence source
+	-- that exists for somebody who is neither a friend nor a guildmate, and it
+	-- was being thrown away -- which is why the status dot was almost never
+	-- drawn for anybody.
+	PlayerInfo.NoteActivity(id)
+
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind)
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
@@ -162,6 +168,9 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 	if not target or target == "" then return end
 	local id = Compat.NormalizeName(target)
 	PlayerInfo.Observe(id, guid)
+	-- The server echoing a whisper back is the server confirming it had
+	-- somebody to give it to.
+	PlayerInfo.NoteActivity(id)
 
 	if resolvePending(id, text) then
 		Debug.Log("dedupe", "inform matched a pending message to %s", id)
@@ -213,22 +222,59 @@ end
 -- System messages
 --------------------------------------------------------------------------------
 
-local notFoundPattern
+local notFoundPattern, friendOnlinePattern, friendOfflinePattern
+
+-- Turns one of the client's own format strings into a Lua pattern that reads
+-- the name back out of it. Built from the constant rather than hard coded, so
+-- it works in every locale the game ships -- and returns nil when the constant
+-- is missing, which is how a client without it ends up simply not using it.
+local function toPattern(template)
+	if type(template) ~= "string" then return nil end
+	local escaped = template:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+	local pattern, captures = escaped:gsub("%%%%s", "(.-)")
+	if captures == 0 then return nil end
+	return "^" .. pattern .. "$"
+end
+
 local function buildSystemPatterns()
-	local template = _G.ERR_CHAT_PLAYER_NOT_FOUND_S
-	if type(template) == "string" then
-		notFoundPattern = "^" .. template
-			:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-			:gsub("%%%%s", "(.+)") .. "$"
-	end
+	notFoundPattern = toPattern(_G.ERR_CHAT_PLAYER_NOT_FOUND_S)
+	friendOnlinePattern = toPattern(_G.ERR_FRIEND_ONLINE_SS)
+	friendOfflinePattern = toPattern(_G.ERR_FRIEND_OFFLINE_S)
 end
 
 -- How far back an error is allowed to reach. The server answers within a second
 -- or two; anything older than this belongs to a different attempt.
 local NOT_FOUND_WINDOW = 30
 
+-- "X has come online" / "X has gone offline". The client announces these for
+-- friends and guildmates, and they are the only presence updates that arrive
+-- without being asked for, so the status dot follows them live.
+local function onFriendPresence(text)
+	if not text then return end
+	local name, online
+	if friendOnlinePattern then
+		local first, second = text:match(friendOnlinePattern)
+		if first then name, online = second or first, true end
+	end
+	if not name and friendOfflinePattern then
+		local only = text:match(friendOfflinePattern)
+		if only then name, online = only, false end
+	end
+	if not name or name == "" then return end
+	-- The online form carries the name inside a player link.
+	name = name:gsub("|H.-|h", ""):gsub("|h", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	name = name:gsub("^%[", ""):gsub("%]$", "")
+	if name == "" then return end
+	local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
+	if not id or not CM.Get(id) then return end
+	PlayerInfo.Set(id, { online = online, presenceSource = "friend" })
+	Debug.Log("events", "%s is now %s", id, online and "online" or "offline")
+end
+
 local function onSystem(text)
-	if not notFoundPattern or not text then return end
+	if not text then return end
+	onFriendPresence(text)
+	if not notFoundPattern then return end
 	local name = text:match(notFoundPattern)
 	if not name then return end
 	name = name:gsub("^['\"]", ""):gsub("['\"%.]$", "")
@@ -249,7 +295,7 @@ local function onSystem(text)
 
 	Debug.Log("events", "server reports no player named %s", id)
 	conv.notFound = true
-	PlayerInfo.Set(id, { online = false })
+	PlayerInfo.Set(id, { online = false, presenceSource = "message" })
 	ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv)
 end
 

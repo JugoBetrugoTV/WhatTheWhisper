@@ -163,7 +163,15 @@ function Avatar:SetConversation(conv)
 		self.initials:SetTextColor(fg[1], fg[2], fg[3], fg[4])
 	end
 
-	self:SetStatus(conv.isBN and nil or ns.PlayerInfo.IsOnline(conv.id))
+	-- Battle.net presence comes straight from the client and was being thrown
+	-- away, so those threads never had a dot at all.
+	local online
+	if conv.isBN then
+		if conv.bnetAccountID then online = Compat.IsBNOnline(conv.bnetAccountID) end
+	else
+		online = ns.PlayerInfo.IsOnline(conv.id)
+	end
+	self:SetStatus(online)
 end
 
 -- online: true / false / nil (unknown -> no dot, because a grey dot would be a

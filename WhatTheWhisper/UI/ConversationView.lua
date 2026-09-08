@@ -218,6 +218,12 @@ function V:SetConversation(conv)
 	end
 
 	self:RefreshHeader()
+
+	-- Opening a thread is the moment to find out who this actually is. Guild,
+	-- zone, and a level and class for somebody who is neither a friend nor a
+	-- guildmate only ever come from a /who, and this is throttled hard enough
+	-- that the player will never notice it happening.
+	ns.PlayerInfo.EnsureDetails(conv.id, conv.isBN)
 end
 
 function V:RefreshHeader()
