@@ -69,19 +69,19 @@ function ConversationView.New(parent, opts)
 	bar.count:SetJustifyH("RIGHT")
 
 	bar.close = ns.Button.Icon(bar, {
-		icon = "close", size = 26, glyph = 12,
+		icon = "close", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() v:ToggleSearch(false) end,
 	})
 	bar.close:SetPoint("RIGHT", bar, "RIGHT", -ns.S.SM, 0)
 
 	bar.next = ns.Button.Icon(bar, {
-		icon = "chevron_down", size = 26, glyph = 12,
+		icon = "chevron_down", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() v:StepSearch(1) end,
 	})
 	bar.next:SetPoint("RIGHT", bar.close, "LEFT", -ns.S.XS, 0)
 
 	bar.prev = ns.Button.Icon(bar, {
-		icon = "chevron_up", size = 26, glyph = 12,
+		icon = "chevron_up", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() v:StepSearch(-1) end,
 	})
 	bar.prev:SetPoint("RIGHT", bar.next, "LEFT", 0, 0)
@@ -291,9 +291,15 @@ function V:RefreshHeader()
 		W.SetTextRole(header.name, "textPrimary")
 	end
 
+	-- With the details panel open the header would say the same six facts twice,
+	-- one line above the other. So it says the thing the panel does not: whether
+	-- they are there right now.
+	local presence = not conv.isBN and ns.PlayerInfo.PresenceLabel(conv.id) or nil
 	local status
 	if conv.isBN then
 		status = L["Battle.net"]
+	elseif self.profile:IsShown() then
+		status = presence and L[presence == "online" and "Online" or "Offline"] or nil
 	else
 		status = ns.PlayerInfo.StatusLine(conv.id)
 	end
@@ -305,7 +311,6 @@ function V:RefreshHeader()
 	-- The dot is the only thing on screen that says whether they are there, so
 	-- it says so in words too rather than relying on the player knowing what
 	-- green means.
-	local presence = conv.isBN and nil or ns.PlayerInfo.PresenceLabel(conv.id)
 	W.SetTooltip(header.avatar, displayName,
 		presence and L[presence == "online" and "Online" or "Offline"] or nil)
 
@@ -366,6 +371,7 @@ function V:ApplyProfileState()
 	self.header.info:SetSelectedState(wanted and true or false)
 	self:AnchorProfile()
 	if show then self.profile:Refresh() end
+	if self.conv then self:RefreshHeader() end
 	self:Relayout()
 end
 

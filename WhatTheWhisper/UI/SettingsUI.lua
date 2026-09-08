@@ -323,7 +323,8 @@ local function build()
 	header.title:SetText(L["Settings"])
 
 	header.close = ns.Button.Icon(header, {
-		icon = "close", size = 26, glyph = 13, onClick = function() SettingsUI.Hide() end,
+		icon = "close", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
+		onClick = function() SettingsUI.Hide() end,
 	})
 	header.close:SetPoint("RIGHT", header, "RIGHT", -ns.S.SM, 0)
 

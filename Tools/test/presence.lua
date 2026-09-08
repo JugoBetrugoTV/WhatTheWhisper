@@ -211,6 +211,64 @@ check("an unknown player still gets every row",
 check("and the blanks say so", blank:find("not known", 1, true) ~= nil, blank)
 check("with a way to fill them in", panel.lookup:IsShown())
 
+-- The button gets a row of its own; tucked into whatever gap the last column
+-- leaves, it lands on a value the moment the field list changes.
+do
+	local function box(f)
+		local l, b, w, h = M.Geometry(f)
+		return l, b, l + w, b + h
+	end
+	local bl, bb, br, bt = box(panel.lookup)
+	local overlaps = 0
+	for i = 1, #panel.rows do
+		local row = panel.rows[i]
+		if row:IsShown() then
+			local rl, rb, rr, rt = box(row)
+			if bl < rr and br > rl and bb < rt and bt > rb then
+				overlaps = overlaps + 1
+			end
+		end
+	end
+	eq("the lookup button sits clear of every row", overlaps, 0)
+	-- And the panel is wide enough that the facts are not stacked in one column
+	-- using a quarter of the window.
+	local rowsShown = 0
+	for i = 1, #panel.rows do
+		if panel.rows[i]:IsShown() then rowsShown = rowsShown + 1 end
+	end
+	local tallest = 0
+	for i = 1, #panel.rows do
+		if panel.rows[i]:IsShown() then
+			local _, b = M.Geometry(panel.rows[i])
+			tallest = math.max(tallest, b)
+		end
+	end
+	check("the facts are laid out in columns, not a stack",
+		(panel:GetHeight() or 0) < rowsShown * 18 + 40,
+		("%d rows in %.0fpx"):format(rowsShown, panel:GetHeight() or 0))
+end
+
+-- With the panel open the header must not repeat it: the same six facts one
+-- line above the other is noise, so the header says the thing the panel cannot
+-- -- whether they are there right now.
+CM.Select(thrall)
+M.RunFrames(8)
+local headerLine = ns.MainWindow.Get().view.header.status:GetText() or ""
+check("the header does not repeat the panel",
+	headerLine:find("Wildhammer", 1, true) == nil, headerLine)
+check("it says whether they are online instead",
+	headerLine ~= "" and headerLine:lower():find("online") ~= nil, headerLine)
+
+-- ...and with the panel closed it carries the long line again, because then it
+-- is the only place those facts appear.
+ns.Options.Set("layout.showProfile", false)
+M.RunFrames(6)
+headerLine = ns.MainWindow.Get().view.header.status:GetText() or ""
+check("the closed panel hands the facts back to the header",
+	headerLine:find("Wildhammer", 1, true) ~= nil, headerLine)
+ns.Options.Set("layout.showProfile", true)
+M.RunFrames(6)
+
 -- Switching it off is a setting, not a local flag, so the checkbox and the
 -- header button are the same switch.
 ns.Options.Set("layout.showProfile", false)

@@ -61,6 +61,11 @@ function addon:OnEnteringWorld()
 	-- class colours resolve for guildmates.
 	Compat.RequestGuildRoster()
 	ns.PlayerInfo.ScanFriends()
+	-- The minimap and everything hanging off it are rebuilt on every world
+	-- transition, and an addon that loaded after us may have raised itself over
+	-- our button in the meantime. Re-asserting here is what keeps the icon on
+	-- screen through a zone change, a reload and a loading screen.
+	ns.Minimap.Update()
 	self:ShowWelcome()
 end
 
@@ -236,7 +241,7 @@ end
 
 _G.BINDING_HEADER_WHATTHEWHISPER = "WhatTheWhisper"
 _G.BINDING_NAME_WHATTHEWHISPER_TOGGLE = L["WhatTheWhisper"]
-_G.BINDING_NAME_WHATTHEWHISPER_EXPOSE = L["Overview"]
+_G.BINDING_NAME_WHATTHEWHISPER_EXPOSE = L["All windows"]
 _G.BINDING_NAME_WHATTHEWHISPER_REPLY = L["Whisper"]
 
 function ns.BindingToggle()

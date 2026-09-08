@@ -228,7 +228,7 @@ function MessageList.New(parent)
 	-- "N new messages" pill
 	list.pill = ns.Button.Text(list, {
 		text = "", variant = "primary", height = 28, radius = ns.R.PILL,
-		icon = "arrow_down", glyph = 12, minWidth = 120,
+		icon = "arrow_down", glyph = ns.SZ.ICON_GLYPH_SM, minWidth = 120,
 		onClick = function() list:ScrollToBottom(true) list:ClearPending() end,
 	})
 	list.pill:SetPoint("BOTTOM", list, "BOTTOM", 0, ns.S.MD)

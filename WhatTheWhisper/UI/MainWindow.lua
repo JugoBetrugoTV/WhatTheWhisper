@@ -58,7 +58,7 @@ function MainWindow.Get()
 	title.divider = W.Hairline(title, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
 	frame.titlebar = title
 
-	title.mark = W.Icon(title, "logo", 15, "accent")
+	title.mark = W.Icon(title, "logo", ns.SZ.ICON_LOGO, "accent")
 	title.mark:SetPoint("LEFT", title, "LEFT", ns.S.MD + 1, 0)
 
 	title.label = W.Text(title, "SMALL", "textSecondary")
@@ -68,9 +68,10 @@ function MainWindow.Get()
 	title.badge = ns.Controls.Badge(title, { height = 16 })
 	title.badge:SetPoint("LEFT", title.label, "RIGHT", ns.S.SM, 0)
 
-	local function titleButton(icon, tooltip, onClick)
+	local function titleButton(icon, tooltip, onClick, tooltipSub)
 		return ns.Button.Icon(title, {
-			icon = icon, size = 26, glyph = 13, tooltip = tooltip, onClick = onClick,
+			icon = icon, size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
+			tooltip = tooltip, tooltipSub = tooltipSub, onClick = onClick,
 		})
 	end
 
@@ -83,8 +84,14 @@ function MainWindow.Get()
 	title.settings = titleButton("sliders", L["Settings"], function() ns.SettingsUI.Toggle() end)
 	title.settings:SetPoint("RIGHT", title.minimize, "LEFT", -2, 0)
 
-	title.expose = titleButton("grid", L["Overview"], function() ns.Expose.Toggle() end)
+	-- Named for what it shows rather than for the effect it uses, and only there
+	-- when there is more than one window to show. "Overview" on its own, on a
+	-- session with a single window, is a button that darkens the screen and puts
+	-- that window in the middle of it -- which reads as a bug, not a feature.
+	title.expose = titleButton("grid", L["All windows"], function() ns.Expose.Toggle() end,
+		L["Show every open conversation window side by side."])
 	title.expose:SetPoint("RIGHT", title.settings, "LEFT", -2, 0)
+	title.expose:Hide()
 
 	W.MakeWindowHandle(title, {
 		canMove = function() return not ns.db.profile.layout.locked end,
@@ -147,7 +154,7 @@ function MainWindow.Get()
 	frame.grip:SetSize(ns.SZ.RESIZE_GRIP, ns.SZ.RESIZE_GRIP)
 	frame.grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
 	frame.grip:EnableMouse(true)
-	frame.gripIcon = W.Icon(frame.grip, "sort", 11, "textMuted")
+	frame.gripIcon = W.Icon(frame.grip, "sort", ns.SZ.ICON_MARK, "textMuted")
 	frame.gripIcon:SetPoint("CENTER")
 	frame.gripIcon:SetAlpha(0.5)
 	frame.grip:SetScript("OnMouseDown", function()
@@ -306,6 +313,14 @@ end
 
 function M:RefreshUnreadBadge()
 	self.titlebar.badge:SetCount(CM.TotalUnread())
+end
+
+-- The overview only exists when there is more than one window to lay out, so
+-- the button that opens it only exists then too.
+function M:RefreshWindowButtons()
+	local windows = 1
+	ns.Popout.Each(function() windows = windows + 1 end)
+	self.titlebar.expose:SetShown(windows > 1)
 end
 
 function M:ApplyTheme()

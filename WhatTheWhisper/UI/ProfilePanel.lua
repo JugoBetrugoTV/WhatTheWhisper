@@ -22,6 +22,14 @@ local P = {}
 local ROW_H = 18
 local LABEL_W = 62
 local PAD_X, PAD_Y = ns.S.LG, ns.S.SM
+-- Two columns. Six facts stacked in one column is a tall panel using a quarter
+-- of a wide window, and the window is wide.
+local COLUMNS = 2
+local COLUMN_GAP = ns.S.XL
+-- Below this the columns would squeeze the values into ellipses, so the panel
+-- falls back to one.
+local MIN_COLUMN_W = 190
+local LOOKUP_H = 22
 
 --------------------------------------------------------------------------------
 -- What we know
@@ -94,6 +102,7 @@ local function createRow(panel)
 	row.value:SetPoint("LEFT", row, "LEFT", LABEL_W + ns.S.SM, 0)
 	row.value:SetPoint("RIGHT", row, "RIGHT", 0, 0)
 	row.value:SetJustifyH("LEFT")
+	row.value:SetJustifyH("LEFT")
 	row.value:SetWordWrap(false)
 	return row
 end
@@ -109,8 +118,8 @@ function ProfilePanel.New(parent)
 
 	-- The one action that can fill in a blank row, put where the blank rows are.
 	panel.lookup = ns.Button.Text(panel, {
-		text = L["Look up"], variant = "subtle", minWidth = 84, height = 22,
-		token = "MICRO", icon = "search", glyph = 11,
+		text = L["Look up"], variant = "subtle", minWidth = 84, height = LOOKUP_H,
+		token = "MICRO", icon = "search", glyph = ns.SZ.ICON_GLYPH_XS,
 		onClick = function() panel:Lookup() end,
 	})
 	panel.lookup:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -PAD_X, PAD_Y)
@@ -144,7 +153,13 @@ function P:Refresh()
 	local entry = not conv.isBN and PI.Get(conv.id) or nil
 	local fields = conv.isBN and BN_FIELDS or FIELDS
 
-	local y = PAD_Y
+	local inner = (self:GetWidth() or 0) - PAD_X * 2
+	local columns = COLUMNS
+	if inner < MIN_COLUMN_W * COLUMNS + COLUMN_GAP then columns = 1 end
+	local columnW = columns > 1
+		and ((inner - COLUMN_GAP * (columns - 1)) / columns) or inner
+	local perColumn = math.ceil(#fields / columns)
+
 	local unknown = 0
 	for i = 1, #fields do
 		local field = fields[i]
@@ -168,13 +183,17 @@ function P:Refresh()
 			W.SetTextRole(row.value, "textDisabled")
 			unknown = unknown + 1
 		end
+
+		local column = math.floor((i - 1) / perColumn)
+		local indexInColumn = (i - 1) % perColumn
+		local x = PAD_X + column * (columnW + COLUMN_GAP)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", self, "TOPLEFT", PAD_X, -y)
-		row:SetPoint("TOPRIGHT", self, "TOPRIGHT", -PAD_X, -y)
+		row:SetPoint("TOPLEFT", self, "TOPLEFT", x, -(PAD_Y + indexInColumn * ROW_H))
+		row:SetWidth(columnW)
 		row:Show()
-		y = y + ROW_H
 	end
 	for i = #fields + 1, #self.rows do self.rows[i]:Hide() end
+	local y = PAD_Y + perColumn * ROW_H
 
 	-- The lookup is only offered where it can actually answer: on this realm,
 	-- for a character, on a client that has the API.
@@ -182,7 +201,10 @@ function P:Refresh()
 		and not Compat.IsCrossRealm(conv.id) and unknown > 0
 	self.lookup:SetShown(canLookUp)
 
-	local height = y + PAD_Y + (canLookUp and (22 + ns.S.SM) or 0)
+	-- The button gets a row of its own. Tucking it into whatever space the last
+	-- column happens to leave means it lands on a value as soon as the column
+	-- count or the field list changes.
+	local height = y + PAD_Y + (canLookUp and (LOOKUP_H + ns.S.SM) or 0)
 	if math.abs(height - (self:GetHeight() or 0)) > 0.5 then
 		self:SetHeight(height)
 		if self.onResize then ns.Guard("ProfilePanel.onResize", self.onResize) end
@@ -217,4 +239,4 @@ function P:ApplyTheme()
 	self:Refresh()
 end
 
-ProfilePanel.HEIGHT_HINT = PAD_Y * 2 + ROW_H * #FIELDS
+ProfilePanel.HEIGHT_HINT = PAD_Y * 2 + ROW_H * math.ceil(#FIELDS / COLUMNS)

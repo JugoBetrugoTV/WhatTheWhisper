@@ -55,7 +55,8 @@ local function createTab(strip)
 	tab.label:SetPoint("LEFT", tab, "LEFT", ns.S.MD, 0)
 
 	tab.close = ns.Button.Icon(tab, {
-		icon = "close", size = CLOSE_SIZE, glyph = 9, radius = CLOSE_SIZE / 2,
+		icon = "close", size = CLOSE_SIZE, glyph = ns.SZ.ICON_GLYPH_XS,
+		radius = CLOSE_SIZE / 2,
 		onClick = function() if tab.conv then ns.UI.CloseConversation(tab.conv.id) end end,
 	})
 	tab.close:SetPoint("RIGHT", tab, "RIGHT", -ns.S.SM, 0)
@@ -154,7 +155,7 @@ function Tabs.New(parent)
 	strip.rendered = {}
 
 	strip.overflow = ns.Button.Icon(strip, {
-		icon = "dots", size = 26, glyph = 14,
+		icon = "dots", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function(self) strip:OpenOverflow(self) end,
 	})
 	strip.overflow:SetPoint("RIGHT", strip, "RIGHT", -ns.S.XS, 0)

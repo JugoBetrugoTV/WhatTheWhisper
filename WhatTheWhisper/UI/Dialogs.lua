@@ -59,7 +59,7 @@ local function makeDialog(globalName, width, height)
 	d.title:SetPoint("LEFT", d.header, "LEFT", ns.S.LG, 0)
 
 	d.close = ns.Button.Icon(d.header, {
-		icon = "close", size = 26, glyph = 13,
+		icon = "close", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() d:Hide() end,
 	})
 	d.close:SetPoint("RIGHT", d.header, "RIGHT", -ns.S.SM, 0)

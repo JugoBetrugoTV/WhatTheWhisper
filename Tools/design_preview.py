@@ -315,17 +315,43 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
     cv.circle(ax + av / 2, ay + av / 2, av / 2, fill=thrall)
     cv.text(ax + av / 2, ay + av / 2 + 1, "T", T["SMALL"], (255, 255, 255, 240), anchor="mm")
     cv.text(ax + av + S["MD"], top + head_h / 2 - 7, "Thrall", T["TITLE"], thrall)
-    cv.text(ax + av + S["MD"], top + head_h / 2 + 9, "Level 70 · Shaman · Blackrock",
-            T["MICRO"], c["textMuted"])
+    # With the panel open the header says the one thing the panel cannot.
+    cv.text(ax + av + S["MD"], top + head_h / 2 + 9, "Online", T["MICRO"], c["success"])
     hx = content_x + content_w - S["MD"] - SZ["ICON_BTN"]
-    for name in ("dots", "popout", "search"):
-        cv.icon(name, hx + (SZ["ICON_BTN"] - 16) / 2, top + (head_h - 16) / 2, 16,
-                c["textSecondary"])
+    glyph = SZ["ICON_GLYPH"]
+    for name in ("dots", "popout", "search", "info"):
+        cv.icon(name, hx + (SZ["ICON_BTN"] - glyph) / 2,
+                top + (head_h - glyph) / 2, glyph, c["textSecondary"])
         hx -= SZ["ICON_BTN"] + S["XS"]
     cv.hline(content_x, top + head_h, content_w, c["borderSubtle"])
+    top += head_h
+
+    # ---------------------------------------------------------- details panel
+    # Who you are talking to, in long form. A field the client has never
+    # answered says so rather than leaving a gap that reads as a bug.
+    details = [
+        ("Class", "Shaman", True), ("Level", "70", True), ("Race", "Orc", True),
+        ("Guild", "<Wildhammer Clan>", True), ("Zone", "Orgrimmar", True),
+        ("Realm", "Blackrock", True),
+    ]
+    row_h, label_w, gap = 18, 62, S["XL"]
+    per_column = (len(details) + 1) // 2
+    inner = content_w - S["LG"] * 2
+    column_w = (inner - gap) / 2
+    panel_h = S["SM"] * 2 + row_h * per_column
+    cv.rect(content_x, top, content_w, panel_h, c["bg3"])
+    for index, (label, value, known) in enumerate(details):
+        column, row = divmod(index, per_column)
+        dx = content_x + S["LG"] + column * (column_w + gap)
+        dy = top + S["SM"] + row * row_h
+        cv.text(dx, dy + row_h / 2, label, T["MICRO"], c["textMuted"])
+        cv.text(dx + label_w + S["SM"], dy + row_h / 2, value,
+                T["MICRO"], c["textSecondary"] if known else c["textDisabled"])
+    cv.hline(content_x, top + panel_h, content_w, c["borderSubtle"])
+    top += panel_h
 
     # ------------------------------------------------------------------ canvas
-    canvas_top = top + head_h
+    canvas_top = top
     composer_h = SZ["COMPOSER_MIN_H"]
     canvas_bottom = H - composer_h
     cv.rect(content_x, canvas_top, content_w, canvas_bottom - canvas_top, c["bg2"])
@@ -386,7 +412,10 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
         origin = canvas_bottom - total
     for it in layout_items:
         y = origin + it["y"]
-        if y + it["h"] < canvas_top or y > canvas_bottom:
+        # The client clips at the viewport edge, and so must this: a bubble
+        # drawn half over the details panel is a picture of a bug that is not in
+        # the addon.
+        if y + it["h"] < canvas_top or y > canvas_bottom or y < canvas_top:
             continue
         if it["kind"] == "sep":
             lw = cv.measure(it["label"], T["MICRO"]) + S["MD"] * 2

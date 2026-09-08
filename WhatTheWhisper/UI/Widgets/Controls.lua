@@ -393,7 +393,7 @@ function Controls.SearchBox(parent, opts)
 	box.icon:SetPoint("LEFT", box, "LEFT", ns.S.MD, 0)
 
 	box.clear = ns.Button.Icon(box, {
-		icon = "close", size = 22, glyph = 10, radius = 11,
+		icon = "close", size = 22, glyph = ns.SZ.ICON_GLYPH_XS, radius = 11,
 		onClick = function()
 			box.input:SetText("")
 			box.clear:Hide()

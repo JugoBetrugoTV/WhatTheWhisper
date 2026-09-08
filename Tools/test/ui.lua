@@ -1383,6 +1383,12 @@ do
 	end
 	M.RunFrames(10)
 
+	-- The button that opens it only exists when there is more than one window:
+	-- on a single window it darkens the screen and puts that window back in the
+	-- middle of it, which reads as a bug rather than a feature.
+	check("the overview button is there with several windows open",
+		window.titlebar.expose:IsShown())
+
 	ns.Expose.Open()
 	M.RunFrames(12)
 	check("the overview opened", ns.Expose.IsOpen())
@@ -1448,6 +1454,8 @@ do
 		ns.UI.DockConversation(id)
 	end
 	M.RunFrames(10)
+	check("and it goes away when only one window is left",
+		not window.titlebar.expose:IsShown())
 end
 
 --------------------------------------------------------------------------------

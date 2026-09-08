@@ -86,6 +86,35 @@ ns.Minimap.Update()
 M.RunFrames(2)
 
 --------------------------------------------------------------------------------
+-- Always on top of the map, whatever else is installed
+--------------------------------------------------------------------------------
+
+-- Sharing the minimap's strata puts the button in the same pile as the zone
+-- text, the clock and every other addon's icon, where a higher frame level
+-- anywhere in that pile hides it.
+local STRATA_ORDER = {
+	BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4,
+	DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8,
+}
+check("the button sits above the minimap's own band",
+	STRATA_ORDER[button._strata or "MEDIUM"] > STRATA_ORDER[minimap._strata or "LOW"],
+	tostring(button._strata) .. " vs " .. tostring(minimap._strata))
+
+-- A crowded minimap: something else claims a high level in the map's own band.
+local intruder = CreateFrame("Frame", nil, minimap)
+intruder:SetFrameStrata(minimap:GetFrameStrata())
+intruder:SetFrameLevel((minimap:GetFrameLevel() or 1) + 200)
+ns.Minimap.Update()
+M.RunFrames(2)
+check("and still above a neighbour that raised itself",
+	STRATA_ORDER[button._strata or "MEDIUM"] > STRATA_ORDER[intruder._strata or "LOW"])
+
+-- A world transition rebuilds the minimap; the button has to come back with it.
+M.FireEvent("PLAYER_ENTERING_WORLD")
+M.RunFrames(4)
+check("it survives a loading screen", button:IsShown())
+
+--------------------------------------------------------------------------------
 -- Left click opens it
 --------------------------------------------------------------------------------
 

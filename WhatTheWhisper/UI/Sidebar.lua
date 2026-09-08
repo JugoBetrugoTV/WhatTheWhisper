@@ -52,8 +52,8 @@ local function createRow(sidebar)
 	row.time = W.Text(row, "MICRO", "textMuted")
 	row.time:SetJustifyH("RIGHT")
 
-	row.pin = W.Icon(row, "pin_filled", 11, "textMuted")
-	row.mute = W.Icon(row, "bell_off", 12, "textMuted")
+	row.pin = W.Icon(row, "pin_filled", ns.SZ.ICON_MARK, "textMuted")
+	row.mute = W.Icon(row, "bell_off", ns.SZ.ICON_MARK, "textMuted")
 
 	row.badge = ns.Controls.Badge(row)
 

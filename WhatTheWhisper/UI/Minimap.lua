@@ -168,15 +168,14 @@ local function build()
 
 	button = CreateFrame("Frame", "WhatTheWhisperMinimapButton", minimap)
 	button:SetSize(SIZE, SIZE)
-	button:SetFrameStrata(minimap:GetFrameStrata())
-	button:SetFrameLevel((minimap:GetFrameLevel() or 1) + 8)
 	button:EnableMouse(true)
 	button:SetMovable(true)
+	MinimapButton.Raise()
 
 	button.surface = W.Surface(button, {
 		color = "bg0", border = "borderStrong", radius = SIZE / 2, shadow = 6,
 	})
-	button.icon = W.Icon(button, "logo", 14, "accent")
+	button.icon = W.Icon(button, "logo", ns.SZ.ICON_LOGO, "accent")
 	button.icon:SetPoint("CENTER")
 
 	button.badge = ns.Controls.Badge(button, { height = 14 })
@@ -239,6 +238,27 @@ end
 -- State
 --------------------------------------------------------------------------------
 
+-- One band above the minimap, and well above anything parented to it.
+--
+-- Sharing the minimap's own strata put the button in the same pile as the zone
+-- text, the clock, the tracking button and every other addon's icon, where a
+-- higher frame level anywhere else in that pile hides it. A band of its own is
+-- the only placement that does not depend on what else is installed.
+local STRATA_ABOVE = {
+	BACKGROUND = "LOW", LOW = "MEDIUM", MEDIUM = "HIGH", HIGH = "DIALOG",
+	DIALOG = "FULLSCREEN", FULLSCREEN = "FULLSCREEN_DIALOG",
+	FULLSCREEN_DIALOG = "TOOLTIP", TOOLTIP = "TOOLTIP",
+}
+local BUTTON_LEVEL_LIFT = 8
+
+function MinimapButton.Raise()
+	local minimap = _G.Minimap
+	if not button or not minimap then return end
+	local base = minimap:GetFrameStrata() or "LOW"
+	button:SetFrameStrata(STRATA_ABOVE[base] or "MEDIUM")
+	button:SetFrameLevel((minimap:GetFrameLevel() or 1) + BUTTON_LEVEL_LIFT)
+end
+
 function MinimapButton.Update()
 	if not ns.db then return end
 	local hide = ns.db.profile.advanced.minimap.hide
@@ -250,6 +270,9 @@ function MinimapButton.Update()
 		return
 	end
 	if not build() then return end
+	-- Re-asserted on every update: another addon loading later can change the
+	-- minimap's own strata out from under us, and the button has to follow.
+	MinimapButton.Raise()
 	positionAt(ns.db.profile.advanced.minimap.angle or 205)
 
 	local waiting = unreadConversations()

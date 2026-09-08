@@ -196,12 +196,16 @@ function UI.TogglePopout(id)
 		ns.Popout.Open(id)
 		ns.Sounds.Play("openConv")
 	end
+	local window = existing()
+	if window then window:RefreshWindowButtons() end
 end
 
 function UI.DockConversation(id)
 	ns.Popout.Close(id)
 	UI.Show()
 	CM.Select(id)
+	local window = existing()
+	if window then window:RefreshWindowButtons() end
 end
 
 --------------------------------------------------------------------------------
@@ -435,12 +439,14 @@ function UI.RefreshLayout()
 	-- the settings window and the header button move the same thing.
 	window.view:ApplyProfileState()
 	ns.Popout.Each(function(_, win) win.view:ApplyProfileState() end)
+	window:RefreshWindowButtons()
 	UI.ScheduleTabSweep()
 end
 
 function UI.RefreshAll()
 	local window = existing()
 	if not window then return end
+	window:RefreshWindowButtons()
 	window.sidebar:Refresh()
 	window.tabs:Refresh()
 	window.view:SetConversation(CM.Selected())
