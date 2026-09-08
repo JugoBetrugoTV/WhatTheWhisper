@@ -143,3 +143,54 @@ end
 function Export.PlainMessage(msg)
 	return clean(msg and msg[MSG_TEXT])
 end
+
+--------------------------------------------------------------------------------
+-- Export to a file
+--------------------------------------------------------------------------------
+
+-- The client cannot write a file the player chooses, and it has no clipboard.
+-- What it does have is saved variables, which are written to a real .lua file on
+-- disk when the session ends. So "export to file" is a saved variable: the text
+-- goes in, and after a reload or a logout it is sitting in a text file the
+-- player can open in any editor.
+--
+-- Kept out of the settings database on purpose. That one is loaded, merged and
+-- written back on every login; an export is a one-off the player takes away, and
+-- growing the profile with it would slow down every future login.
+Export.MAX_FILE_BYTES = 4 * 1024 * 1024
+
+-- Where the file lands, in the words the player needs to find it.
+function Export.FilePath()
+	local folder = ns.Compat.SavedVariablesFolder and ns.Compat.SavedVariablesFolder()
+	return (folder or "WTF\\Account\\<account>\\SavedVariables")
+		.. "\\WhatTheWhisper.lua"
+end
+
+-- Returns true plus the byte count, or false plus a reason.
+function Export.ToFile(conv, formatID)
+	if not conv then return false, "empty" end
+	local text = Export.Conversation(conv, formatID)
+	if not text or text == "" then return false, "empty" end
+	if #text > Export.MAX_FILE_BYTES then return false, "toobig" end
+
+	local store = _G.WhatTheWhisperExportDB
+	if type(store) ~= "table" then
+		store = {}
+		_G.WhatTheWhisperExportDB = store
+	end
+	-- One slot per conversation and format, so exporting twice replaces rather
+	-- than piles up, and the file stays something a person can read.
+	store.exports = type(store.exports) == "table" and store.exports or {}
+	store.exports[conv.id .. "." .. (formatID or "text")] = {
+		conversation = conv.name or conv.id,
+		format = formatID or "text",
+		savedAt = Format.ExportStamp(),
+		text = text,
+	}
+	store.readme = ns.EXPORT_README
+	return true, #text
+end
+
+function Export.ClearFile()
+	_G.WhatTheWhisperExportDB = nil
+end

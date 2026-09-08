@@ -93,7 +93,9 @@ ns.SZ = {
 
 	SCROLLBAR_W       = 4,
 	SCROLLBAR_HIT     = 10,
-	SCROLLBAR_MIN_THUMB = 28,
+	-- However long the list, the thing you grab stays a comfortable grab. 28 was
+	-- proportional and awkward in a thread of a few hundred messages.
+	SCROLLBAR_MIN_THUMB = 32,
 
 	LIST_PAD_X        = 20,
 	LIST_PAD_Y        = 16,
@@ -223,6 +225,13 @@ ns.GROUP_WINDOW = 300
 
 -- Hard whisper payload limit in bytes, enforced by the server.
 ns.MAX_MESSAGE_BYTES = 255
+
+-- Written beside every file export so that somebody opening the saved variables
+-- file months later knows what they are looking at.
+ns.EXPORT_README =
+	"Conversations exported from WhatTheWhisper. Each entry under 'exports' "
+	.. "holds one conversation as plain text. Delete this whole variable, or "
+	.. "use the Clear button in the export window, when you no longer need it."
 
 --------------------------------------------------------------------------------
 -- Small shared helpers

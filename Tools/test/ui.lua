@@ -215,11 +215,31 @@ check("the list and the composer share a left edge",
 local MIN_TARGET = 20
 local MIN_STRIP_MINOR = 10
 local MIN_STRIP_MAJOR = 100
+-- A handle *inside* its own track -- a scrollbar thumb -- is the one case where
+-- a short major axis is not a fault. You aim at the track, which is long, and a
+-- miss lands on it and pages towards the cursor. So the handle is judged on
+-- being a comfortable grab rather than on the track's length.
+local MIN_HANDLE_MAJOR = 32
 
 local function targetIsBigEnough(w, h)
 	if w >= MIN_TARGET and h >= MIN_TARGET then return true end
 	local minor, major = math.min(w, h), math.max(w, h)
 	return minor >= MIN_STRIP_MINOR and major >= MIN_STRIP_MAJOR
+end
+
+-- Structural, not a name check: a mouse-enabled frame that fits inside a
+-- mouse-enabled parent which is itself a long enough strip.
+-- `w` and `h` are the effective clickable size, hit-rect insets already applied,
+-- because that is what the hand actually gets.
+local function isHandleInTrack(node, w, h)
+	local parent = node._parent
+	if not parent or not parent._mouseEnabled then return false end
+	local _, _, nodeW, nodeH = rect(node)
+	local _, _, parentW, parentH = rect(parent)
+	if nodeW > parentW + EPS or nodeH > parentH + EPS then return false end
+	local minor, major = math.min(w, h), math.max(w, h)
+	if minor < MIN_STRIP_MINOR or major < MIN_HANDLE_MAJOR then return false end
+	return math.max(parentW, parentH) >= MIN_STRIP_MAJOR
 end
 
 local function checkTargets(label, root)
@@ -235,7 +255,7 @@ local function checkTargets(label, root)
 			-- for SetHitRectInsets is inward) are what the addon uses to grow a
 			-- thin control's clickable area, stored negative.
 			local tw, th = w - hl - hr, h - ht - hb
-			if not targetIsBigEnough(tw, th) then
+			if not targetIsBigEnough(tw, th) and not isHandleInTrack(node, tw, th) then
 				small = small + 1
 				sample = sample or (describe(node) .. (" target %.1fx%.1f"):format(tw, th))
 			end
@@ -865,6 +885,49 @@ do
 		check(format .. ": the box keeps focus after a format change",
 			dialog.edit:HasFocus())
 	end
+
+	-- The box is a scroll child, and a frame is 0x0 until told otherwise: with
+	-- no height there is nothing to draw and nothing to scroll, which is an
+	-- export window that comes up empty however much text is in it.
+	check("the export box has a real height",
+		(dialog.edit:GetHeight() or 0) > 1,
+		("%.1f"):format(dialog.edit:GetHeight() or 0))
+	check("and a real width", (dialog.edit:GetWidth() or 0) > 1)
+	check("it is at least as tall as the viewport",
+		(dialog.edit:GetHeight() or 0) >= (dialog.scroll:GetHeight() or 0) - EPS,
+		("%.1f vs %.1f"):format(dialog.edit:GetHeight() or 0, dialog.scroll:GetHeight() or 0))
+
+	-- Long enough to overflow: the box has to grow with it, not clip it.
+	local shortHeight = dialog.edit:GetHeight()
+	for i = 1, 400 do
+		ns.ConversationManager.AddMessage(conv.id, ns.DIR_IN,
+			"eine ziemlich lange Zeile Nummer " .. i, ns.MSG_WHISPER)
+	end
+	dialog:SetContent(ns.Export.Conversation(conv, "text"))
+	M.RunFrames(4)
+	check("a long export makes the box taller",
+		(dialog.edit:GetHeight() or 0) > shortHeight,
+		("%.1f -> %.1f"):format(shortHeight, dialog.edit:GetHeight() or 0))
+	check("and there is something to scroll", (dialog.scrollRange or 0) > 0)
+
+	-- Saving to a file is a saved variable, which is a real file on disk after
+	-- the session ends. It is the only export the client can actually perform.
+	_G.WhatTheWhisperExportDB = nil
+	dialog:SaveToFile()
+	local store = _G.WhatTheWhisperExportDB
+    check("the export reached the saved variable",
+		type(store) == "table" and type(store.exports) == "table")
+	if store and store.exports then
+		local saved
+		for _, entry in pairs(store.exports) do saved = entry end
+		check("with the conversation in it",
+			saved ~= nil and saved.text:find(conv.messages[1][ns.MSG_TEXT], 1, true) ~= nil)
+		check("and a note saying what the file is", type(store.readme) == "string")
+	end
+	check("the dialog says where it went",
+		(dialog.hint:GetText() or ""):find("SavedVariables", 1, true) ~= nil,
+		dialog.hint:GetText())
+	ns.Export.ClearFile()
 
 	dialog:Hide()
 	M.RunFrames(8)

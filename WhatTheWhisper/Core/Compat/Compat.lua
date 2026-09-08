@@ -669,6 +669,18 @@ function Compat.IsBNOnline(bnetAccountID)
 	return online and true or false
 end
 
+-- Where this client writes its saved variables, in the form a player needs to
+-- navigate to it. The account folder is not something an addon can read, so it
+-- is named as a placeholder rather than guessed at.
+function Compat.SavedVariablesFolder()
+	local flavourFolder = ({
+		retail = "_retail_", mop = "_classic_", cata = "_classic_",
+		wrath = "_classic_", tbc = "_classic_era_", classic = "_classic_era_",
+	})[Compat.flavor] or "_retail_"
+	return "World of Warcraft\\" .. flavourFolder
+		.. "\\WTF\\Account\\<account>\\SavedVariables"
+end
+
 function Compat.PlaySoundKit(kitID, channel)
 	if not kitID then return false end
 	if type(_G.PlaySound) ~= "function" then return false end

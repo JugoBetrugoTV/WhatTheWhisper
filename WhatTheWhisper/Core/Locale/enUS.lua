@@ -90,6 +90,11 @@ L["Open in copy box"] = true
 -- Dialogs
 L["Copy"] = true
 L["Press Ctrl+C to copy, then Esc to close."] = true
+L["Press Ctrl+C to copy, or save it to a file."] = true
+L["Save to file"] = true
+L["Saved. It is in %s after your next reload or logout."] = true
+L["That conversation is too large to save."] = true
+L["There was nothing to save."] = true
 L["Export"] = true
 L["Format"] = true
 L["Plain text"] = true

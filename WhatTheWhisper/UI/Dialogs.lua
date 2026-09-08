@@ -16,6 +16,11 @@ local max, min = math.max, math.min
 -- An EditBox with hundreds of thousands of characters will stall the client, so
 -- exports are capped and the dialog says so rather than freezing.
 local MAX_CHARS = 30000
+-- The scroll child's size before it has any text, and the room left under the
+-- last line so a descender is never clipped by the viewport edge.
+local EDIT_MIN_W, EDIT_MIN_H = 500, 40
+local EDIT_SLACK = 8
+local SCROLL_STEP = 40
 
 local copyDialog, confirmDialog
 
@@ -81,13 +86,26 @@ local function buildCopy()
 		width = 160, height = 28, options = {},
 		onChange = function(value)
 			d.format = value
+			d.savedNote = nil
 			if d.conv then d:SetContent(Export.Conversation(d.conv, value)) end
 		end,
 	})
 	d.formats:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.MD)
 
+	-- There is no clipboard and no way to write a file the player picks, but
+	-- saved variables *are* a file on disk. This puts the export there, where it
+	-- can be opened in any editor after a reload -- which is what most people
+	-- mean by "export" and what Ctrl+C alone never gave them.
+	d.saveFile = ns.Button.Text(d, {
+		text = L["Save to file"], variant = "subtle", minWidth = 118, height = 28,
+		icon = "export",
+		onClick = function() d:SaveToFile() end,
+	})
+	d.saveFile:SetPoint("LEFT", d.formats, "RIGHT", ns.S.SM, 0)
+	d.saveFile:Hide()
+
 	d.hint = W.Text(d, "MICRO", "textMuted")
-	d.hint:SetPoint("LEFT", d.formats, "RIGHT", ns.S.MD, 0)
+	d.hint:SetPoint("LEFT", d.saveFile, "RIGHT", ns.S.MD, 0)
 	d.hint:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
 	d.hint:SetJustifyH("RIGHT")
 
@@ -100,6 +118,7 @@ local function buildCopy()
 	local scroll = CreateFrame("ScrollFrame", nil, box)
 	scroll:SetPoint("TOPLEFT", box, "TOPLEFT", ns.S.MD, -ns.S.SM)
 	scroll:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -ns.S.MD, ns.S.SM)
+	scroll:EnableMouseWheel(true)
 	d.scroll = scroll
 
 	local edit = CreateFrame("EditBox", nil, scroll)
@@ -108,7 +127,11 @@ local function buildCopy()
 	edit:SetFontObject(Theme.Font("SMALL"))
 	edit:SetMaxLetters(0)
 	if edit.SetCountInvisibleLetters then edit:SetCountInvisibleLetters(false) end
-	edit:SetWidth(500)
+	-- A scroll child needs a real size, and this one was created with none: a
+	-- frame is 0x0 until told otherwise, and a 0-height child inside a scroll
+	-- frame has nothing to draw and nothing to scroll. That is why the export
+	-- box came up empty however much text was in it.
+	edit:SetSize(EDIT_MIN_W, EDIT_MIN_H)
 	edit:SetScript("OnEscapePressed", function() d:Hide() end)
 	-- Read-only in practice: any edit is reverted, so the selection stays intact.
 	edit:SetScript("OnTextChanged", function(self, userInput)
@@ -118,10 +141,36 @@ local function buildCopy()
 		end
 	end)
 	scroll:SetScrollChild(edit)
-	scroll:SetScript("OnSizeChanged", function(_, width)
-		if width and width > 0 then edit:SetWidth(width) end
-	end)
 	d.edit = edit
+
+	-- The height has to be measured, not guessed: the client wraps the text and
+	-- an export is mostly long lines. A hidden font string of the same face and
+	-- width gives the real answer.
+	function d:ResizeContent()
+		local width = scroll:GetWidth() or 0
+		if width <= 0 then width = EDIT_MIN_W end
+		edit:SetWidth(width)
+		local measure = Theme.Measure("SMALL")
+		measure:SetWidth(width)
+		measure:SetText(d.content or "")
+		local height = math.max(scroll:GetHeight() or 0,
+			(measure:GetStringHeight() or 0) + EDIT_SLACK, EDIT_MIN_H)
+		edit:SetHeight(height)
+		d.scrollRange = math.max(0, height - (scroll:GetHeight() or 0))
+		if (scroll:GetVerticalScroll() or 0) > d.scrollRange then
+			scroll:SetVerticalScroll(d.scrollRange)
+		end
+	end
+
+	scroll:SetScript("OnSizeChanged", function() d:ResizeContent() end)
+	-- Copying never needs the wheel -- everything is selected whatever is on
+	-- screen -- but reading it before you copy does.
+	scroll:SetScript("OnMouseWheel", function(self, delta)
+		local range = d.scrollRange or 0
+		if range <= 0 then return end
+		local at = (self:GetVerticalScroll() or 0) - delta * SCROLL_STEP
+		self:SetVerticalScroll(math.max(0, math.min(range, at)))
+	end)
 
 	function d:SetContent(text)
 		text = text or ""
@@ -135,6 +184,8 @@ local function buildCopy()
 		edit:SetText(text)
 		d.truncated = truncated
 		d:RefreshHint()
+		d:ResizeContent()
+		d.scroll:SetVerticalScroll(0)
 		if d:IsShown() then d:FocusContent() end
 	end
 
@@ -153,7 +204,28 @@ local function buildCopy()
 	-- the world the moment the dialog does.
 	d:HookScript("OnHide", function() edit:ClearFocus() end)
 
+	function d:SaveToFile()
+		if not d.conv then return end
+		local ok, detail = Export.ToFile(d.conv, d.format or "text")
+		if ok then
+			d.savedNote = L["Saved. It is in %s after your next reload or logout."]
+				:format(Export.FilePath())
+		elseif detail == "toobig" then
+			d.savedNote = L["That conversation is too large to save."]
+		else
+			d.savedNote = L["There was nothing to save."]
+		end
+		d:RefreshHint()
+	end
+
 	function d:RefreshHint()
+		-- What just happened beats what you could do next.
+		if d.savedNote then
+			d.hint:SetText(d.savedNote)
+			W.SetTextRole(d.hint, "success")
+			return
+		end
+		W.SetTextRole(d.hint, "textMuted")
 		local hint = d.baseHint or L["Press Ctrl+C to copy, then Esc to close."]
 		if d.truncated then
 			hint = hint .. "  (" .. MAX_CHARS .. "+ )"
@@ -168,6 +240,7 @@ local function buildCopy()
 		W.RefreshText(d.hint)
 		d.close:ApplyTheme()
 		d.formats:ApplyTheme()
+		d.saveFile:ApplyTheme()
 		box.surface:ApplyTheme()
 		edit:SetFontObject(Theme.Font("SMALL"))
 		local c = Theme.Get("textSecondary")
@@ -181,11 +254,14 @@ end
 function Dialogs.ShowCopy(text, title, hint)
 	local d = buildCopy()
 	d.conv = nil
+	d.savedNote = nil
 	d.formats:Hide()
+	d.saveFile:Hide()
 	d.title:SetText(title or L["Copy"])
 	d.baseHint = hint or L["Press Ctrl+C to copy, then Esc to close."]
 	d.hint:ClearAllPoints()
 	d.hint:SetPoint("TOPRIGHT", d.header, "BOTTOMRIGHT", -ns.S.LG, -ns.S.MD - 6)
+	d.hint:SetPoint("LEFT", d, "LEFT", ns.S.LG, 0)
 	d.hint:SetJustifyH("RIGHT")
 	d.box:ClearAllPoints()
 	d.box:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -(ns.S.MD + ns.S.XL))
@@ -202,7 +278,9 @@ function Dialogs.ShowExport(conv)
 	if not conv then return end
 	local d = buildCopy()
 	d.conv = conv
-	d.baseHint = L["Press Ctrl+C to copy, then Esc to close."]
+	d.savedNote = nil
+	d.saveFile:Show()
+	d.baseHint = L["Press Ctrl+C to copy, or save it to a file."]
 	d.title:SetText(L["Export"] .. " \194\183 " .. (conv.name or conv.id))
 	d.formats:Show()
 	d.formats:SetOptions(Export.FORMATS and (function()
@@ -214,7 +292,7 @@ function Dialogs.ShowExport(conv)
 	end)() or {})
 	d.formats:SetValue(d.format or "text", false)
 	d.hint:ClearAllPoints()
-	d.hint:SetPoint("LEFT", d.formats, "RIGHT", ns.S.MD, 0)
+	d.hint:SetPoint("LEFT", d.saveFile, "RIGHT", ns.S.MD, 0)
 	d.hint:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
 	d.box:ClearAllPoints()
 	d.box:SetPoint("TOPLEFT", d.formats, "BOTTOMLEFT", 0, -ns.S.MD)
