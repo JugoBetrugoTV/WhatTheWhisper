@@ -65,10 +65,13 @@ function PlayerInfo.Observe(fullName, guid)
 	local dirty = false
 	if guid and guid ~= "" and e.guid ~= guid then
 		e.guid = guid
-		local class, race = Compat.GetPlayerInfoByGUID(guid)
+		local class, race, _, _, _, localizedRace = Compat.GetPlayerInfoByGUID(guid)
 		if class and class ~= e.class then e.class = class dirty = true end
 		if race and race ~= e.race then
 			e.race = race
+			-- The English name is what the faction table is keyed on; the
+			-- localized one is what a German player expects to read.
+			e.raceName = localizedRace or race
 			local faction = Compat.FactionForRace(race)
 			if faction then e.faction = faction end
 			dirty = true
@@ -318,6 +321,25 @@ function PlayerInfo.StatusLine(fullName, isBN)
 	end
 	if #parts == 0 then return nil end
 	return table.concat(parts, " \194\183 ")   -- middle dot
+end
+
+-- The shortest honest line about somebody: what they are doing right now if the
+-- client has said, otherwise the one fact most worth the space. Used under the
+-- name when the details panel is already spelling everything else out, so that
+-- the header carries something rather than nothing.
+function PlayerInfo.ShortLine(fullName, isBN)
+	if isBN then return nil end
+	local online = PlayerInfo.IsOnline(fullName)
+	if online ~= nil then return online and "online" or "offline" end
+	local e = cache[fullName]
+	if e and e.class then
+		local names = _G.LOCALIZED_CLASS_NAMES_MALE
+		return "class", (names and names[e.class]) or e.class
+	end
+	if Compat.IsCrossRealm(fullName) then
+		return "text", Compat.RealmOf(fullName)
+	end
+	return nil
 end
 
 -- The word for the status dot, so a tooltip can say what the colour means.

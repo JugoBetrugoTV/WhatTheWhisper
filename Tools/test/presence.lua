@@ -247,6 +247,13 @@ do
 		end
 	end
 	eq("the lookup button sits clear of every row", overlaps, 0)
+
+	-- It is outlined rather than filled. A filled button rests on bg3, and the
+	-- panel it sits on *is* bg3 -- so it was the same colour as its own
+	-- background: a label in the corner with no button around it.
+	check("and has an edge, so it looks like a button",
+		(panel.lookup.surface.borderRole or nil) ~= nil,
+		tostring(panel.lookup.surface.borderRole))
 	-- And the panel is wide enough that the facts are not stacked in one column
 	-- using a quarter of the window.
 	local rowsShown = 0
@@ -296,6 +303,53 @@ M.RunFrames(6)
 check("and opens it again", panel:IsShown())
 CM.Select(thrall)
 M.RunFrames(6)
+
+--------------------------------------------------------------------------------
+-- The sequence a real session actually produces
+--------------------------------------------------------------------------------
+
+-- Taken from an in-game screenshot: the player writes first, gets an away
+-- message back, then real whispers. The away message is their client answering,
+-- which proves they are online and carries the guid class and race come from --
+-- and both were being dropped, so that thread had no status line and no race.
+do
+	M.guids["G-HEX"] = { class = "WARLOCK", race = "Undead",
+		localizedRace = "Untoter", name = "Hexomeisto", realm = "Aegwynn" }
+	local hex = ns.Compat.NormalizeName("Hexomeisto")
+
+	CM.SendMessage(hex, ".")
+	M.RunTimers(2)
+	eq("nothing known from an outgoing message alone", PI.IsOnline(hex), nil)
+
+	M.FireEvent("CHAT_MSG_AFK", "AFK", "Hexomeisto", "Common", "", "Hexomeisto",
+		"", 0, 0, "", 0, 3, "G-HEX")
+	M.RunTimers(2)
+	eq("an away message proves they are online", PI.IsOnline(hex), true)
+	local e = PI.Get(hex)
+	eq("and carries their class", e and e.class, "WARLOCK")
+	eq("and their race", e and e.race, "Undead")
+	-- English keys the faction table; the localized name is what gets read.
+	eq("kept in the player's own language for display", e and e.raceName, "Untoter")
+
+	CM.Select(hex)
+	M.RunFrames(8)
+	local header = ns.MainWindow.Get().view.header
+	check("so the header has a line under the name",
+		(header.status:GetText() or "") ~= "", ("%q"):format(header.status:GetText() or ""))
+end
+
+-- The client answers with empty strings, not nils, for a guid it knows nothing
+-- about. Passing those through turns "not told yet" into a value that a better
+-- answer later can never replace.
+do
+	M.guids["G-BLANK"] = { class = "", race = "", name = "", realm = "" }
+	local blank = ns.Compat.NormalizeName("Blankperson")
+	CM.GetOrCreate(blank)
+	PI.Observe(blank, "G-BLANK")
+	local e = PI.Get(blank)
+	eq("an empty class is not recorded as a class", e and e.class, nil)
+	eq("nor an empty race as a race", e and e.race, nil)
+end
 
 --------------------------------------------------------------------------------
 -- Battle.net

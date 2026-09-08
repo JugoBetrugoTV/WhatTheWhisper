@@ -347,10 +347,18 @@ end
 function Compat.GetPlayerInfoByGUID(guid)
 	if not guid or guid == "" then return nil end
 	if type(_G.GetPlayerInfoByGUID) ~= "function" then return nil end
-	local ok, _, englishClass, _, englishRace, sex, name, realm = pcall(_G.GetPlayerInfoByGUID, guid)
+	local ok, _, englishClass, localizedRace, englishRace, sex, name, realm =
+		pcall(_G.GetPlayerInfoByGUID, guid)
 	if not ok then return nil end
-	if realm == "" then realm = nil end
-	return englishClass, englishRace, sex, name, realm
+	-- The client answers with empty strings, not nils, for anything it does not
+	-- know about a guid yet. Passing those on turns "we have not been told" into
+	-- a value, which then never gets filled in by a later, better answer.
+	local function blankToNil(value)
+		if value == nil or value == "" then return nil end
+		return value
+	end
+	return blankToNil(englishClass), blankToNil(englishRace), sex,
+		blankToNil(name), blankToNil(realm), blankToNil(localizedRace)
 end
 
 local CLASS_COLORS = _G.RAID_CLASS_COLORS

@@ -286,13 +286,20 @@ function V:RefreshHeader()
 
 	-- With the details panel open the header would say the same six facts twice,
 	-- one line above the other. So it says the thing the panel does not: whether
-	-- they are there right now.
-	local presence = not conv.isBN and ns.PlayerInfo.PresenceLabel(conv.id) or nil
+	-- they are there right now -- and when the client has not said, the next
+	-- most useful fact rather than an empty line under the name.
 	local status
 	if conv.isBN then
 		status = L["Battle.net"]
 	elseif self.profile:IsShown() then
-		status = presence and L[presence == "online" and "Online" or "Offline"] or nil
+		local kind, value = ns.PlayerInfo.ShortLine(conv.id, conv.isBN)
+		if kind == "online" then
+			status = L["Online"]
+		elseif kind == "offline" then
+			status = L["Offline"]
+		else
+			status = value
+		end
 	else
 		status = ns.PlayerInfo.StatusLine(conv.id)
 	end
@@ -304,6 +311,7 @@ function V:RefreshHeader()
 	-- The dot is the only thing on screen that says whether they are there, so
 	-- it says so in words too rather than relying on the player knowing what
 	-- green means.
+	local presence = not conv.isBN and ns.PlayerInfo.PresenceLabel(conv.id) or nil
 	W.SetTooltip(header.avatar, displayName,
 		presence and L[presence == "online" and "Online" or "Offline"] or nil)
 

@@ -210,10 +210,15 @@ end
 
 -- The target's away/busy auto-reply. Shown inside the thread, where it belongs.
 local function onAutoReply(kind)
-	return function(text, sender)
+	return function(text, sender, _, _, _, _, _, _, _, _, _, guid)
 		if not sender or sender == "" then return end
 		local id = Compat.NormalizeName(sender)
 		if not CM.Get(id) then return end
+		-- An away message is their client answering, which is as good a proof
+		-- that they are online as a typed reply -- and it carries the same GUID,
+		-- which is where class and race come from. Both were being dropped.
+		PlayerInfo.Observe(id, guid)
+		PlayerInfo.NoteActivity(id)
 		CM.AddMessage(id, ns.DIR_IN, text, kind)
 	end
 end

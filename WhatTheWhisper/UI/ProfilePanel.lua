@@ -53,7 +53,7 @@ local FIELDS = {
 			return tostring(e.level)
 		end },
 	{ key = "race",   label = "Race",
-	  value = function(e) return e and e.race end },
+	  value = function(e) return e and (e.raceName or e.race) end },
 	{ key = "guild",  label = "Guild",
 	  value = function(e)
 			if not e or not e.guild or e.guild == "" then return nil end
@@ -118,7 +118,10 @@ function ProfilePanel.New(parent)
 
 	-- The one action that can fill in a blank row, put where the blank rows are.
 	panel.lookup = ns.Button.Text(panel, {
-		text = L["Look up"], variant = "subtle", minWidth = 84, height = LOOKUP_H,
+		-- Outlined, not filled. A filled button here rests on bg3, and the panel
+		-- it sits on *is* bg3, so it was the same colour as its own background:
+		-- a label floating in the corner with no button around it.
+		text = L["Look up"], variant = "outline", minWidth = 84, height = LOOKUP_H,
 		token = "MICRO", icon = "search", glyph = ns.SZ.ICON_GLYPH_XS,
 		onClick = function() panel:Lookup() end,
 	})

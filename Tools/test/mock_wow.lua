@@ -1048,10 +1048,16 @@ _G.UnitLevel = function(unit)
 	local u = M.units and M.units[unit]
 	return u and u.level or 70
 end
+-- The client answers with empty strings, not nils, for anything it has not
+-- resolved about a guid yet -- and the localized names are different strings
+-- from the English ones, which is the whole reason it returns both.
 _G.GetPlayerInfoByGUID = function(guid)
 	local info = M.guids and M.guids[guid]
 	if not info then return nil end
-	return info.class, info.class, info.race, info.race, 2, info.name, info.realm
+	local function blank(value) return value == nil and "" or value end
+	return blank(info.localizedClass or info.class), blank(info.class),
+		blank(info.localizedRace or info.race), blank(info.race),
+		2, blank(info.name), blank(info.realm)
 end
 _G.Ambiguate = function(name) return name end
 _G.SendChatMessage = function(text, kind, lang, target)

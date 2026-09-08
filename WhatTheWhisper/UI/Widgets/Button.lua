@@ -38,6 +38,21 @@ local VARIANTS = {
 		selected = { fill = "selected", fg = "textPrimary" },
 		disabled = { fill = "bg3", fg = "textDisabled", alpha = 0.5 },
 	},
+	-- For a button sitting on a raised surface, where a filled one would be the
+	-- same colour as the panel under it and simply disappear. The outline is
+	-- what makes it a button; the fill only arrives on hover.
+	-- The edge uses trackBg rather than a border role: those are tuned to sit
+	-- quietly on the window, and in Minimal borderStrong against bg3 comes out
+	-- at 1.29 to 1 -- under the point where an edge is visible at all, which is
+	-- the exact bug this variant exists to fix. trackBg is derived to clear that
+	-- floor in every palette.
+	outline = {
+		rest = { fill = nil,       fg = "textSecondary", border = "trackBg" },
+		hover = { fill = "hover",   fg = "textPrimary", border = "trackBg" },
+		pressed = { fill = "pressed", fg = "textPrimary", border = "trackBg" },
+		selected = { fill = "selected", fg = "textPrimary", border = "accent" },
+		disabled = { fill = nil,   fg = "textDisabled", border = "borderSubtle" },
+	},
 }
 Button.VARIANTS = VARIANTS
 
@@ -66,6 +81,12 @@ local function applyState(btn, state, instant)
 			Anim.Color(btn, duration, { r, g, b, ca }, { r, g, b, 0 },
 				function(nr, ng, nb, na) btn.surface:SetColorOverride(nr, ng, nb, na) end)
 		end
+	end
+
+	-- Only the outline variant asks for one, and it has to follow the state so
+	-- the edge brightens with the fill rather than staying flat under it.
+	if btn.surface.SetBorderRole then
+		btn.surface:SetBorderRole(spec.border)
 	end
 
 	local fg = Theme.Get(spec.fg)
