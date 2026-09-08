@@ -411,6 +411,17 @@ step("bulk history", function()
 	print(("scroll fast path: %d/%d elements reused, 0 new frames"):format(same, total))
 end)
 
+-- Nothing in this whole session was a click on a lookup, and SendWho is a
+-- protected function: the client blocks it outside a hardware event and puts an
+-- ADDON_ACTION_BLOCKED warning on screen with this addon's name on it. A single
+-- /who reaching the server from any of the hundreds of events, refreshes, skin
+-- changes and window operations above is the bug, whatever else still passes.
+step("no protected lookup escaped", function()
+	local sent = M.whoSent or {}
+	assert(#sent == 0,
+		("a /who went out without a click: %s"):format(table.concat(sent, ", ")))
+end)
+
 step("logout", function() M.FireEvent("PLAYER_LOGOUT") end)
 
 --------------------------------------------------------------------------------

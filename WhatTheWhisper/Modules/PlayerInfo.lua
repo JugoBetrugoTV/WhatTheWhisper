@@ -208,6 +208,9 @@ PlayerInfo.ScanFriends = scanFriends
 -- /who, only ever from a click
 --------------------------------------------------------------------------------
 
+-- The raw send. Everything outside this file goes through LookUp, which checks
+-- first whether a lookup would help; this only enforces the client's own rate
+-- limit. Both are protected calls in the end, so both need a click above them.
 function PlayerInfo.RequestWho(fullName)
 	if not Compat.canWho then return false end
 	local now = GetTime()
@@ -245,31 +248,40 @@ end
 -- Everything a /who can tell us that a whisper cannot: guild, zone, and a level
 -- and class for somebody who is neither a friend nor a guildmate.
 --
--- Asked once when a thread is opened, not on a timer, and never often enough to
--- be noticed: the client's own throttle applies on top of a per player cooldown,
--- and it stands down entirely while the player has the Who window open, because
--- replacing the results somebody is reading is worse than a missing line.
+-- It can only ever be asked for by a click. SendWho is a protected function: the
+-- client allows it during a hardware event and blocks it everywhere else, and a
+-- blocked call is not a silent no-op -- it puts an ADDON_ACTION_BLOCKED warning
+-- in front of the player with this addon's name on it.
+--
+-- So this answers "would a lookup help, and is one possible?" and sends nothing.
+-- The button in the details panel and the entry in the conversation menu are the
+-- only callers of RequestWho, and both of them run inside a real click.
 local WHO_REFRESH = 900
 
-function PlayerInfo.EnsureDetails(fullName, isBN)
+function PlayerInfo.NeedsLookup(fullName, isBN)
 	if isBN or not fullName or not Compat.canWho then return false end
 	if Compat.IsBattleNet(fullName) then return false end
 	-- /who only ever searches your own realm.
 	if Compat.IsCrossRealm(fullName) then return false end
+	-- Replacing results the player is reading is worse than a missing line.
 	local whoFrame = _G.WhoFrame
 	if whoFrame and whoFrame.IsShown and whoFrame:IsShown() then return false end
 
-	local e = entry(fullName, true)
-	local now = GetTime()
-	if e.whoAt and (now - e.whoAt) < WHO_REFRESH then return false end
+	local e = entry(fullName, false)
+	if not e then return true end
+	if e.whoAt and (GetTime() - e.whoAt) < WHO_REFRESH then return false end
 	-- Nothing left to learn.
 	if e.level and e.class and e.guild and e.zone then return false end
+	return true
+end
 
-	if PlayerInfo.RequestWho(fullName) then
-		e.whoAt = now
-		return true
-	end
-	return false
+-- Called from a click, and only from a click. Records when it went out so the
+-- button stops offering an answer the server has already been asked for.
+function PlayerInfo.LookUp(fullName)
+	if not PlayerInfo.NeedsLookup(fullName) then return false end
+	if not PlayerInfo.RequestWho(fullName) then return false end
+	entry(fullName, true).whoAt = GetTime()
+	return true
 end
 
 --------------------------------------------------------------------------------

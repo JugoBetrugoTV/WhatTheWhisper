@@ -195,10 +195,11 @@ function P:Refresh()
 	for i = #fields + 1, #self.rows do self.rows[i]:Hide() end
 	local y = PAD_Y + perColumn * ROW_H
 
-	-- The lookup is only offered where it can actually answer: on this realm,
-	-- for a character, on a client that has the API.
-	local canLookUp = not conv.isBN and Compat.canWho
-		and not Compat.IsCrossRealm(conv.id) and unknown > 0
+	-- The lookup is only offered where it can actually answer, and it is the
+	-- *only* way a /who ever goes out: SendWho is protected, so the client
+	-- allows it during a click and blocks it -- loudly, with this addon's name
+	-- on the warning -- anywhere else.
+	local canLookUp = unknown > 0 and PI.NeedsLookup(conv.id, conv.isBN)
 	self.lookup:SetShown(canLookUp)
 
 	-- The button gets a row of its own. Tucking it into whatever space the last
@@ -211,12 +212,12 @@ function P:Refresh()
 	end
 end
 
+-- Runs inside the button's own click handler, which is what makes the protected
+-- SendWho underneath it legal. Nothing may call this from a timer or an event.
 function P:Lookup()
 	local conv = self.conv
 	if not conv then return end
-	-- The player asked, so this bypasses the per-player cooldown that keeps the
-	-- automatic lookup quiet -- but not the client's own throttle.
-	if PI.RequestWho(conv.id) then
+	if PI.LookUp(conv.id) then
 		self.lookup:SetText(L["Looking up..."])
 		ns.Anim.After(2, function()
 			self.lookup:SetText(L["Look up"])

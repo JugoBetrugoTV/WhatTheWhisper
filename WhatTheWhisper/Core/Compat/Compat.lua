@@ -551,6 +551,12 @@ function Compat.GetWhoInfo(index)
 end
 
 -- Only ever called straight from a click so any hardware-event requirement holds.
+-- Protected. The client allows this during a hardware event and blocks it
+-- everywhere else -- and a blocked call is not a quiet failure: it shows an
+-- ADDON_ACTION_BLOCKED warning naming this addon. pcall does not help, because
+-- nothing throws. The only defence is never calling it outside a click, which
+-- is why PlayerInfo.LookUp is the single entry point and both of its callers
+-- are click handlers.
 function Compat.SendWho(name)
 	if type(_G.C_FriendList) == "table" and _G.C_FriendList.SendWho then
 		return pcall(_G.C_FriendList.SendWho, "n-" .. name)

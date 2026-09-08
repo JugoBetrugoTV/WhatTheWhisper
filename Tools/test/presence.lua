@@ -120,12 +120,28 @@ M.whoResults = {
 	{ name = "Thrall", level = 70, class = "SHAMAN",
 	  guild = "Wildhammer Clan", zone = "Orgrimmar" },
 }
+
+-- SendWho is protected: the client allows it during a hardware event and blocks
+-- it everywhere else, and a blocked call is not a silent no-op -- it puts an
+-- ADDON_ACTION_BLOCKED warning in front of the player with this addon's name on
+-- it. So nothing that is not a click may send one, and that is what this checks:
+-- opening a thread, receiving a whisper, refreshing the window -- none of them.
 M.whoSent = {}
--- Opening the thread above already sent one, which is the point of the feature;
--- past the per player cooldown a fresh one is allowed.
-M.now = M.now + 1000
-check("a /who goes out when a thread is opened",
-	PI.EnsureDetails(thrall) == true)
+M.now = M.now + 2000
+CM.Select(nil)
+M.RunFrames(4)
+CM.Select(thrall)
+M.RunFrames(8)
+whisper("noch eine", "Thrall", "G-THRALL")
+ns.UI.RefreshAll()
+M.RunFrames(8)
+eq("opening a thread sends no /who", #M.whoSent, 0)
+
+check("but the addon knows one would help", PI.NeedsLookup(thrall) == true)
+
+-- The click does send it. This is the only path that may.
+M.whoSent = {}
+check("asking for it sends one", PI.LookUp(thrall) == true)
 eq("asked by name", M.whoSent[1], "n-Thrall")
 M.FireEvent("WHO_LIST_UPDATE")
 M.RunTimers(2)
@@ -141,7 +157,8 @@ eq("the /who says they are online", PI.IsOnline(thrall), true)
 
 -- Asked again straight away, it stands down rather than spamming the server.
 M.whoSent = {}
-check("no second /who for the same player", PI.EnsureDetails(thrall) == false)
+check("nothing left to learn, so no second /who", PI.NeedsLookup(thrall) == false)
+check("and the button does not fire one", PI.LookUp(thrall) == false)
 eq("nothing was sent", #M.whoSent, 0)
 
 -- Nothing came back, so they are not logged in.
@@ -149,7 +166,7 @@ CM.GetOrCreate("Jaina-Blackrock")
 M.whoResults = {}
 M.now = M.now + 100
 check("a lookup for somebody else does go out",
-	PI.EnsureDetails("Jaina-Blackrock") == true)
+	PI.LookUp("Jaina-Blackrock") == true)
 M.FireEvent("WHO_LIST_UPDATE")
 M.RunTimers(2)
 eq("an empty /who means offline", PI.IsOnline("Jaina-Blackrock"), false)
@@ -159,14 +176,14 @@ _G.WhoFrame:Show()
 M.whoSent = {}
 M.now = M.now + 1000
 check("nothing is sent while the Who window is open",
-	PI.EnsureDetails(ns.Compat.NormalizeName("Muradin")) == false)
+	PI.LookUp(ns.Compat.NormalizeName("Muradin")) == false)
 eq("really nothing", #M.whoSent, 0)
 _G.WhoFrame:Hide()
 
 -- /who only ever searches your own realm, so asking about somebody else's is
 -- a request that can never be answered.
 M.whoSent = {}
-check("no /who across realms", PI.EnsureDetails("Thrall-Draenor") == false)
+check("no /who across realms", PI.LookUp("Thrall-Draenor") == false)
 eq("and none sent", #M.whoSent, 0)
 
 --------------------------------------------------------------------------------

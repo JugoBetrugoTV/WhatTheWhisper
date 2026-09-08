@@ -244,7 +244,7 @@ function UI.BuildConversationMenu(conv)
 
 	if not isBN and Compat.canWho then
 		entries[#entries + 1] = { text = L["Look up"], icon = "search",
-			onClick = function() ns.PlayerInfo.RequestWho(conv.id) end }
+			onClick = function() ns.PlayerInfo.LookUp(conv.id) end }
 	end
 
 	entries[#entries + 1] = { separator = true }
