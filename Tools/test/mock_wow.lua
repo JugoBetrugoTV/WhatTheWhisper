@@ -291,9 +291,22 @@ function regionMethods:GetPoint(index)
 end
 function regionMethods:GetNumPoints() return self._points and #self._points or 0 end
 
-function regionMethods:SetSize(w, h) self._w, self._h = w, h invalidate() end
-function regionMethods:SetWidth(w) self._w = w invalidate() end
-function regionMethods:SetHeight(h) self._h = h invalidate() end
+-- Zero is not a size, it is the absence of one: SetWidth(0) on a font string is
+-- the client's idiom for "drop the width constraint and be as wide as the text",
+-- and the addon uses it before measuring a label. Storing it literally made the
+-- label one pixel wide, which then made its wrapped height hundreds of pixels --
+-- and every measurement taken off it nonsense.
+local function sizeOrNil(v)
+	if v == nil or v == 0 then return nil end
+	return v
+end
+
+function regionMethods:SetSize(w, h)
+	self._w, self._h = sizeOrNil(w), sizeOrNil(h)
+	invalidate()
+end
+function regionMethods:SetWidth(w) self._w = sizeOrNil(w) invalidate() end
+function regionMethods:SetHeight(h) self._h = sizeOrNil(h) invalidate() end
 function regionMethods:GetWidth()
 	return (select(3, geometry(self)))
 end

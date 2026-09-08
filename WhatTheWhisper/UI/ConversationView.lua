@@ -36,10 +36,14 @@ function ConversationView.New(parent, opts)
 	header.avatar:SetPoint("LEFT", header, "LEFT", ns.S.LG, 0)
 	header.avatar:SetSurfaceRole("headerBg")
 
+	-- The name and the line under it are one block, with a fixed gap, centred
+	-- on the avatar. Anchoring one to the avatar's top edge and the other to its
+	-- bottom made that gap a function of the avatar's height instead: at the
+	-- larger font scales the two lines walked into each other, and with no
+	-- status line at all the name sat high in a header it should be centred in.
 	header.name = W.Text(header, "TITLE", "textPrimary")
-	header.name:SetPoint("TOPLEFT", header.avatar, "TOPRIGHT", ns.S.MD, -1)
 	header.status = W.Text(header, "MICRO", "textMuted")
-	header.status:SetPoint("BOTTOMLEFT", header.avatar, "BOTTOMRIGHT", ns.S.MD, 1)
+	v:LayoutHeaderText(false)
 
 	-- Header actions live in an ordered list and are laid out right to left, so
 	-- a popout can append its own without any of the built-ins moving.
@@ -226,6 +230,36 @@ function V:SetConversation(conv)
 	ns.PlayerInfo.EnsureDetails(conv.id, conv.isBN)
 end
 
+-- The gap between the name and the line under it.
+local HEADER_LEADING = 2
+
+-- Two states. With a status line the two labels are one block, centred on the
+-- avatar as a block; with none the name is centred on its own.
+--
+-- Centring the *pair* is the part that is easy to get wrong. The two lines are
+-- different heights, so splitting the leading evenly around the avatar's centre
+-- leaves the block sitting high by half that difference -- close enough to look
+-- like nothing in particular, and exactly the kind of thing that makes a header
+-- feel slightly off without anyone being able to say why.
+function V:LayoutHeaderText(hasStatus)
+	local header = self.header
+	header.name:ClearAllPoints()
+	header.status:ClearAllPoints()
+	if not hasStatus then
+		header.name:SetPoint("LEFT", header.avatar, "RIGHT", ns.S.MD, 0)
+		header.status:Hide()
+		return
+	end
+	local nameHeight = header.name:GetStringHeight() or 0
+	local statusHeight = header.status:GetStringHeight() or 0
+	local offset = (HEADER_LEADING + statusHeight - nameHeight) / 2
+	-- Whole pixels: a half-pixel baseline is a blurred one.
+	offset = math.floor(offset + 0.5)
+	header.name:SetPoint("BOTTOMLEFT", header.avatar, "RIGHT", ns.S.MD, offset)
+	header.status:SetPoint("TOPLEFT", header.name, "BOTTOMLEFT", 0, -HEADER_LEADING)
+	header.status:Show()
+end
+
 function V:RefreshHeader()
 	local conv = self.conv
 	if not conv then return end
@@ -253,6 +287,13 @@ function V:RefreshHeader()
 	end
 	header.status:SetText(status or "")
 
+	-- The dot is the only thing on screen that says whether they are there, so
+	-- it says so in words too rather than relying on the player knowing what
+	-- green means.
+	local presence = conv.isBN and nil or ns.PlayerInfo.PresenceLabel(conv.id)
+	W.SetTooltip(header.avatar, displayName,
+		presence and L[presence == "online" and "Online" or "Offline"] or nil)
+
 	-- Truncate rather than overlap the action buttons.
 	local available = (header:GetWidth() or 400)
 		- (ns.S.LG + ns.SZ.AVATAR_MD + ns.S.MD)
@@ -262,9 +303,20 @@ function V:RefreshHeader()
 		if (header.name:GetStringWidth() or 0) > available then
 			Text.Ellipsize(header.name, displayName, available)
 		end
-		header.status:SetWidth(math.max(20, available))
+		-- The status line carries a level, a class, a guild and a zone now, so
+		-- it overruns far more often than it used to; clipping it mid word left
+		-- a sentence that looked broken rather than shortened.
 		header.status:SetWordWrap(false)
+		header.status:SetWidth(0)
+		if status and status ~= "" and (header.status:GetStringWidth() or 0) > available then
+			Text.Ellipsize(header.status, status, available)
+		end
+		header.status:SetWidth(math.max(20, available))
 	end
+
+	-- Last, once both strings are final: the block's position depends on how
+	-- tall they actually turned out to be.
+	self:LayoutHeaderText(status ~= nil and status ~= "")
 end
 
 --------------------------------------------------------------------------------

@@ -509,12 +509,33 @@ end
 -- Text that is meant to sit in the middle of a control has to actually sit
 -- there. A label a pixel or two high in its row reads as misaligned even when
 -- nobody can say why.
+-- A label stacked with another one -- a name with a status line under it -- is
+-- deliberately off its container's middle, because it is the top half of a block
+-- that is centred as a pair. Detected from the anchors rather than from a marker
+-- the addon would have to carry for the tests' benefit.
+local function stackedLabels(root)
+	local stacked, nodes = {}, auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		for _, point in ipairs(node._points or {}) do
+			local target = point[2]
+			if target and target._kind == "FontString" and node._kind == "FontString" then
+				stacked[node] = true
+				stacked[target] = true
+			end
+		end
+	end
+	return stacked
+end
+
 local function checkVerticalCentring(label, root)
 	local off, sample, inspected = 0, nil, 0
 	local nodes = auditable(root)
+	local stacked = stackedLabels(root)
 	for i = 1, #nodes do
 		local node = nodes[i]
 		if node._kind == "FontString" and (node._text or "") ~= ""
+			and not stacked[node]
 			and node._justifyV == "MIDDLE" then
 			local parent = node._parent
 			if parent and M.EffectivelyShown(parent, root) then
@@ -1040,6 +1061,96 @@ ns.Options.Set("layout.width", ns.SZ.WINDOW_W)
 ns.Options.Set("layout.height", ns.SZ.WINDOW_H)
 ns.UI.RefreshLayout()
 M.RunFrames(6)
+
+--------------------------------------------------------------------------------
+-- The composer with something in it
+--------------------------------------------------------------------------------
+
+-- An empty composer is the only state the audit used to see, because the byte
+-- counter is hidden until the message is long -- and a hidden frame is not
+-- measured. The counter was tucked into the gap between the send button and the
+-- divider and stuck straight through it into the message list.
+do
+	local composer = window.view.composer
+	local before = composer:GetHeight()
+
+	composer.input:SetText(("a"):rep(220))
+	composer:OnTextChanged(composer.input:GetText())
+	M.RunFrames(6)
+	check("a long message shows the counter", composer.counter:IsShown())
+	check("and the composer made room for it",
+		composer:GetHeight() > before,
+		("%.1f -> %.1f"):format(before, composer:GetHeight()))
+	local cb = select(2, rect(composer.counter))
+	local ch = select(4, rect(composer.counter))
+	local compTop = select(2, rect(composer)) + select(4, rect(composer))
+	check("the counter stays inside the composer", cb + ch <= compTop + EPS,
+		("counter top %.1f, composer top %.1f"):format(cb + ch, compTop))
+	checkContainment("composer with a counter", window)
+
+	-- Long enough to split, which is a different, wider string in the same spot.
+	composer.input:SetText(("Ein ziemlich langer Satz. "):rep(30))
+	composer:OnTextChanged(composer.input:GetText())
+	M.RunFrames(6)
+	check("a message that will split says so", composer.counter:IsShown())
+	checkContainment("composer with a split warning", window)
+
+	composer.input:SetText("")
+	composer:OnTextChanged("")
+	M.RunFrames(6)
+	check("and it goes away again", not composer.counter:IsShown())
+end
+
+--------------------------------------------------------------------------------
+-- The conversation header
+--------------------------------------------------------------------------------
+
+-- The name and the line under it were anchored to the avatar's top and bottom
+-- edges, which made the gap between them a function of the avatar's height
+-- rather than of the type. At the larger font scales they overlapped.
+do
+	local header = window.view.header
+	for _, scale in ipairs({ 0, 2, 4 }) do
+		ns.Options.Set("appearance.fontScale", scale)
+		ns.UI.RefreshAll()
+		M.RunFrames(6)
+		local _, nameBottom, _, nameHeight = rect(header.name)
+		local _, statusBottom, _, statusHeight = rect(header.status)
+		if header.status:IsShown() then
+			check(("font scale %d: the name clears the line under it"):format(scale),
+				statusBottom + statusHeight <= nameBottom + EPS,
+				("status top %.1f, name bottom %.1f"):format(
+					statusBottom + statusHeight, nameBottom))
+			-- And the pair as a whole sits in the middle of the header, which is
+			-- what makes it read as one block rather than two stray labels.
+			local hb, hh = select(2, rect(header)), select(4, rect(header))
+			local blockCentre = (statusBottom + nameBottom + nameHeight) / 2
+			check(("font scale %d: the name and status centre as a pair"):format(scale),
+				math.abs(blockCentre - (hb + hh / 2)) <= 2,
+				("block centre %.1f, header centre %.1f"):format(blockCentre, hb + hh / 2))
+		end
+		checkContainment(("header at font scale %d"):format(scale), window)
+	end
+	ns.Options.Set("appearance.fontScale", 0)
+	ns.UI.RefreshAll()
+	M.RunFrames(6)
+
+	-- With nothing known about the player there is no second line, and the name
+	-- should then be centred rather than sitting where the pair used to start.
+	local plain = ns.ConversationManager.GetOrCreate("Nobodyknown-Blackrock")
+	ns.ConversationManager.Select(plain.id)
+	M.RunFrames(8)
+	if not header.status:IsShown() then
+		local hb, hh = select(2, rect(header)), select(4, rect(header))
+		local nb, nh = select(2, rect(header.name)), select(4, rect(header.name))
+		local nameCentre = nb + nh / 2
+		check("a name with no status line is centred in the header",
+			math.abs(nameCentre - (hb + hh / 2)) <= 2,
+			("name centre %.1f, header centre %.1f"):format(nameCentre, hb + hh / 2))
+	end
+	ns.ConversationManager.Select(thrall)
+	M.RunFrames(8)
+end
 
 --------------------------------------------------------------------------------
 -- Other surfaces

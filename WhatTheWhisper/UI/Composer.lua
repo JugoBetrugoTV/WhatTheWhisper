@@ -12,7 +12,10 @@ local Composer = {}
 ns.Composer = Composer
 
 local PAD = ns.S.MD
+-- Bytes of input after which the composer starts saying how much room is left.
 local WARN_AT = 200
+-- ...and how few remaining bytes make it worth colouring.
+local CLOSE_TO_LIMIT = 20
 
 local C = {}
 
@@ -70,8 +73,13 @@ function Composer.New(parent, opts)
 	c.input:SetPoint("RIGHT", c.send, "LEFT", -ns.S.SM, 0)
 	c.input:SetPoint("BOTTOM", c, "BOTTOM", 0, PAD)
 
+	-- Above the field, right aligned with it, and the composer grows to make
+	-- room for it. It used to be tucked into the gap between the send button and
+	-- the divider, where at the default font scale it stuck three pixels
+	-- *through* the divider into the message list -- and further at every larger
+	-- font scale, which is exactly when a player needs to read it.
 	c.counter = W.Text(c, "MICRO", "textMuted")
-	c.counter:SetPoint("BOTTOMRIGHT", c.send, "TOPRIGHT", 0, ns.S.XS)
+	c.counter:SetPoint("BOTTOMRIGHT", c.input, "TOPRIGHT", 0, ns.S.XS)
 	c.counter:SetJustifyH("RIGHT")
 	c.counter:Hide()
 
@@ -81,8 +89,12 @@ end
 
 function C:Relayout()
 	local inputHeight = self.input:GetHeight() or ns.SZ.COMPOSER_FIELD_H
+	local counterHeight = 0
+	if self.counter:IsShown() then
+		counterHeight = (self.counter:GetStringHeight() or 0) + ns.S.XS
+	end
 	local height = math.min(ns.SZ.COMPOSER_MAX_H,
-		math.max(ns.SZ.COMPOSER_MIN_H, inputHeight + PAD * 2))
+		math.max(ns.SZ.COMPOSER_MIN_H, inputHeight + PAD * 2 + counterHeight))
 	if math.abs(height - (self:GetHeight() or 0)) > 0.5 then
 		self:SetHeight(height)
 		if self.opts.onResize then ns.Guard("Composer.onResize", self.opts.onResize, height) end
@@ -123,13 +135,18 @@ function C:OnTextChanged(value)
 			self.counter:SetText(L["Will be sent as %d messages"]:format(parts))
 			W.SetTextRole(self.counter, "warning")
 		else
-			self.counter:SetText(tostring(ns.MAX_MESSAGE_BYTES - bytes))
-			W.SetTextRole(self.counter, "textMuted")
+			local left = ns.MAX_MESSAGE_BYTES - bytes
+			self.counter:SetText(tostring(left))
+			-- The countdown only earns colour once it is nearly out; before
+			-- that it is information, not a problem.
+			W.SetTextRole(self.counter, left <= CLOSE_TO_LIMIT and "warning" or "textMuted")
 		end
 		self.counter:Show()
 	else
 		self.counter:Hide()
 	end
+	-- The composer is a different height with the counter than without it.
+	self:Relayout()
 end
 
 function C:Submit()

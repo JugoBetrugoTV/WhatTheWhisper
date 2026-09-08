@@ -13,8 +13,29 @@ def keys(path):
     return set(KEY.findall(open(path, encoding="utf-8").read()))
 
 
+def duplicates(path):
+    """A repeated key is silent: the later line wins and the earlier one is
+    dead. That is how a typo in a translation hides -- the file still has the
+    right number of entries and one of them never renders."""
+    seen, repeated = set(), []
+    for key in KEY.findall(open(path, encoding="utf-8").read()):
+        if key in seen:
+            repeated.append(key)
+        seen.add(key)
+    return repeated
+
+
 source = keys(os.path.join(LOCALE_DIR, "enUS.lua"))
 failed = False
+for name in sorted(os.listdir(LOCALE_DIR)):
+    if not name.endswith(".lua"):
+        continue
+    repeated = duplicates(os.path.join(LOCALE_DIR, name))
+    if repeated:
+        failed = True
+        print("%s: the same key is defined twice, so the first one is dead:" % name)
+        for key in sorted(set(repeated)):
+            print("    " + key)
 for name in sorted(os.listdir(LOCALE_DIR)):
     if not name.endswith(".lua") or name == "enUS.lua":
         continue
