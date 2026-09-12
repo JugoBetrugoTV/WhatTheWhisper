@@ -1,0 +1,32 @@
+# CurseForge / BigWigs packager configuration.
+#
+# Without this file the packager would treat the repository root as the addon
+# folder, producing an archive with Tools/ inside it and the libraries sitting
+# beside the addon rather than within it -- exactly the layout this project must
+# not ship.
+#
+# The addon lives in a subdirectory of the repository, so the release is built
+# by packaging under that name and then lifting the subfolder to the top.
+package-as: WhatTheWhisper
+
+move-folders:
+    WhatTheWhisper/WhatTheWhisper: WhatTheWhisper
+
+# Everything the addon needs at runtime, libraries included, is committed inside
+# WhatTheWhisper/Libs. There are deliberately no externals: an external would
+# make the archive's contents depend on a fetch succeeding at package time, and
+# a failed fetch would produce a release with no Libs folder at all. That is the
+# single most likely way to ship a broken zip, so the risk is removed rather
+# than managed.
+#
+# For the same reason there is no nolib variant: a "no libraries" build of an
+# addon that has no external dependencies is just a broken build.
+enable-nolib-creation: no
+
+ignore:
+    # Development only: the mock WoW client, the test suite, the art generators
+    # and the design preview renderer. No TOC loads any of it.
+    - Tools
+    # Repository documentation and lint configuration.
+    - README.md
+    - .luacheckrc

@@ -1,0 +1,286 @@
+-- WhatTheWhisper -- Namespace and design tokens.
+--
+-- Every number that describes the look of the addon lives here. Nothing in UI/ or
+-- Modules/ is allowed to invent a spacing, size, radius, font size or duration; see
+-- DESIGN.md for the rationale behind each family of values.
+
+local ADDON_NAME, ns = ...
+
+ns.ADDON_NAME = ADDON_NAME
+ns.VERSION = "1.0.0"
+
+_G.WhatTheWhisper = ns
+
+--------------------------------------------------------------------------------
+-- Spacing scale (DESIGN.md §1)
+--------------------------------------------------------------------------------
+
+ns.S = {
+	XS   = 4,
+	SM   = 8,
+	MD   = 12,
+	LG   = 16,
+	XL   = 20,
+	XXL  = 24,
+	HUGE = 32,
+}
+
+--------------------------------------------------------------------------------
+-- Corner radii
+--------------------------------------------------------------------------------
+
+ns.R = {
+	SM   = 4,
+	MD   = 8,
+	LG   = 12,
+	XL   = 16,
+	PILL = 999, -- clamped to half the shorter side by Draw.RoundedRect
+}
+
+--------------------------------------------------------------------------------
+-- Component metrics
+--------------------------------------------------------------------------------
+
+-- The smallest thing a mouse should have to hit. Roughly 5mm on a 1080p 24"
+-- display at scale 1.0. Controls drawn smaller than this keep their look and
+-- grow their hit rect to match.
+ns.MIN_HIT = 20
+
+ns.SZ = {
+	WINDOW_W          = 940,
+	WINDOW_H          = 580,
+	WINDOW_MIN_W      = 660,
+	WINDOW_MIN_H      = 420,
+	WINDOW_MAX_W      = 1800,
+	WINDOW_MAX_H      = 1200,
+
+	TITLEBAR_H        = 36,
+
+	SIDEBAR_W         = 288,
+	SIDEBAR_MIN_W     = 220,
+	SIDEBAR_MAX_W     = 420,
+	SIDEBAR_COMPACT_AT= 232,
+	SIDEBAR_RAIL_W    = 68,
+	SIDEBAR_HEADER_H  = 52,
+
+	ROW_H             = 64,
+	ROW_H_COMPACT     = 52,
+
+	HEADER_H          = 56,
+	TAB_H             = 36,
+	TAB_MIN_W         = 96,
+	TAB_MAX_W         = 168,
+
+	COMPOSER_MIN_H    = 60,
+	COMPOSER_MAX_H    = 140,
+	COMPOSER_FIELD_H  = 36,
+
+	AVATAR_LG         = 40,
+	AVATAR_MD         = 32,
+	AVATAR_SM         = 24,
+	AVATAR_XS         = 18,
+
+	BADGE_H           = 18,
+	-- The delivery mark beside an outgoing bubble. The smallest glyph the UI
+	-- draws, so the icon set's stroke weight is chosen to survive it.
+	STATUS_ICON       = 13,
+	STATUS_DOT        = 8,
+
+	-- Glyphs used to be drawn small enough to be tasteful and small enough to
+	-- squint at. A step up across the board: the buttons keep their footprint,
+	-- the marks inside them are simply bigger in it.
+	ICON_BTN          = 30,
+	-- The tighter icon button used in title bars and search bars, where a full
+	-- size one would crowd the row it sits in.
+	ICON_BTN_SM       = 26,
+	ICON_GLYPH        = 18,
+	ICON_GLYPH_SM     = 15,
+	-- Only for glyphs inside something already small, like a tab's close mark.
+	ICON_GLYPH_XS     = 12,
+	-- The pin and mute marks beside a name in the sidebar, and the resize grip.
+	-- Small on purpose -- they annotate a row rather than being read on their
+	-- own -- but not so small that the shape dissolves.
+	ICON_MARK         = 13,
+	-- The logo, wherever it is drawn as a mark rather than as art.
+	ICON_LOGO         = 16,
+	SEND_BTN          = 32,
+
+	SCROLLBAR_W       = 4,
+	SCROLLBAR_HIT     = 10,
+	-- However long the list, the thing you grab stays a comfortable grab. 28 was
+	-- proportional and awkward in a thread of a few hundred messages.
+	SCROLLBAR_MIN_THUMB = 32,
+
+	LIST_PAD_X        = 20,
+	LIST_PAD_Y        = 16,
+
+	BUBBLE_MAX_PCT    = 0.66,
+	BUBBLE_MAX_ABS    = 560,
+	BUBBLE_PAD_X      = 11,
+	BUBBLE_PAD_Y      = 7,
+	BUBBLE_TAIL_R     = 4,
+
+	MSG_GAP_TIGHT     = 2,
+	MSG_GAP_GROUP     = 12,
+	MSG_GAP_DATE      = 20,
+
+	MENU_ITEM_H       = 28,
+	MENU_MIN_W        = 168,
+	MENU_ICON         = 15,
+
+	TOAST_W           = 320,
+	TOAST_H           = 62,
+
+	SETTINGS_W        = 860,
+	SETTINGS_H        = 600,
+	SETTINGS_NAV_W    = 200,
+	SETTINGS_ROW_H    = 32,
+	SETTINGS_MAX_CONTENT = 560,
+
+	-- Empty states: a large, faded glyph over two centred lines. Shared so that
+	-- "no conversation selected" and "no settings match" are the same thing
+	-- twice rather than two designs that happen to look similar.
+	EMPTY_ICON        = 44,
+	EMPTY_TEXT_W      = 340,
+
+	TOGGLE_W          = 36,
+	TOGGLE_H          = 20,
+	TOGGLE_KNOB       = 16,
+
+	SLIDER_TRACK      = 4,
+	SLIDER_THUMB      = 14,
+	-- The value readout to the right of the track, and the gap before it.
+	SLIDER_VALUE_W    = 42,
+	SLIDER_VALUE_GAP  = 4,
+
+	POPOUT_W          = 380,
+	POPOUT_H          = 460,
+	POPOUT_MIN_W      = 280,
+	POPOUT_MIN_H      = 240,
+	POPOUT_HEADER_H   = 48,
+
+	-- The sidebar splitter is a grab handle, not a gutter: it is centred on the
+	-- boundary and only the hairline is drawn, so the panels stay flush.
+	SPLITTER_HIT      = 12,
+
+	-- The corner resize handle. 16 was too small to hit reliably; 20 is about a
+	-- 5mm target at scale 1.0, and the glyph inside it does not change size.
+	RESIZE_GRIP       = 20,
+
+	-- The selected-row marker: a pill down the left edge of a sidebar or
+	-- settings row, inset by its own width so it reads as a marker rather than
+	-- as the panel border bleeding colour.
+	ACCENT_BAR_W      = 3,
+	ACCENT_BAR_INSET  = 3,
+
+	-- The toast's remaining-time hairline, riding inside the bottom radius.
+	TOAST_PROGRESS_H  = 2,
+	TOAST_PROGRESS_INSET = 3,
+
+	SNAP_DISTANCE     = 12,
+}
+
+--------------------------------------------------------------------------------
+-- Type scale
+--------------------------------------------------------------------------------
+
+ns.T = {
+	MICRO   = 11,
+	SMALL   = 12,
+	BODY    = 14,
+	TITLE   = 16,
+	DISPLAY = 18,
+}
+
+ns.LINE_SPACING = 3
+
+--------------------------------------------------------------------------------
+-- Motion
+--------------------------------------------------------------------------------
+
+ns.MOTION = {
+	FAST   = 0.10,
+	BASE   = 0.16,
+	SLOW   = 0.24,
+	WINDOW = 0.28,
+}
+
+-- Multiplier applied to every duration, indexed by the "animations" setting.
+ns.MOTION_SCALE = {
+	off     = 0,
+	reduced = 0.6,
+	normal  = 1,
+	fancy   = 1,
+}
+
+--------------------------------------------------------------------------------
+-- Domain constants
+--------------------------------------------------------------------------------
+
+-- Message direction
+ns.DIR_IN  = 0
+ns.DIR_OUT = 1
+
+-- Message kind
+ns.MSG_WHISPER = 1
+ns.MSG_BNET    = 2
+ns.MSG_SYSTEM  = 3
+ns.MSG_AFK     = 4
+ns.MSG_DND     = 5
+
+-- Delivery state for outgoing messages
+ns.SEND_PENDING = 0
+ns.SEND_OK      = 1
+ns.SEND_FAILED  = 2
+
+-- Grouping window: consecutive messages from the same sender inside this many
+-- seconds collapse into one visual group.
+ns.GROUP_WINDOW = 300
+
+-- Hard whisper payload limit in bytes, enforced by the server.
+ns.MAX_MESSAGE_BYTES = 255
+
+-- Written beside every file export so that somebody opening the saved variables
+-- file months later knows what they are looking at.
+ns.EXPORT_README =
+	"Conversations exported from WhatTheWhisper. Each entry under 'exports' "
+	.. "holds one conversation as plain text. Delete this whole variable, or "
+	.. "use the Clear button in the export window, when you no longer need it."
+
+--------------------------------------------------------------------------------
+-- Small shared helpers
+--------------------------------------------------------------------------------
+
+local CHAT_PREFIX = "|cff5A7CFAWhatTheWhisper|r: "
+
+function ns.Print(...)
+	local chat = _G.DEFAULT_CHAT_FRAME
+	if not chat then return end
+	local parts = {}
+	for i = 1, select("#", ...) do
+		parts[#parts + 1] = tostring((select(i, ...)))
+	end
+	chat:AddMessage(CHAT_PREFIX .. table.concat(parts, " "))
+end
+
+-- Non-fatal error reporting. Never let a UI glitch break the whole event
+-- handler; Debug.NoteError also counts these, and past a threshold the addon
+-- stops hiding whispers from the chat frame.
+function ns.SoftError(context, err)
+	if ns.Debug then
+		ns.Debug.NoteError(context, err)
+		return
+	end
+	if ns.db and ns.db.profile and ns.db.profile.advanced and ns.db.profile.advanced.debug then
+		ns.Print("|cffE5484Derror|r in " .. tostring(context) .. ": " .. tostring(err))
+	end
+end
+
+-- pcall wrapper used around every UI callback that is reachable from a game event.
+function ns.Guard(context, fn, ...)
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		ns.SoftError(context, err)
+	end
+	return ok
+end
