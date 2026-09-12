@@ -6,7 +6,7 @@
 
 local _, ns = ...
 local W, Text = ns.Widgets, ns.Text
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Composer = {}
 ns.Composer = Composer

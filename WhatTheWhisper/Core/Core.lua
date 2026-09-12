@@ -8,7 +8,7 @@ local ADDON_NAME, ns = ...
 
 local AceAddon = LibStub("AceAddon-3.0")
 local AceDB = LibStub("AceDB-3.0")
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local addon = AceAddon:NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0")
 ns.addon = addon

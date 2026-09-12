@@ -89,7 +89,7 @@ function Notifications.OnSendFailed(conv)
 	if not conv then return end
 	local UI = ns.UI
 	if UI and UI.ShowStatusToast then
-		local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+		local L = ns.L
 		UI.ShowStatusToast(string.format(L["%s is offline. Message not delivered."], conv.name))
 	end
 end

@@ -305,6 +305,26 @@ end
 -- Chat
 --------------------------------------------------------------------------------
 
+-- Chat payloads are not always readable.
+--
+-- In arenas, battlegrounds and other restricted content the client hands out
+-- *secret values* instead of strings. An addon may not look inside one: any
+-- read is a hard error, and the attempt taints whatever ran it. So a payload is
+-- probed before it is used, and everything that could touch it happens inside
+-- the probe -- including the comparison, because the result of a read on a
+-- secret is itself secret.
+--
+-- Returns the value when it can be read, and nil when it cannot. nil is a normal
+-- answer here, not a fault: being in an arena is not an error.
+function Compat.ReadableText(value)
+	if value == nil then return nil end
+	local ok, readable = pcall(function()
+		return type(value) == "string" and strfind(value, "", 1, true) == 1
+	end)
+	if not ok or readable ~= true then return nil end
+	return value
+end
+
 function Compat.SendWhisper(target, text)
 	if not target or not text or text == "" then return false end
 	local ok = pcall(SendChatMessage, text, "WHISPER", nil, target)

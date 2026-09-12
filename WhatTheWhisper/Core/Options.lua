@@ -6,7 +6,7 @@
 
 local _, ns = ...
 local Compat = ns.Compat
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Options = {}
 ns.Options = Options

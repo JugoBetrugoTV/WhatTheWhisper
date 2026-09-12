@@ -11,7 +11,7 @@
 local _, ns = ...
 local Theme, W, Anim = ns.Theme, ns.Widgets, ns.Anim
 local CM = ns.ConversationManager
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local MinimapButton = {}
 ns.Minimap = MinimapButton

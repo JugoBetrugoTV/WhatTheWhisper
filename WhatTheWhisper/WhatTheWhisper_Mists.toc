@@ -7,7 +7,7 @@
 ## X-Flavor: Mists
 ## X-Category: Chat & Communication
 ## IconTexture: Interface\AddOns\WhatTheWhisper\Art\Logo
-## X-Embeds: LibStub, CallbackHandler-1.0, AceAddon-3.0, AceConsole-3.0, AceEvent-3.0, AceDB-3.0, AceLocale-3.0
+## X-Embeds: LibStub, CallbackHandler-1.0, AceAddon-3.0, AceConsole-3.0, AceEvent-3.0, AceDB-3.0
 ## SavedVariables: WhatTheWhisperDB, WhatTheWhisperHistoryDB, WhatTheWhisperExportDB
 
 Libs\Libs.xml

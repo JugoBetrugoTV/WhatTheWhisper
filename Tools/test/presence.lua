@@ -352,6 +352,57 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Payloads the client will not let us read
+--------------------------------------------------------------------------------
+
+-- In an arena the client delivers chat payloads as secret values instead of
+-- strings. Reading one is a hard error that taints the caller, and the addon was
+-- reading every one of them without asking: an arena filled the chat frame with
+-- errors, and the whisper that triggered one was never handled, so no window
+-- opened.
+do
+	local secret = M.Secret()
+	eq("a secret payload is refused rather than read",
+		ns.Compat.ReadableText(secret), nil)
+	eq("an ordinary string still comes back",
+		ns.Compat.ReadableText("hallo"), "hallo")
+	eq("and nil stays nil", ns.Compat.ReadableText(nil), nil)
+
+	-- The system messages that flooded the screen. Counted through SoftError,
+	-- because that is where a handler's error actually lands: ns.Guard pcalls
+	-- every event, so a raised error never reaches the mock's own list and
+	-- asserting on that list would pass no matter what.
+	local softErrors = 0
+	local realSoftError = ns.SoftError
+	ns.SoftError = function(context, err)
+		softErrors = softErrors + 1
+		return realSoftError(context, err)
+	end
+
+	for _ = 1, 20 do
+		M.FireEvent("CHAT_MSG_SYSTEM", M.Secret())
+		M.RunTimers(1)
+	end
+	eq("twenty of them raise nothing at all", softErrors, 0)
+
+	-- And a whisper: the message cannot be stored, so the addon must stop
+	-- taking whispers out of the chat frame rather than swallow them.
+	ns.Debug.ClearDegraded()
+	eq("not degraded to begin with", ns.Debug.IsDegraded(), false)
+	local conversationsBefore = ns.ConversationManager.Count()
+	M.FireEvent("CHAT_MSG_WHISPER", M.Secret(), "Arenagegner", "Common", "",
+		"Arenagegner", "", 0, 0, "", 0, 1, "G-ARENA")
+	M.RunTimers(2)
+	eq("an unreadable whisper raises nothing", softErrors, 0)
+	eq("and creates no half-empty thread",
+		ns.ConversationManager.Count(), conversationsBefore)
+	check("the chat frame gets its whispers back", ns.Debug.IsDegraded())
+	check("and it was counted", ns.ChatEvents.UnreadableCount() > 0)
+	ns.Debug.ClearDegraded()
+	ns.SoftError = realSoftError
+end
+
+--------------------------------------------------------------------------------
 -- Battle.net
 --------------------------------------------------------------------------------
 

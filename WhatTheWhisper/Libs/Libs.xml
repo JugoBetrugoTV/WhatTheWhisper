@@ -23,9 +23,11 @@
 		  4. AceConsole         slash commands; LibStub only
 		  5. AceEvent           needs CallbackHandler
 		  6. AceDB              needs CallbackHandler
-		  7. AceLocale          LibStub only
 
-		Only these seven are embedded, because only these seven are used.
+		Only these six are embedded, because only these six are used.
+		AceLocale is deliberately absent: it discards every locale that is not
+		the client's at load time, which makes a language picker impossible, so
+		Core/Locale carries the strings instead.
 		LibSharedMedia-3.0 is deliberately absent: it is queried with
 		LibStub("LibSharedMedia-3.0", true) and used only if some other addon
 		provides it, so embedding it would add weight for an integration that is
@@ -43,5 +45,4 @@
 	<Include file="AceConsole-3.0\AceConsole-3.0.xml"/>
 	<Include file="AceEvent-3.0\AceEvent-3.0.xml"/>
 	<Include file="AceDB-3.0\AceDB-3.0.xml"/>
-	<Include file="AceLocale-3.0\AceLocale-3.0.xml"/>
 </Ui>

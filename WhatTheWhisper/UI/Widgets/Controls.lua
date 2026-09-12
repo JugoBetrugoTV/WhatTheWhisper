@@ -6,7 +6,7 @@
 
 local _, ns = ...
 local Theme, W, Anim = ns.Theme, ns.Widgets, ns.Anim
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Controls = {}
 ns.Controls = Controls

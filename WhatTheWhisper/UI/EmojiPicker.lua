@@ -7,7 +7,7 @@
 local _, ns = ...
 local Theme, W, Anim, Draw, Pool = ns.Theme, ns.Widgets, ns.Anim, ns.Draw, ns.Pool
 local Emoticons = ns.Emoticons
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Picker = {}
 ns.EmojiPicker = Picker

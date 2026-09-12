@@ -6,7 +6,7 @@
 
 local _, ns = ...
 local Theme, W, Anim, Export = ns.Theme, ns.Widgets, ns.Anim, ns.Export
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Dialogs = {}
 ns.Dialogs = Dialogs

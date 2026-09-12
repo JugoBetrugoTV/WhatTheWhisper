@@ -12,7 +12,7 @@
 local _, ns = ...
 local W, Compat = ns.Widgets, ns.Compat
 local PI = ns.PlayerInfo
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local ProfilePanel = {}
 ns.ProfilePanel = ProfilePanel

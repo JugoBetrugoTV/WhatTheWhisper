@@ -84,7 +84,7 @@ eq("and it is the same table, not a fresh one", carried, foreign)
 eq("with its state intact", carried and carried.marker, "belongs to the other addon")
 
 for _, major in ipairs({ "CallbackHandler-1.0", "AceAddon-3.0", "AceConsole-3.0",
-	"AceEvent-3.0", "AceDB-3.0", "AceLocale-3.0" }) do
+	"AceEvent-3.0", "AceDB-3.0" }) do
 	local lib, minor = _G.LibStub:GetLibrary(major, true)
 	check(major .. " registered with LibStub", lib ~= nil)
 	check(major .. " registered a numeric revision", type(minor) == "number", tostring(minor))
@@ -210,7 +210,7 @@ check("and callable as LibStub(\"Major\"), which is how addons ask",
 -- Everything else goes into that registry instead. A library leaking its own
 -- global would be reachable by, and clobberable by, every other addon.
 for _, major in ipairs({ "AceAddon-3.0", "AceDB-3.0", "AceEvent-3.0",
-	"AceConsole-3.0", "AceLocale-3.0", "CallbackHandler-1.0" }) do
+	"AceConsole-3.0", "CallbackHandler-1.0" }) do
 	local bare = major:gsub("%-.*$", "")
 	check(bare .. " did not leak a global", _G[bare] == nil, tostring(_G[bare]))
 	check(major .. " did not leak a global under its full name",

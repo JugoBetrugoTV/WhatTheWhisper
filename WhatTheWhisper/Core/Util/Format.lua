@@ -1,7 +1,7 @@
 -- WhatTheWhisper -- Time, date and size formatting.
 
 local _, ns = ...
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Format = {}
 ns.Format = Format

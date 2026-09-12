@@ -1,335 +1,338 @@
 -- WhatTheWhisper -- Deutsch.
-local L = LibStub("AceLocale-3.0"):NewLocale("WhatTheWhisper", "deDE")
-if not L then return end
 
--- Fensterrahmen
-L["Conversations"] = "Unterhaltungen"
-L["Search conversations"] = "Unterhaltungen durchsuchen"
-L["Search messages"] = "Nachrichten durchsuchen"
-L["Character details"] = "Charakterdetails"
-L["Class, level, guild, zone and realm under the header."] = "Klasse, Stufe, Gilde, Zone und Realm unter der Kopfzeile."
-L["Class"] = "Klasse"
-L["Race"] = "Volk"
-L["Guild"] = "Gilde"
-L["Zone"] = "Zone"
-L["Realm"] = "Realm"
-L["BattleTag"] = "BattleTag"
-L["Character"] = "Charakter"
-L["not known"] = "nicht bekannt"
-L["Looking up..."] = "Wird gesucht ..."
-L["Try again in a moment"] = "Gleich nochmal versuchen"
-L["New conversation"] = "Neue Unterhaltung"
-L["Settings"] = "Einstellungen"
-L["All windows"] = "Alle Fenster"
-L["Show every open conversation window side by side."] = "Zeigt alle offenen Unterhaltungsfenster nebeneinander."
-L["Click a window to go to it, or press Escape"] = "Klicke ein Fenster an oder drücke Escape"
-L["Minimize"] = "Minimieren"
-L["Close"] = "Schließen"
-L["Maximize"] = "Maximieren"
-L["Restore"] = "Wiederherstellen"
-L["Pop out"] = "Ausklinken"
-L["Dock"] = "Andocken"
-L["Pin"] = "Anheften"
-L["Unpin"] = "Lösen"
-L["Back"] = "Zurück"
+local _, ns = ...
 
--- Eingabe
-L["Message %s..."] = "Nachricht an %s ..."
-L["Type a message..."] = "Nachricht schreiben ..."
-L["Send"] = "Senden"
-L["Emoji"] = "Emoji"
-L["%d characters over the limit"] = "%d Zeichen über dem Limit"
-L["Will be sent as %d messages"] = "Wird als %d Nachrichten gesendet"
+ns.RegisterLocale("deDE", {
+	-- Fensterrahmen
+	["Conversations"] = "Unterhaltungen",
+	["Search conversations"] = "Unterhaltungen durchsuchen",
+	["Search messages"] = "Nachrichten durchsuchen",
+	["Character details"] = "Charakterdetails",
+	["Class, level, guild, zone and realm under the header."] = "Klasse, Stufe, Gilde, Zone und Realm unter der Kopfzeile.",
+	["Class"] = "Klasse",
+	["Race"] = "Volk",
+	["Guild"] = "Gilde",
+	["Zone"] = "Zone",
+	["Realm"] = "Realm",
+	["BattleTag"] = "BattleTag",
+	["Character"] = "Charakter",
+	["not known"] = "nicht bekannt",
+	["Looking up..."] = "Wird gesucht ...",
+	["Try again in a moment"] = "Gleich nochmal versuchen",
+	["New conversation"] = "Neue Unterhaltung",
+	["Settings"] = "Einstellungen",
+	["All windows"] = "Alle Fenster",
+	["Show every open conversation window side by side."] = "Zeigt alle offenen Unterhaltungsfenster nebeneinander.",
+	["Click a window to go to it, or press Escape"] = "Klicke ein Fenster an oder drücke Escape",
+	["Minimize"] = "Minimieren",
+	["Close"] = "Schließen",
+	["Maximize"] = "Maximieren",
+	["Restore"] = "Wiederherstellen",
+	["Pop out"] = "Ausklinken",
+	["Dock"] = "Andocken",
+	["Pin"] = "Anheften",
+	["Unpin"] = "Lösen",
+	["Back"] = "Zurück",
 
--- Zustände
-L["Today"] = "Heute"
-L["Yesterday"] = "Gestern"
-L["Online"] = "Online"
-L["Offline"] = "Offline"
-L["Away"] = "Abwesend"
-L["Busy"] = "Beschäftigt"
-L["Muted"] = "Stumm"
-L["Pinned"] = "Angeheftet"
-L["You"] = "Du"
-L["Delivered"] = "Zugestellt"
-L["Sending"] = "Wird gesendet"
-L["Not delivered"] = "Nicht zugestellt"
-L["%s is not online"] = "%s ist nicht online"
-L["There is no character named %s."] = "Es gibt keinen Charakter namens %s."
-L["Character names are 2 to 12 letters, with no spaces, numbers or punctuation."] = "Charakternamen bestehen aus 2 bis 12 Buchstaben, ohne Leerzeichen, Ziffern oder Satzzeichen."
-L["That realm name is not valid."] = "Dieser Realmname ist ungültig."
-L["A BattleTag looks like Name#1234."] = "Ein BattleTag sieht so aus: Name#1234."
-L["%d new messages"] = "%d neue Nachrichten"
-L["1 new message"] = "1 neue Nachricht"
-L["Level %d"] = "Stufe %d"
+	-- Eingabe
+	["Message %s..."] = "Nachricht an %s ...",
+	["Type a message..."] = "Nachricht schreiben ...",
+	["Send"] = "Senden",
+	["Emoji"] = "Emoji",
+	["%d characters over the limit"] = "%d Zeichen über dem Limit",
+	["Will be sent as %d messages"] = "Wird als %d Nachrichten gesendet",
 
--- Leere Zustände
-L["No conversations yet"] = "Noch keine Unterhaltungen"
-L["Whisper someone to start a conversation."] = "Flüstere jemandem, um eine Unterhaltung zu beginnen."
-L["Pick a conversation"] = "Unterhaltung auswählen"
-L["Your whispers are kept here, one thread per player."] = "Deine Flüsternachrichten liegen hier, ein Verlauf pro Spieler."
-L["No matches"] = "Keine Treffer"
-L["Try a different name or word."] = "Versuche einen anderen Namen oder Begriff."
-L["Start the conversation"] = "Starte die Unterhaltung"
-L["Say hi to %s."] = "Sag %s Hallo."
-L["History is off"] = "Verlauf ist deaktiviert"
-L["Enable it in Settings > History to keep messages."] = "Aktiviere ihn unter Einstellungen > Verlauf, um Nachrichten zu behalten."
-L["Nothing to show"] = "Nichts anzuzeigen"
+	-- Zustände
+	["Today"] = "Heute",
+	["Yesterday"] = "Gestern",
+	["Online"] = "Online",
+	["Offline"] = "Offline",
+	["Away"] = "Abwesend",
+	["Busy"] = "Beschäftigt",
+	["Muted"] = "Stumm",
+	["Pinned"] = "Angeheftet",
+	["You"] = "Du",
+	["Delivered"] = "Zugestellt",
+	["Sending"] = "Wird gesendet",
+	["Not delivered"] = "Nicht zugestellt",
+	["%s is not online"] = "%s ist nicht online",
+	["There is no character named %s."] = "Es gibt keinen Charakter namens %s.",
+	["Character names are 2 to 12 letters, with no spaces, numbers or punctuation."] = "Charakternamen bestehen aus 2 bis 12 Buchstaben, ohne Leerzeichen, Ziffern oder Satzzeichen.",
+	["That realm name is not valid."] = "Dieser Realmname ist ungültig.",
+	["A BattleTag looks like Name#1234."] = "Ein BattleTag sieht so aus: Name#1234.",
+	["%d new messages"] = "%d neue Nachrichten",
+	["1 new message"] = "1 neue Nachricht",
+	["Level %d"] = "Stufe %d",
 
--- Kontextmenü
-L["Whisper"] = "Flüstern"
-L["Invite to group"] = "In Gruppe einladen"
-L["Add friend"] = "Als Freund hinzufügen"
-L["Ignore"] = "Ignorieren"
-L["Copy name"] = "Namen kopieren"
-L["Copy message"] = "Nachricht kopieren"
-L["Copy conversation"] = "Unterhaltung kopieren"
-L["Export conversation"] = "Unterhaltung exportieren"
-L["Clear history"] = "Verlauf löschen"
-L["Mute conversation"] = "Unterhaltung stummschalten"
-L["Unmute conversation"] = "Stummschaltung aufheben"
-L["Pin conversation"] = "Unterhaltung anheften"
-L["Unpin conversation"] = "Anheften aufheben"
-L["Close conversation"] = "Unterhaltung schließen"
-L["Target"] = "Anvisieren"
-L["Look up"] = "Nachschlagen"
-L["Mark as read"] = "Als gelesen markieren"
-L["Mark as unread"] = "Als ungelesen markieren"
-L["Copy URL"] = "Link kopieren"
-L["Open in copy box"] = "In Kopierfeld öffnen"
+	-- Leere Zustände
+	["No conversations yet"] = "Noch keine Unterhaltungen",
+	["Whisper someone to start a conversation."] = "Flüstere jemandem, um eine Unterhaltung zu beginnen.",
+	["Pick a conversation"] = "Unterhaltung auswählen",
+	["Your whispers are kept here, one thread per player."] = "Deine Flüsternachrichten liegen hier, ein Verlauf pro Spieler.",
+	["No matches"] = "Keine Treffer",
+	["Try a different name or word."] = "Versuche einen anderen Namen oder Begriff.",
+	["Start the conversation"] = "Starte die Unterhaltung",
+	["Say hi to %s."] = "Sag %s Hallo.",
+	["History is off"] = "Verlauf ist deaktiviert",
+	["Enable it in Settings > History to keep messages."] = "Aktiviere ihn unter Einstellungen > Verlauf, um Nachrichten zu behalten.",
+	["Nothing to show"] = "Nichts anzuzeigen",
 
--- Dialoge
-L["Copy"] = "Kopieren"
-L["Press Ctrl+C to copy, then Esc to close."] = "Strg+C zum Kopieren, dann Esc zum Schließen."
-L["Press Ctrl+C to copy, or save it to a file."] = "Strg+C zum Kopieren, oder als Datei speichern."
-L["Save to file"] = "Als Datei speichern"
-L["Saved. It is in %s after your next reload or logout."] = "Gespeichert. Steht nach dem nächsten Reload oder Logout in %s."
-L["That conversation is too large to save."] = "Diese Unterhaltung ist zu groß zum Speichern."
-L["There was nothing to save."] = "Es gab nichts zu speichern."
-L["Export"] = "Exportieren"
-L["Format"] = "Format"
-L["Plain text"] = "Reiner Text"
-L["Markdown"] = "Markdown"
-L["Clear this conversation?"] = "Diese Unterhaltung löschen?"
-L["Clear all history?"] = "Gesamten Verlauf löschen?"
-L["This removes %d stored messages. It cannot be undone."] = "Damit werden %d gespeicherte Nachrichten entfernt. Das lässt sich nicht rückgängig machen."
-L["This removes every stored message in %d conversations. It cannot be undone."] = "Damit werden alle gespeicherten Nachrichten in %d Unterhaltungen entfernt. Das lässt sich nicht rückgängig machen."
-L["Cancel"] = "Abbrechen"
-L["Confirm"] = "Bestätigen"
-L["Delete"] = "Löschen"
+	-- Kontextmenü
+	["Whisper"] = "Flüstern",
+	["Invite to group"] = "In Gruppe einladen",
+	["Add friend"] = "Als Freund hinzufügen",
+	["Ignore"] = "Ignorieren",
+	["Copy name"] = "Namen kopieren",
+	["Copy message"] = "Nachricht kopieren",
+	["Copy conversation"] = "Unterhaltung kopieren",
+	["Export conversation"] = "Unterhaltung exportieren",
+	["Clear history"] = "Verlauf löschen",
+	["Mute conversation"] = "Unterhaltung stummschalten",
+	["Unmute conversation"] = "Stummschaltung aufheben",
+	["Pin conversation"] = "Unterhaltung anheften",
+	["Unpin conversation"] = "Anheften aufheben",
+	["Close conversation"] = "Unterhaltung schließen",
+	["Target"] = "Anvisieren",
+	["Look up"] = "Nachschlagen",
+	["Mark as read"] = "Als gelesen markieren",
+	["Mark as unread"] = "Als ungelesen markieren",
+	["Copy URL"] = "Link kopieren",
+	["Open in copy box"] = "In Kopierfeld öffnen",
 
--- Einstellungskategorien
-L["General"] = "Allgemein"
-L["Appearance"] = "Darstellung"
-L["Messages"] = "Nachrichten"
-L["History"] = "Verlauf"
-L["Sounds"] = "Töne"
-L["Notifications"] = "Benachrichtigungen"
-L["Animations"] = "Animationen"
-L["Tabs"] = "Reiter"
-L["Windows"] = "Fenster"
-L["Combat"] = "Kampf"
-L["Links"] = "Links"
-L["Emoticons"] = "Emoticons"
-L["Advanced"] = "Erweitert"
-L["Search settings"] = "Einstellungen durchsuchen"
-L["No settings match your search"] = "Keine Einstellung passt zur Suche"
-L["Try a shorter word, or clear the search."] = "Versuche ein kürzeres Wort oder leere die Suche."
-L["Nothing here yet"] = "Hier ist noch nichts"
+	-- Dialoge
+	["Copy"] = "Kopieren",
+	["Press Ctrl+C to copy, then Esc to close."] = "Strg+C zum Kopieren, dann Esc zum Schließen.",
+	["Press Ctrl+C to copy, or save it to a file."] = "Strg+C zum Kopieren, oder als Datei speichern.",
+	["Save to file"] = "Als Datei speichern",
+	["Saved. It is in %s after your next reload or logout."] = "Gespeichert. Steht nach dem nächsten Reload oder Logout in %s.",
+	["That conversation is too large to save."] = "Diese Unterhaltung ist zu groß zum Speichern.",
+	["There was nothing to save."] = "Es gab nichts zu speichern.",
+	["Export"] = "Exportieren",
+	["Format"] = "Format",
+	["Plain text"] = "Reiner Text",
+	["Markdown"] = "Markdown",
+	["Clear this conversation?"] = "Diese Unterhaltung löschen?",
+	["Clear all history?"] = "Gesamten Verlauf löschen?",
+	["This removes %d stored messages. It cannot be undone."] = "Damit werden %d gespeicherte Nachrichten entfernt. Das lässt sich nicht rückgängig machen.",
+	["This removes every stored message in %d conversations. It cannot be undone."] = "Damit werden alle gespeicherten Nachrichten in %d Unterhaltungen entfernt. Das lässt sich nicht rückgängig machen.",
+	["Cancel"] = "Abbrechen",
+	["Confirm"] = "Bestätigen",
+	["Delete"] = "Löschen",
 
--- Einstellungen: Allgemein
-L["Enable WhatTheWhisper"] = "WhatTheWhisper aktivieren"
-L["Route whispers into the messenger instead of the default chat frame."] = "Flüsternachrichten in den Messenger leiten statt in das Standard-Chatfenster."
-L["Hide whispers from chat frames"] = "Flüsternachrichten im Chatfenster ausblenden"
-L["Whispers still arrive normally, they are just not printed in the chat window."] = "Nachrichten kommen weiterhin an, sie werden nur nicht im Chatfenster ausgegeben."
-L["Open on new whisper"] = "Bei neuer Nachricht öffnen"
-L["Show the messenger automatically when someone whispers you."] = "Den Messenger automatisch zeigen, wenn dir jemand flüstert."
-L["Auto-switch to new conversations"] = "Automatisch zu neuer Unterhaltung wechseln"
-L["Switching away from what you are reading is off by default."] = "Standardmäßig aus, damit du beim Lesen nicht herausgerissen wirst."
-L["Minimap button"] = "Minimap-Schaltfläche"
-L["Show a button on the minimap to toggle the messenger."] = "Eine Schaltfläche an der Minimap zum Umschalten des Messengers anzeigen."
-L["Keep messenger open in combat"] = "Messenger im Kampf geöffnet lassen"
+	-- Einstellungskategorien
+	["General"] = "Allgemein",
+	["Appearance"] = "Darstellung",
+	["Messages"] = "Nachrichten",
+	["History"] = "Verlauf",
+	["Sounds"] = "Töne",
+	["Notifications"] = "Benachrichtigungen",
+	["Animations"] = "Animationen",
+	["Tabs"] = "Reiter",
+	["Windows"] = "Fenster",
+	["Combat"] = "Kampf",
+	["Links"] = "Links",
+	["Emoticons"] = "Emoticons",
+	["Advanced"] = "Erweitert",
+	["Search settings"] = "Einstellungen durchsuchen",
+	["No settings match your search"] = "Keine Einstellung passt zur Suche",
+	["Try a shorter word, or clear the search."] = "Versuche ein kürzeres Wort oder leere die Suche.",
+	["Nothing here yet"] = "Hier ist noch nichts",
 
--- Einstellungen: Darstellung
-L["Skin"] = "Skin"
-L["Font"] = "Schriftart"
-L["Font size"] = "Schriftgröße"
-L["Background opacity"] = "Hintergrunddeckkraft"
-L["Corner radius"] = "Eckenradius"
-L["Density"] = "Dichte"
-L["Comfortable"] = "Komfortabel"
-L["Compact"] = "Kompakt"
-L["Sidebar width"] = "Seitenleistenbreite"
-L["Use class colours"] = "Klassenfarben verwenden"
-L["Show timestamps"] = "Zeitstempel anzeigen"
-L["Timestamp format"] = "Zeitformat"
-L["24 hour"] = "24 Stunden"
-L["12 hour"] = "12 Stunden"
-L["Show avatars"] = "Avatare anzeigen"
-L["Avatar style"] = "Avatar-Stil"
-L["Automatic"] = "Automatisch"
-L["Class icon"] = "Klassensymbol"
-L["Initials"] = "Initialen"
-L["Chat bubbles"] = "Sprechblasen"
-L["Group messages"] = "Nachrichten gruppieren"
-L["Collapse consecutive messages from the same player."] = "Aufeinanderfolgende Nachrichten desselben Spielers zusammenfassen."
-L["Show date separators"] = "Datumstrenner anzeigen"
-L["Bubble opacity"] = "Blasendeckkraft"
-L["Message spacing"] = "Nachrichtenabstand"
+	-- Einstellungen: Allgemein
+	["Enable WhatTheWhisper"] = "WhatTheWhisper aktivieren",
+	["Route whispers into the messenger instead of the default chat frame."] = "Flüsternachrichten in den Messenger leiten statt in das Standard-Chatfenster.",
+	["Hide whispers from chat frames"] = "Flüsternachrichten im Chatfenster ausblenden",
+	["Whispers still arrive normally, they are just not printed in the chat window."] = "Nachrichten kommen weiterhin an, sie werden nur nicht im Chatfenster ausgegeben.",
+	["Open on new whisper"] = "Bei neuer Nachricht öffnen",
+	["Show the messenger automatically when someone whispers you."] = "Den Messenger automatisch zeigen, wenn dir jemand flüstert.",
+	["Auto-switch to new conversations"] = "Automatisch zu neuer Unterhaltung wechseln",
+	["Switching away from what you are reading is off by default."] = "Standardmäßig aus, damit du beim Lesen nicht herausgerissen wirst.",
+	["Minimap button"] = "Minimap-Schaltfläche",
+	["Show a button on the minimap to toggle the messenger."] = "Eine Schaltfläche an der Minimap zum Umschalten des Messengers anzeigen.",
+	["Keep messenger open in combat"] = "Messenger im Kampf geöffnet lassen",
 
--- Einstellungen: Layout
-L["Layout"] = "Layout"
-L["Sidebar"] = "Seitenleiste"
-L["Tabbed"] = "Reiter"
-L["Hybrid"] = "Hybrid"
-L["Close tabs after"] = "Reiter schließen nach"
-L["Never"] = "Nie"
-L["%d minutes"] = "%d Minuten"
-L["Blink unread tabs"] = "Ungelesene Reiter blinken lassen"
-L["Open a tab for every conversation"] = "Für jede Unterhaltung einen Reiter öffnen"
-L["Snap windows together"] = "Fenster aneinander einrasten"
-L["Lock window position"] = "Fensterposition sperren"
-L["Remember window positions"] = "Fensterpositionen merken"
+	-- Einstellungen: Darstellung
+	["Skin"] = "Skin",
+	["Font"] = "Schriftart",
+	["Font size"] = "Schriftgröße",
+	["Background opacity"] = "Hintergrunddeckkraft",
+	["Corner radius"] = "Eckenradius",
+	["Density"] = "Dichte",
+	["Comfortable"] = "Komfortabel",
+	["Compact"] = "Kompakt",
+	["Sidebar width"] = "Seitenleistenbreite",
+	["Use class colours"] = "Klassenfarben verwenden",
+	["Show timestamps"] = "Zeitstempel anzeigen",
+	["Timestamp format"] = "Zeitformat",
+	["24 hour"] = "24 Stunden",
+	["12 hour"] = "12 Stunden",
+	["Show avatars"] = "Avatare anzeigen",
+	["Avatar style"] = "Avatar-Stil",
+	["Automatic"] = "Automatisch",
+	["Class icon"] = "Klassensymbol",
+	["Initials"] = "Initialen",
+	["Chat bubbles"] = "Sprechblasen",
+	["Group messages"] = "Nachrichten gruppieren",
+	["Collapse consecutive messages from the same player."] = "Aufeinanderfolgende Nachrichten desselben Spielers zusammenfassen.",
+	["Show date separators"] = "Datumstrenner anzeigen",
+	["Bubble opacity"] = "Blasendeckkraft",
+	["Message spacing"] = "Nachrichtenabstand",
 
--- Einstellungen: Verlauf
-L["Keep history"] = "Verlauf behalten"
-L["Disabled"] = "Deaktiviert"
-L["This session"] = "Diese Sitzung"
-L["1 day"] = "1 Tag"
-L["7 days"] = "7 Tage"
-L["30 days"] = "30 Tage"
-L["Unlimited"] = "Unbegrenzt"
-L["Max messages per conversation"] = "Max. Nachrichten pro Unterhaltung"
-L["Max conversations"] = "Max. Unterhaltungen"
-L["Stored messages: %d in %d conversations"] = "Gespeicherte Nachrichten: %d in %d Unterhaltungen"
-L["Estimated size: %s"] = "Geschätzte Größe: %s"
-L["Clear all history"] = "Gesamten Verlauf löschen"
+	-- Einstellungen: Layout
+	["Layout"] = "Layout",
+	["Sidebar"] = "Seitenleiste",
+	["Tabbed"] = "Reiter",
+	["Hybrid"] = "Hybrid",
+	["Close tabs after"] = "Reiter schließen nach",
+	["Never"] = "Nie",
+	["%d minutes"] = "%d Minuten",
+	["Blink unread tabs"] = "Ungelesene Reiter blinken lassen",
+	["Open a tab for every conversation"] = "Für jede Unterhaltung einen Reiter öffnen",
+	["Snap windows together"] = "Fenster aneinander einrasten",
+	["Lock window position"] = "Fensterposition sperren",
+	["Remember window positions"] = "Fensterpositionen merken",
 
--- Einstellungen: Töne
-L["Sound on new message"] = "Ton bei neuer Nachricht"
-L["Sound when window is hidden"] = "Ton, wenn das Fenster verborgen ist"
-L["Sound on mention"] = "Ton bei Erwähnung"
-L["Sound when opening a conversation"] = "Ton beim Öffnen einer Unterhaltung"
-L["Repeat sound cooldown"] = "Wiederholungssperre für Töne"
-L["%d seconds"] = "%d Sekunden"
-L["Do not disturb"] = "Nicht stören"
-L["Silence everything until you turn this off."] = "Schaltet alles stumm, bis du es wieder ausschaltest."
-L["Mute in combat"] = "Im Kampf stumm"
-L["Mute in dungeons"] = "In Dungeons stumm"
-L["Mute in raids"] = "In Schlachtzügen stumm"
-L["Mute in arenas"] = "In Arenen stumm"
-L["Mute in battlegrounds"] = "In Schlachtfeldern stumm"
-L["None"] = "Keiner"
-L["Custom file"] = "Eigene Datei"
-L["Sound file path"] = "Pfad zur Tondatei"
+	-- Einstellungen: Verlauf
+	["Keep history"] = "Verlauf behalten",
+	["Disabled"] = "Deaktiviert",
+	["This session"] = "Diese Sitzung",
+	["1 day"] = "1 Tag",
+	["7 days"] = "7 Tage",
+	["30 days"] = "30 Tage",
+	["Unlimited"] = "Unbegrenzt",
+	["Max messages per conversation"] = "Max. Nachrichten pro Unterhaltung",
+	["Max conversations"] = "Max. Unterhaltungen",
+	["Stored messages: %d in %d conversations"] = "Gespeicherte Nachrichten: %d in %d Unterhaltungen",
+	["Estimated size: %s"] = "Geschätzte Größe: %s",
+	["Clear all history"] = "Gesamten Verlauf löschen",
 
--- Einstellungen: Benachrichtigungen
-L["Show toast notifications"] = "Einblendungen anzeigen"
-L["Toast position"] = "Position der Einblendung"
-L["Top right"] = "Oben rechts"
-L["Top left"] = "Oben links"
-L["Bottom right"] = "Unten rechts"
-L["Bottom left"] = "Unten links"
-L["Toast duration"] = "Anzeigedauer"
-L["Show unread badge"] = "Ungelesen-Zähler anzeigen"
-L["Summarise repeated messages"] = "Wiederholte Nachrichten zusammenfassen"
+	-- Einstellungen: Töne
+	["Sound on new message"] = "Ton bei neuer Nachricht",
+	["Sound when window is hidden"] = "Ton, wenn das Fenster verborgen ist",
+	["Sound on mention"] = "Ton bei Erwähnung",
+	["Sound when opening a conversation"] = "Ton beim Öffnen einer Unterhaltung",
+	["Repeat sound cooldown"] = "Wiederholungssperre für Töne",
+	["%d seconds"] = "%d Sekunden",
+	["Do not disturb"] = "Nicht stören",
+	["Silence everything until you turn this off."] = "Schaltet alles stumm, bis du es wieder ausschaltest.",
+	["Mute in combat"] = "Im Kampf stumm",
+	["Mute in dungeons"] = "In Dungeons stumm",
+	["Mute in raids"] = "In Schlachtzügen stumm",
+	["Mute in arenas"] = "In Arenen stumm",
+	["Mute in battlegrounds"] = "In Schlachtfeldern stumm",
+	["None"] = "Keiner",
+	["Custom file"] = "Eigene Datei",
+	["Sound file path"] = "Pfad zur Tondatei",
 
--- Einstellungen: Animationen
-L["Animation level"] = "Animationsstufe"
-L["Off"] = "Aus"
-L["Reduced"] = "Reduziert"
-L["Normal"] = "Normal"
-L["Fancy"] = "Aufwendig"
-L["Smooth scrolling"] = "Weiches Scrollen"
+	-- Einstellungen: Benachrichtigungen
+	["Show toast notifications"] = "Einblendungen anzeigen",
+	["Toast position"] = "Position der Einblendung",
+	["Top right"] = "Oben rechts",
+	["Top left"] = "Oben links",
+	["Bottom right"] = "Unten rechts",
+	["Bottom left"] = "Unten links",
+	["Toast duration"] = "Anzeigedauer",
+	["Show unread badge"] = "Ungelesen-Zähler anzeigen",
+	["Summarise repeated messages"] = "Wiederholte Nachrichten zusammenfassen",
 
--- Einstellungen: Kampf
-L["Entering combat"] = "Kampfbeginn"
-L["Do nothing"] = "Nichts tun"
-L["Fade conversations"] = "Unterhaltungen ausblenden"
-L["Minimize conversations"] = "Unterhaltungen minimieren"
-L["Hide conversations"] = "Unterhaltungen verbergen"
-L["Leaving combat"] = "Kampfende"
-L["Restore previous state"] = "Vorherigen Zustand wiederherstellen"
-L["Stay hidden"] = "Verborgen bleiben"
-L["Combat fade opacity"] = "Deckkraft im Kampf"
+	-- Einstellungen: Animationen
+	["Animation level"] = "Animationsstufe",
+	["Off"] = "Aus",
+	["Reduced"] = "Reduziert",
+	["Normal"] = "Normal",
+	["Fancy"] = "Aufwendig",
+	["Smooth scrolling"] = "Weiches Scrollen",
 
--- Einstellungen: Links und Emoticons
-L["Detect links"] = "Links erkennen"
-L["Highlight links in messages and make them clickable."] = "Links in Nachrichten hervorheben und anklickbar machen."
-L["Link colour"] = "Linkfarbe"
-L["Emoticon style"] = "Emoticon-Stil"
-L["Text"] = "Text"
-L["Coloured text"] = "Farbiger Text"
-L["Images"] = "Grafiken"
-L["Convert raid target markers"] = "Schlachtzugsmarkierungen umwandeln"
+	-- Einstellungen: Kampf
+	["Entering combat"] = "Kampfbeginn",
+	["Do nothing"] = "Nichts tun",
+	["Fade conversations"] = "Unterhaltungen ausblenden",
+	["Minimize conversations"] = "Unterhaltungen minimieren",
+	["Hide conversations"] = "Unterhaltungen verbergen",
+	["Leaving combat"] = "Kampfende",
+	["Restore previous state"] = "Vorherigen Zustand wiederherstellen",
+	["Stay hidden"] = "Verborgen bleiben",
+	["Combat fade opacity"] = "Deckkraft im Kampf",
 
--- Einstellungen: Erweitert
-L["Debug messages"] = "Debug-Ausgaben"
-L["Reset everything"] = "Alles zurücksetzen"
-L["Profile"] = "Profil"
-L["Diagnostics"] = "Diagnose"
-L["Client"] = "Client"
-L["Reset window positions"] = "Fensterpositionen zurücksetzen"
+	-- Einstellungen: Links und Emoticons
+	["Detect links"] = "Links erkennen",
+	["Highlight links in messages and make them clickable."] = "Links in Nachrichten hervorheben und anklickbar machen.",
+	["Link colour"] = "Linkfarbe",
+	["Emoticon style"] = "Emoticon-Stil",
+	["Text"] = "Text",
+	["Coloured text"] = "Farbiger Text",
+	["Images"] = "Grafiken",
+	["Convert raid target markers"] = "Schlachtzugsmarkierungen umwandeln",
 
--- Emoji
-L["Smileys"] = "Smileys"
-L["Symbols"] = "Symbole"
-L["Markers"] = "Markierungen"
-L["Recent"] = "Zuletzt"
+	-- Einstellungen: Erweitert
+	["Debug messages"] = "Debug-Ausgaben",
+	["Reset everything"] = "Alles zurücksetzen",
+	["Profile"] = "Profil",
+	["Diagnostics"] = "Diagnose",
+	["Client"] = "Client",
+	["Reset window positions"] = "Fensterpositionen zurücksetzen",
 
--- Meldungen
-L["%s is offline. Message not delivered."] = "%s ist offline. Nachricht nicht zugestellt."
-L["Message too long, sent as %d parts."] = "Nachricht zu lang, als %d Teile gesendet."
+	-- Emoji
+	["Smileys"] = "Smileys",
+	["Symbols"] = "Symbole",
+	["Markers"] = "Markierungen",
+	["Recent"] = "Zuletzt",
 
--- Slash-Befehle
-L["Commands:"] = "Befehle:"
-L["/wtw - toggle the messenger"] = "/wtw - Messenger umschalten"
-L["Right-click for the list"] = "Rechtsklick für die Liste"
-L["Mark all as read"] = "Alle als gelesen markieren"
-L["Hide minimap button"] = "Minimap-Button ausblenden"
-L["/wtw config - open settings"] = "/wtw config - Einstellungen öffnen"
-L["/wtw <name> - open a conversation"] = "/wtw <Name> - Unterhaltung öffnen"
-L["/wtw clear - clear all history"] = "/wtw clear - gesamten Verlauf löschen"
-L["/wtw diag - print client diagnostics"] = "/wtw diag - Client-Diagnose ausgeben"
+	-- Meldungen
+	["%s is offline. Message not delivered."] = "%s ist offline. Nachricht nicht zugestellt.",
+	["Message too long, sent as %d parts."] = "Nachricht zu lang, als %d Teile gesendet.",
 
--- Einstellungen
-L["Drop shadows"] = "Schlagschatten"
-L["Square"] = "Eckig"
-L["Round"] = "Rund"
-L["Always"] = "Immer"
-L["Timestamp on hover"] = "Zeitstempel beim Überfahren"
-L["Maximum toasts"] = "Maximale Einblendungen"
-L["Show delivery state"] = "Zustellstatus anzeigen"
-L["Show whether the server accepted each message you send."] = "Zeigt an, ob der Server jede gesendete Nachricht angenommen hat."
-L["Mark read when focused"] = "Beim Fokussieren als gelesen markieren"
-L["Timestamps"] = "Zeitstempel"
-L["Reset all settings?"] = "Alle Einstellungen zurücksetzen?"
-L["Every option goes back to its default. Message history is not touched."] = "Alle Optionen kehren auf ihren Standard zurück. Der Nachrichtenverlauf bleibt erhalten."
-L["Reset"] = "Zurücksetzen"
-L["Enter a character name"] = "Charakternamen eingeben"
-L["Name"] = "Name"
-L["Open"] = "Öffnen"
-L["Whisper a player"] = "Spieler anflüstern"
-L["Something went wrong repeatedly, so whispers are being shown in the chat frame again. /wtw debug for details."] = "Es ist wiederholt etwas schiefgegangen, deshalb werden Flüsternachrichten wieder im Chatfenster angezeigt. /wtw debug für Details."
-L["Debug logging on."] = "Debug-Ausgaben an."
-L["Debug logging off."] = "Debug-Ausgaben aus."
-L["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - Messenger öffnen oder schließen"
-L["/wtw debug - toggle developer logging"] = "/wtw debug - Entwickler-Logging umschalten"
-L["/wtw reset - restore default settings"] = "/wtw reset - Standardeinstellungen wiederherstellen"
-L["WhatTheWhisper is ready. Type /wtw to open it."] = "WhatTheWhisper ist bereit. Tippe /wtw zum Öffnen."
-L["Theme"] = "Thema"
-L["Typography"] = "Typografie"
-L["Show chat bubbles"] = "Sprechblasen anzeigen"
-L["Delivery"] = "Zustellung"
-L["Mode"] = "Modus"
-L["Nothing logged yet."] = "Bisher nichts protokolliert."
-L["/wtw debug log - show the last few entries"] = "/wtw debug log - die letzten Einträge anzeigen"
-L["Flash taskbar icon"] = "Symbol in der Taskleiste blinken lassen"
--- Proper nouns: written the same way in German, but listed explicitly so the
--- locale check reports a complete file and any future gap is a real one.
-L["WhatTheWhisper"] = "WhatTheWhisper"
-L["Battle.net"] = "Battle.net"
-L["BBCode"] = "BBCode"
-L["CSV"] = "CSV"
-L["Open when you start a whisper"] = "Öffnen, wenn du zu flüstern beginnst"
-L["Typing /w in the default chat box opens that conversation here."] = "/w im normalen Chatfenster öffnet diese Unterhaltung hier."
+	-- Slash-Befehle
+	["Commands:"] = "Befehle:",
+	["/wtw - toggle the messenger"] = "/wtw - Messenger umschalten",
+	["Right-click for the list"] = "Rechtsklick für die Liste",
+	["Mark all as read"] = "Alle als gelesen markieren",
+	["Hide minimap button"] = "Minimap-Button ausblenden",
+	["/wtw config - open settings"] = "/wtw config - Einstellungen öffnen",
+	["/wtw <name> - open a conversation"] = "/wtw <Name> - Unterhaltung öffnen",
+	["/wtw clear - clear all history"] = "/wtw clear - gesamten Verlauf löschen",
+	["/wtw diag - print client diagnostics"] = "/wtw diag - Client-Diagnose ausgeben",
+
+	-- Einstellungen
+	["Drop shadows"] = "Schlagschatten",
+	["Square"] = "Eckig",
+	["Round"] = "Rund",
+	["Always"] = "Immer",
+	["Timestamp on hover"] = "Zeitstempel beim Überfahren",
+	["Maximum toasts"] = "Maximale Einblendungen",
+	["Show delivery state"] = "Zustellstatus anzeigen",
+	["Show whether the server accepted each message you send."] = "Zeigt an, ob der Server jede gesendete Nachricht angenommen hat.",
+	["Mark read when focused"] = "Beim Fokussieren als gelesen markieren",
+	["Timestamps"] = "Zeitstempel",
+	["Reset all settings?"] = "Alle Einstellungen zurücksetzen?",
+	["Every option goes back to its default. Message history is not touched."] = "Alle Optionen kehren auf ihren Standard zurück. Der Nachrichtenverlauf bleibt erhalten.",
+	["Reset"] = "Zurücksetzen",
+	["Enter a character name"] = "Charakternamen eingeben",
+	["Name"] = "Name",
+	["Open"] = "Öffnen",
+	["Whisper a player"] = "Spieler anflüstern",
+	["Something went wrong repeatedly, so whispers are being shown in the chat frame again. /wtw debug for details."] = "Es ist wiederholt etwas schiefgegangen, deshalb werden Flüsternachrichten wieder im Chatfenster angezeigt. /wtw debug für Details.",
+	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] = "Flüstern kann hier nicht von Addons gelesen werden und wird stattdessen im Chatfenster angezeigt.",
+	["Debug logging on."] = "Debug-Ausgaben an.",
+	["Debug logging off."] = "Debug-Ausgaben aus.",
+	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - Messenger öffnen oder schließen",
+	["/wtw debug - toggle developer logging"] = "/wtw debug - Entwickler-Logging umschalten",
+	["/wtw reset - restore default settings"] = "/wtw reset - Standardeinstellungen wiederherstellen",
+	["WhatTheWhisper is ready. Type /wtw to open it."] = "WhatTheWhisper ist bereit. Tippe /wtw zum Öffnen.",
+	["Theme"] = "Thema",
+	["Typography"] = "Typografie",
+	["Show chat bubbles"] = "Sprechblasen anzeigen",
+	["Delivery"] = "Zustellung",
+	["Mode"] = "Modus",
+	["Nothing logged yet."] = "Bisher nichts protokolliert.",
+	["/wtw debug log - show the last few entries"] = "/wtw debug log - die letzten Einträge anzeigen",
+	["Flash taskbar icon"] = "Symbol in der Taskleiste blinken lassen",
+	-- Proper nouns: written the same way in German, but listed explicitly so the
+	-- locale check reports a complete file and any future gap is a real one.
+	["WhatTheWhisper"] = "WhatTheWhisper",
+	["Battle.net"] = "Battle.net",
+	["BBCode"] = "BBCode",
+	["CSV"] = "CSV",
+	["Open when you start a whisper"] = "Öffnen, wenn du zu flüstern beginnst",
+	["Typing /w in the default chat box opens that conversation here."] = "/w im normalen Chatfenster öffnet diese Unterhaltung hier.",
+})

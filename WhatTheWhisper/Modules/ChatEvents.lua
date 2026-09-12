@@ -137,8 +137,47 @@ end
 -- Incoming
 --------------------------------------------------------------------------------
 
+--------------------------------------------------------------------------------
+-- Payloads that cannot be read
+--------------------------------------------------------------------------------
+
+-- In arenas, battlegrounds and other restricted content the client delivers chat
+-- payloads as secret values rather than strings. Reading one is a hard error
+-- that also taints the caller, and the addon was reading every one of them
+-- without asking -- which filled the chat frame with errors in an arena and, for
+-- a whisper, stopped the message being handled at all.
+--
+-- Being somewhere restricted is not a fault, so an unreadable payload is not
+-- reported as one. It is counted, and `/wtw debug` says how often it happened.
+local unreadable = 0
+
+function ChatEvents.UnreadableCount()
+	return unreadable
+end
+
+-- For a system message there is nothing to lose: we read those only to notice
+-- "no player named" and friends coming online, and missing one costs nothing.
+local function readableOrNil(value)
+	local readable = Compat.ReadableText(value)
+	if readable == nil and value ~= nil then unreadable = unreadable + 1 end
+	return readable
+end
+
+-- For a whisper there is everything to lose. If the text cannot be read we
+-- cannot store it, and we must not also be the reason it is missing from the
+-- chat frame -- so the addon stops suppressing whispers, exactly as it does when
+-- it has been erroring, and says so once.
+local function readableWhisper(value)
+	local readable = Compat.ReadableText(value)
+	if readable ~= nil then return readable end
+	unreadable = unreadable + 1
+	Debug.NoteUnreadable()
+	return nil
+end
+
 local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
-	if not sender or sender == "" then return end
+	text, sender = readableWhisper(text), readableOrNil(sender)
+	if text == nil or sender == nil or sender == "" then return end
 	local id = Compat.NormalizeName(sender)
 	PlayerInfo.Observe(id, guid)
 	local info = PlayerInfo.Get(id)
@@ -165,7 +204,9 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 end
 
 local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
-	if not target or target == "" then return end
+	text, target = readableWhisper(text), readableOrNil(target)
+	if text == nil or target == nil then return end
+	if target == "" then return end
 	local id = Compat.NormalizeName(target)
 	PlayerInfo.Observe(id, guid)
 	-- The server echoing a whisper back is the server confirming it had
@@ -186,7 +227,8 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 end
 
 local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
-	if not bnSenderID then return end
+	text, accountName = readableWhisper(text), readableOrNil(accountName)
+	if text == nil or not bnSenderID then return end
 	local id, name, tag = bnConversationID(bnSenderID, accountName)
 	local conv = CM.GetOrCreate(id, {
 		name = name or accountName, battleTag = tag, bnetAccountID = bnSenderID,
@@ -198,7 +240,8 @@ local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSe
 end
 
 local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
-	if not bnSenderID then return end
+	text, accountName = readableWhisper(text), readableOrNil(accountName)
+	if text == nil or not bnSenderID then return end
 	local id = select(1, bnConversationID(bnSenderID, accountName))
 	if resolvePending(id, text) then
 		Debug.Log("dedupe", "bnet inform matched a pending message on %s", id)
@@ -211,7 +254,8 @@ end
 -- The target's away/busy auto-reply. Shown inside the thread, where it belongs.
 local function onAutoReply(kind)
 	return function(text, sender, _, _, _, _, _, _, _, _, _, guid)
-		if not sender or sender == "" then return end
+		text, sender = readableWhisper(text), readableOrNil(sender)
+		if text == nil or sender == nil or sender == "" then return end
 		local id = Compat.NormalizeName(sender)
 		if not CM.Get(id) then return end
 		-- An away message is their client answering, which is as good a proof
@@ -277,7 +321,8 @@ local function onFriendPresence(text)
 end
 
 local function onSystem(text)
-	if not text then return end
+	text = readableOrNil(text)
+	if text == nil then return end
 	onFriendPresence(text)
 	if not notFoundPattern then return end
 	local name = text:match(notFoundPattern)

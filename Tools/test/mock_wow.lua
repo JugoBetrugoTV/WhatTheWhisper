@@ -1051,6 +1051,21 @@ end
 -- The client answers with empty strings, not nils, for anything it has not
 -- resolved about a guid yet -- and the localized names are different strings
 -- from the English ones, which is the whole reason it returns both.
+-- A "secret value": what the client hands an addon instead of a string in
+-- arenas, battlegrounds and other restricted content. Any read is an error, and
+-- that is the whole point -- code that reads a payload without asking first has
+-- to fall over here the same way it falls over in the game.
+local secretMT = {
+	__index = function() error("attempt to index a secret value", 2) end,
+	__len = function() error("attempt to get length of a secret value", 2) end,
+	__concat = function() error("attempt to concatenate a secret value", 2) end,
+	__tostring = function() error("attempt to convert a secret value", 2) end,
+	__eq = function() error("attempt to compare a secret value", 2) end,
+}
+function M.Secret()
+	return setmetatable({}, secretMT)
+end
+
 _G.GetPlayerInfoByGUID = function(guid)
 	local info = M.guids and M.guids[guid]
 	if not info then return nil end

@@ -8,7 +8,7 @@
 local _, ns = ...
 local Theme, W, Anim, Pool, Text = ns.Theme, ns.Widgets, ns.Anim, ns.Pool, ns.Text
 local Options, Controls = ns.Options, ns.Controls
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local SettingsUI = {}
 ns.SettingsUI = SettingsUI

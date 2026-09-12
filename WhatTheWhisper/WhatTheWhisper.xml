@@ -17,6 +17,7 @@
 	<Script file="Core\Compat\Fallback.lua"/>
 
 	<!-- Localisation -->
+	<Script file="Core\Locale\Locale.lua"/>
 	<Script file="Core\Locale\enUS.lua"/>
 	<Script file="Core\Locale\deDE.lua"/>
 

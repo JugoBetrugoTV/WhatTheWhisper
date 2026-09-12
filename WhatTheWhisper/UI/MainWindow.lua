@@ -7,7 +7,7 @@
 local _, ns = ...
 local Theme, W, Anim, Pixel, Compat = ns.Theme, ns.Widgets, ns.Anim, ns.Pixel, ns.Compat
 local CM = ns.ConversationManager
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local MainWindow = {}
 ns.MainWindow = MainWindow

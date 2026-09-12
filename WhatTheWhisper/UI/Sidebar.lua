@@ -10,7 +10,7 @@
 local _, ns = ...
 local Theme, W, Pool, Text = ns.Theme, ns.Widgets, ns.Pool, ns.Text
 local CM, Format = ns.ConversationManager, ns.Format
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Sidebar = {}
 ns.Sidebar = Sidebar

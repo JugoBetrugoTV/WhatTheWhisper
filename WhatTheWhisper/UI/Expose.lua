@@ -8,7 +8,7 @@
 local _, ns = ...
 local Theme, W, Anim, Pool = ns.Theme, ns.Widgets, ns.Anim, ns.Pool
 local CM = ns.ConversationManager
-local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+local L = ns.L
 
 local Expose = {}
 ns.Expose = Expose

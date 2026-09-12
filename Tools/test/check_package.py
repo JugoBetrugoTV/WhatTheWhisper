@@ -74,7 +74,7 @@ else:
     if "LibStub" not in embedded:
         err("the release ships no LibStub")
     for required in ("CallbackHandler-1.0", "AceAddon-3.0", "AceConsole-3.0",
-                     "AceEvent-3.0", "AceDB-3.0", "AceLocale-3.0"):
+                     "AceEvent-3.0", "AceDB-3.0"):
         if required not in embedded:
             err("the release is missing %s" % required)
     notes.append("release embeds: %s" % ", ".join(embedded))
@@ -172,7 +172,7 @@ M.RunFrames(4)
 
 assert(_G.LibStub, "LibStub did not load from the release")
 for _, major in ipairs({ "AceAddon-3.0", "AceConsole-3.0", "AceEvent-3.0",
-	"AceDB-3.0", "AceLocale-3.0", "CallbackHandler-1.0" }) do
+	"AceDB-3.0", "CallbackHandler-1.0" }) do
 	assert(_G.LibStub:GetLibrary(major, true), major .. " missing from the release")
 end
 assert(ns.db and ns.db.profile, "the addon did not initialise")

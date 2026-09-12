@@ -86,9 +86,21 @@ function Debug.NoteError(context, err)
 	degraded = true
 	if not announced then
 		announced = true
-		local L = LibStub("AceLocale-3.0"):GetLocale("WhatTheWhisper")
+		local L = ns.L
 		ns.Print(L["Something went wrong repeatedly, so whispers are being shown in the chat frame again. /wtw debug for details."])
 	end
+end
+
+-- A payload the client would not let us read. Not an error -- being in an arena
+-- is not a fault -- but we cannot store the message, so we must not also be the
+-- reason it is missing from the chat frame.
+function Debug.NoteUnreadable()
+	Debug.Log("events", "a chat payload could not be read; restricted content")
+	if degraded then return end
+	degraded = true
+	if announced then return end
+	announced = true
+	ns.Print(ns.L["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."])
 end
 
 -- Called when the player explicitly asks for a fresh start.
