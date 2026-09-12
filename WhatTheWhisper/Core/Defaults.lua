@@ -30,6 +30,10 @@ ns.defaults = {
 		},
 
 		appearance = {
+			-- "auto" follows the client. Anything else overrides it, which is
+			-- the whole reason the strings do not live in AceLocale: it keeps
+			-- only the client's own language and discards the rest at load.
+			locale         = "auto",
 			skin           = "midnight",
 			font           = false,      -- false = the client's own chat font
 			fontScale      = 0,          -- -2 .. +4, applied to the whole type scale

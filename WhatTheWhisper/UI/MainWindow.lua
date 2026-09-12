@@ -323,6 +323,20 @@ function M:RefreshWindowButtons()
 	self.titlebar.expose:SetShown(windows > 1)
 end
 
+-- The player changed the language. Everything below was written once, when the
+-- frame was built, which is exactly why none of it can notice on its own.
+function M:Relocalize()
+	local title = self.titlebar
+	title.label:SetText(L["WhatTheWhisper"])
+	W.SetTooltip(title.close, L["Close"])
+	W.SetTooltip(title.minimize, L["Minimize"])
+	W.SetTooltip(title.settings, L["Settings"])
+	W.SetTooltip(title.expose, L["All windows"],
+		L["Show every open conversation window side by side."])
+	self.sidebar:Relocalize()
+	self.view:Relocalize()
+end
+
 function M:ApplyTheme()
 	self.surface:ApplyTheme()
 	self.titlebar.divider:ApplyTheme()

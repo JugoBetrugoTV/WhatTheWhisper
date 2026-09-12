@@ -325,6 +325,8 @@ ns.RegisterLocale("enUS", {
 	["/wtw reset - restore default settings"] = true,
 	["WhatTheWhisper is ready. Type /wtw to open it."] = true,
 	["Theme"] = true,
+	["Language"] = true,
+	["Independent of the game's own language."] = true,
 	["Typography"] = true,
 	["Show chat bubbles"] = true,
 	["Delivery"] = true,

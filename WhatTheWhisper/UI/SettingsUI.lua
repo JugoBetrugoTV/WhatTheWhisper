@@ -577,6 +577,19 @@ function SettingsUI.SetFilter(value)
 	SettingsUI.Refresh()
 end
 
+-- The player changed the language. The schema is not just re-rendered but
+-- rebuilt: every label and caption in it was resolved when the window opened,
+-- so refreshing alone would lay out the same English strings again.
+function SettingsUI.Relocalize()
+	if not frame then return end
+	frame.header.title:SetText(L["Settings"])
+	frame.nav.search.input:SetPlaceholder(L["Search settings"])
+	if not frame:IsShown() then return end
+	schema = Options.BuildSchema()
+	renderNav()
+	SettingsUI.Refresh()
+end
+
 function SettingsUI.Show()
 	build()
 	schema = Options.BuildSchema()

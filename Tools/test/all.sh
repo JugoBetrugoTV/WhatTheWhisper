@@ -53,6 +53,9 @@ lua5.1 Tools/test/perf.lua | tail -1
 echo "== combat lockdown =="
 lua5.1 Tools/test/combat.lua | tail -1
 
+echo "== languages =="
+lua5.1 Tools/test/locale.lua | tail -1
+
 echo "== settings =="
 lua5.1 Tools/test/settings.lua | tail -1
 
@@ -76,7 +79,11 @@ for flavor in retail mop tbc classic; do
 	printf '%-9s ' "$flavor"
 	lua5.1 Tools/test/run.lua "$flavor" 2>&1 | tail -1
 done
-for locale in deDE; do
+# One client locale per writing system the addon ships strings in. Switching
+# between all eleven at runtime is Tools/test/locale.lua's job and costs
+# seconds; booting a whole mock client in each costs twenty, and what it adds
+# over the third one is the same code path with different bytes in it.
+for locale in deDE ruRU koKR; do
 	printf '%-9s ' "$locale"
 	lua5.1 Tools/test/run.lua retail "$locale" 2>&1 | tail -1
 done

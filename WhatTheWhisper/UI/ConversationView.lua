@@ -126,17 +126,17 @@ function ConversationView.New(parent, opts)
 	v.emptyTitle:SetText(L["Pick a conversation"])
 	v.emptyBody:SetText(L["Your whispers are kept here, one thread per player."])
 
-	v:AddHeaderButton("info", L["Character details"], function() v:ToggleProfile() end)
+	v:AddHeaderButton("info", "Character details", function() v:ToggleProfile() end)
 	v.header.info = v.header.actions[#v.header.actions].button
-	v:AddHeaderButton("search", L["Search messages"], function() v:ToggleSearch() end)
+	v:AddHeaderButton("search", "Search messages", function() v:ToggleSearch() end)
 	v.header.search = v.header.actions[#v.header.actions].button
 	if opts.showPopout ~= false then
-		v:AddHeaderButton("popout", L["Pop out"], function()
+		v:AddHeaderButton("popout", "Pop out", function()
 			if v.conv then ns.UI.TogglePopout(v.conv.id) end
 		end)
 		v.header.popout = v.header.actions[#v.header.actions].button
 	end
-	v:AddHeaderButton("dots", L["Settings"], function(button)
+	v:AddHeaderButton("dots", "Settings", function(button)
 		v:OpenConversationMenu(button)
 	end)
 	v.header.more = v.header.actions[#v.header.actions].button
@@ -150,14 +150,18 @@ end
 -- Header actions
 --------------------------------------------------------------------------------
 
-function V:AddHeaderButton(icon, tooltip, onClick)
+-- `tooltipKey` is the string key, not the string: the player can change the
+-- language while this button exists, and a button that kept only the resolved
+-- text would have no way back to the table it came from.
+function V:AddHeaderButton(icon, tooltipKey, onClick)
 	local button = ns.Button.Icon(self.header, {
-		icon = icon, tooltip = tooltip,
+		icon = icon, tooltip = L[tooltipKey],
 		size = self.opts.compactHeader and 26 or ns.SZ.ICON_BTN,
 		glyph = self.opts.compactHeader and 13 or ns.SZ.ICON_GLYPH,
 		onClick = function(self2) ns.Guard("HeaderButton", onClick, self2) end,
 	})
-	self.header.actions[#self.header.actions + 1] = { icon = icon, button = button }
+	self.header.actions[#self.header.actions + 1] =
+		{ icon = icon, button = button, tooltipKey = tooltipKey }
 	self:RelayoutHeaderActions()
 	return button
 end
@@ -480,6 +484,24 @@ end
 
 function V:IsComposerFocused()
 	return self.composer:HasFocus()
+end
+
+-- The player changed the language. Everything below was written once, when the
+-- frame was built, which is exactly why none of it can notice on its own.
+function V:Relocalize()
+	for i = 1, #self.header.actions do
+		local action = self.header.actions[i]
+		if action.tooltipKey then
+			W.SetTooltip(action.button, L[action.tooltipKey])
+		end
+	end
+	self.searchBar.box.input:SetPlaceholder(L["Search messages"])
+	self.emptyTitle:SetText(L["Pick a conversation"])
+	self.emptyBody:SetText(L["Your whispers are kept here, one thread per player."])
+	self.profile:Relocalize()
+	self.composer:Relocalize()
+	self.list:Rebuild(true)
+	self:RefreshHeader()
 end
 
 function V:ApplyTheme()

@@ -232,6 +232,13 @@ function P:Lookup()
 	end
 end
 
+-- The player changed the language. Everything below was written once, when the
+-- frame was built, which is exactly why none of it can notice on its own.
+function P:Relocalize()
+	self.lookup:SetText(L["Look up"])
+	self:Refresh()
+end
+
 function P:ApplyTheme()
 	self.surface:ApplyTheme()
 	self.divider:ApplyTheme()

@@ -16,10 +16,21 @@
 	<Script file="Core\Compat\Classic.lua"/>
 	<Script file="Core\Compat\Fallback.lua"/>
 
-	<!-- Localisation -->
+	<!-- Localisation. Every language loads, not just the client's own: the
+	     player can pick one, so the table they pick has to be there. English
+	     loads first because it is what every other file falls back to. -->
 	<Script file="Core\Locale\Locale.lua"/>
 	<Script file="Core\Locale\enUS.lua"/>
 	<Script file="Core\Locale\deDE.lua"/>
+	<Script file="Core\Locale\frFR.lua"/>
+	<Script file="Core\Locale\esES.lua"/>
+	<Script file="Core\Locale\esMX.lua"/>
+	<Script file="Core\Locale\itIT.lua"/>
+	<Script file="Core\Locale\ptBR.lua"/>
+	<Script file="Core\Locale\ruRU.lua"/>
+	<Script file="Core\Locale\koKR.lua"/>
+	<Script file="Core\Locale\zhCN.lua"/>
+	<Script file="Core\Locale\zhTW.lua"/>
 
 	<!-- Utilities -->
 	<Script file="Core\Util\Pixel.lua"/>

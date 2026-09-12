@@ -50,7 +50,9 @@ ns.LocaleData = tables
 
 -- Called by each locale file with its own table. The source language passes
 -- `true` for entries whose text is the key, so enUS.lua stays a list of keys
--- rather than a list of keys repeated twice.
+-- rather than a list of keys repeated twice. A translation may pass `true` too,
+-- and there it means "the English is correct here as well" -- a product name, a
+-- file format -- which is a decision, not a gap, and counts as covered below.
 function ns.RegisterLocale(code, strings)
 	if type(code) ~= "string" or type(strings) ~= "table" then return end
 	if code == BASE then
@@ -123,14 +125,17 @@ ns.L = setmetatable({}, {
 -- How much of the source language a locale actually answers. Shown next to the
 -- name in the picker: choosing a language that is a third done should be a
 -- decision the player makes knowingly, not a surprise they discover later.
+--
+-- A key the locale answers with `true` counts: it says "English is right here",
+-- which is an answer. A key it does not mention at all does not -- that is the
+-- one that silently renders in the wrong language.
 function ns.LocaleCoverage(code)
 	local base, other = tables[BASE], tables[code]
 	if not base or not other then return 0, 0 end
 	local total, done = 0, 0
 	for key in pairs(base) do
 		total = total + 1
-		local value = other[key]
-		if value ~= nil and value ~= true then done = done + 1 end
+		if other[key] ~= nil then done = done + 1 end
 	end
 	if code == BASE then return total, total end
 	return done, total

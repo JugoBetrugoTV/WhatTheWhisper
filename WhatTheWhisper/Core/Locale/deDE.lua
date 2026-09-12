@@ -1,9 +1,14 @@
 -- WhatTheWhisper -- Deutsch.
+--
+-- `true` heißt "genau wie im Englischen", und zwar mit Absicht: Produktnamen und
+-- Formatnamen werden nicht übersetzt, und das hier hinzuschreiben ist der
+-- Unterschied zwischen "so entschieden" und "da hat jemand eine Zeile vergessen".
 
 local _, ns = ...
 
 ns.RegisterLocale("deDE", {
 	-- Fensterrahmen
+	["WhatTheWhisper"] = true,
 	["Conversations"] = "Unterhaltungen",
 	["Search conversations"] = "Unterhaltungen durchsuchen",
 	["Search messages"] = "Nachrichten durchsuchen",
@@ -14,7 +19,7 @@ ns.RegisterLocale("deDE", {
 	["Guild"] = "Gilde",
 	["Zone"] = "Zone",
 	["Realm"] = "Realm",
-	["BattleTag"] = "BattleTag",
+	["BattleTag"] = true,
 	["Character"] = "Charakter",
 	["not known"] = "nicht bekannt",
 	["Looking up..."] = "Wird gesucht ...",
@@ -63,6 +68,7 @@ ns.RegisterLocale("deDE", {
 	["%d new messages"] = "%d neue Nachrichten",
 	["1 new message"] = "1 neue Nachricht",
 	["Level %d"] = "Stufe %d",
+	["Battle.net"] = true,
 
 	-- Leere Zustände
 	["No conversations yet"] = "Noch keine Unterhaltungen",
@@ -110,7 +116,9 @@ ns.RegisterLocale("deDE", {
 	["Export"] = "Exportieren",
 	["Format"] = "Format",
 	["Plain text"] = "Reiner Text",
-	["Markdown"] = "Markdown",
+	["BBCode"] = true,
+	["Markdown"] = true,
+	["CSV"] = true,
 	["Clear this conversation?"] = "Diese Unterhaltung löschen?",
 	["Clear all history?"] = "Gesamten Verlauf löschen?",
 	["This removes %d stored messages. It cannot be undone."] = "Damit werden %d gespeicherte Nachrichten entfernt. Das lässt sich nicht rückgängig machen.",
@@ -320,6 +328,8 @@ ns.RegisterLocale("deDE", {
 	["/wtw reset - restore default settings"] = "/wtw reset - Standardeinstellungen wiederherstellen",
 	["WhatTheWhisper is ready. Type /wtw to open it."] = "WhatTheWhisper ist bereit. Tippe /wtw zum Öffnen.",
 	["Theme"] = "Thema",
+	["Language"] = "Sprache",
+	["Independent of the game's own language."] = "Unabhängig von der Spielsprache.",
 	["Typography"] = "Typografie",
 	["Show chat bubbles"] = "Sprechblasen anzeigen",
 	["Delivery"] = "Zustellung",
@@ -327,12 +337,6 @@ ns.RegisterLocale("deDE", {
 	["Nothing logged yet."] = "Bisher nichts protokolliert.",
 	["/wtw debug log - show the last few entries"] = "/wtw debug log - die letzten Einträge anzeigen",
 	["Flash taskbar icon"] = "Symbol in der Taskleiste blinken lassen",
-	-- Proper nouns: written the same way in German, but listed explicitly so the
-	-- locale check reports a complete file and any future gap is a real one.
-	["WhatTheWhisper"] = "WhatTheWhisper",
-	["Battle.net"] = "Battle.net",
-	["BBCode"] = "BBCode",
-	["CSV"] = "CSV",
 	["Open when you start a whisper"] = "Öffnen, wenn du zu flüstern beginnst",
 	["Typing /w in the default chat box opens that conversation here."] = "/w im normalen Chatfenster öffnet diese Unterhaltung hier.",
 })

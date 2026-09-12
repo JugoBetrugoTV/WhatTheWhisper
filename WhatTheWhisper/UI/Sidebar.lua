@@ -391,6 +391,14 @@ function S:ScrollToConversation(id)
 	end
 end
 
+-- The player changed the language. Everything below was written once, when the
+-- frame was built, which is exactly why none of it can notice on its own.
+function S:Relocalize()
+	W.SetTooltip(self.header.newChat, L["New conversation"])
+	self.header.search.input:SetPlaceholder(L["Search conversations"])
+	self:Refresh()
+end
+
 --------------------------------------------------------------------------------
 -- Theme
 --------------------------------------------------------------------------------

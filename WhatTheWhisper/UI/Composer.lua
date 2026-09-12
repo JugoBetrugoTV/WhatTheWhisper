@@ -173,6 +173,23 @@ function C:Insert(value)
 	self.input:Insert(value)
 end
 
+-- The player changed the language. Everything below was written once, when the
+-- frame was built, which is exactly why none of it can notice on its own.
+function C:Relocalize()
+	W.SetTooltip(self.emoji, L["Emoji"])
+	W.SetTooltip(self.send, L["Send"])
+	-- SetConversation early-outs on the thread it is already showing, so the
+	-- placeholder is re-derived here rather than by pretending the thread moved.
+	local conv = self.conv
+	if conv then
+		self.input:SetPlaceholder(L["Message %s..."]:format(
+			ns.ConversationManager.DisplayName(conv)))
+	else
+		self.input:SetPlaceholder(L["Type a message..."])
+	end
+	self:OnTextChanged(self.input:GetText())
+end
+
 function C:ApplyTheme()
 	self.surface:ApplyTheme()
 	self.divider:ApplyTheme()

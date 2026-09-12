@@ -59,6 +59,14 @@ local APPLY = {
 		ns.MessageList.InvalidateMetrics()
 		ns.UI.RefreshAll()
 	end,
+	-- Every label was resolved from the string table when its frame was built,
+	-- so refreshing the windows redraws the old language. The language is the
+	-- one setting that has to reach back into them and rewrite the text.
+	["appearance.locale"] = function()
+		ns.UI.RefreshLayout()
+		ns.UI.RefreshAll()
+		ns.UI.Relocalize()
+	end,
 	["layout"] = function() ns.UI.RefreshLayout() end,
 	["history.retention"] = function()
 		ns.History.ApplyRetention()
@@ -84,6 +92,26 @@ end
 --------------------------------------------------------------------------------
 -- Option lists
 --------------------------------------------------------------------------------
+
+-- Every language the client ships in, named in itself -- a menu of language
+-- names written in a language you cannot read is not a menu you can use -- and
+-- carrying how much of it is actually translated, because picking one that is
+-- a third done should be a decision rather than a discovery.
+function Options.LocaleOptions()
+	local out = {
+		{ value = "auto", label = L["Automatic"] },
+	}
+	for i = 1, #ns.LOCALES do
+		local entry = ns.LOCALES[i]
+		local done, total = ns.LocaleCoverage(entry.code)
+		local label = entry.native
+		if total > 0 and done < total then
+			label = ("%s  (%d%%)"):format(label, math.floor(done / total * 100))
+		end
+		out[#out + 1] = { value = entry.code, label = label }
+	end
+	return out
+end
 
 function Options.SkinOptions()
 	local out = {}
@@ -188,6 +216,14 @@ function Options.BuildSchema()
 		{
 			id = "appearance", label = L["Appearance"], icon = "eye",
 			cards = {
+				{
+					title = L["Language"],
+					rows = {
+						dropdown("appearance.locale", L["Language"],
+							Options.LocaleOptions(),
+							L["Independent of the game's own language."]),
+					},
+				},
 				{
 					title = L["Theme"],
 					rows = {

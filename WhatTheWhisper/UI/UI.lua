@@ -458,6 +458,19 @@ function UI.RefreshAll()
 	end)
 end
 
+-- Language is the one setting that cannot be refreshed into place: every label
+-- was resolved from a string table at the moment its frame was built. This walks
+-- the same objects ApplyTheme walks, for the same reason, and everything that
+-- rebuilds itself on each render -- menus, toasts, dialogs, tooltips -- is
+-- absent from the list because it already reads the new table on its next use.
+function UI.Relocalize()
+	local window = existing()
+	if window then window:Relocalize() end
+	ns.Popout.Each(function(_, win) win.view:Relocalize() end)
+	ns.SettingsUI.Relocalize()
+	ns.Minimap.Update()
+end
+
 function UI.ApplyTheme()
 	local window = existing()
 	if window then window:ApplyTheme() end

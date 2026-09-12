@@ -7,7 +7,6 @@
 local _, ns = ...
 local Theme, W, Anim, Compat = ns.Theme, ns.Widgets, ns.Anim, ns.Compat
 local CM = ns.ConversationManager
-local L = ns.L
 
 local Popout = {}
 ns.Popout = Popout
@@ -112,16 +111,16 @@ local function create(conv)
 	win.view:SetAllPoints()
 	win.view:SetOuterCorners(true, true, true, true)
 
-	win.view:AddHeaderButton("dock", L["Dock"], function()
+	win.view:AddHeaderButton("dock", "Dock", function()
 		ns.UI.DockConversation(win.convID)
 	end)
-	win.view:AddHeaderButton("pin", L["Pin"], function(button)
+	win.view:AddHeaderButton("pin", "Pin", function(button)
 		win:TogglePin(button)
 	end)
-	win.view:AddHeaderButton("minimize", L["Minimize"], function()
+	win.view:AddHeaderButton("minimize", "Minimize", function()
 		win:ToggleMinimized()
 	end)
-	win.view:AddHeaderButton("close", L["Close"], function()
+	win.view:AddHeaderButton("close", "Close", function()
 		ns.UI.CloseConversation(win.convID)
 	end)
 
