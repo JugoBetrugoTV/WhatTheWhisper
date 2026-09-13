@@ -403,6 +403,170 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Units the client will not let us read either
+--------------------------------------------------------------------------------
+
+-- The payload is not the only thing an arena hides. The opponent you have
+-- targeted has a secret *name*: UnitName hands back a secret value, and the
+-- addon read it on every avatar it drew, looking for a live portrait. So one
+-- whisper in an arena printed an error for each bus event that followed it --
+-- conversation added, message added, conversation updated, conversation
+-- selected, player info updated, and every keystroke in the search box.
+do
+	local softErrors = {}
+	local realSoftError = ns.SoftError
+	ns.SoftError = function(context, err)
+		softErrors[#softErrors + 1] = tostring(context) .. ": " .. tostring(err)
+		return realSoftError(context, err)
+	end
+
+	-- tostring on a secret value is itself a read. A failure message written the
+	-- ordinary way would therefore blow up on its way to being printed, and the
+	-- run would end with a traceback instead of the name of the broken check.
+	local function describe(value)
+		local ok, text = pcall(tostring, value)
+		return ok and text or "<a value the client will not let us read>"
+	end
+
+	-- Targeted, visible, and unknowable: an arena opponent.
+	M.units = M.units or {}
+	M.units.target = { name = M.Secret(), realm = M.Secret(),
+		class = "ROGUE", level = 70 }
+
+	-- Called directly and through a pcall, because the whole failure is that it
+	-- raises: without the pcall a regression aborts the file instead of naming
+	-- itself, and the assertions below it never run at all.
+	local scanned, found = pcall(ns.Compat.ClassFromVisibleUnit, thrall)
+	check("a secret unit name is refused rather than read",
+		scanned and found == nil, describe(found))
+
+	-- Now the whole round the screenshot showed, with that unit targeted. The
+	-- calls the addon would normally make from inside an event go through its
+	-- own guard here for the same reason: a regression is then counted as the
+	-- error flood it is, rather than aborting the file on the first one.
+	local window = ns.MainWindow.Get()
+	M.FireEvent("CHAT_MSG_WHISPER_INFORM", "so-bad", "Bonkarleif-Outland",
+		"Common", "", "Bonkarleif-Outland", "", 0, 0, "", 0, 2, "G-BONK")
+	M.RunTimers(2)
+	M.RunFrames(8)
+	ns.Guard("test.Select", CM.Select, "Bonkarleif-Outland")
+	M.RunFrames(8)
+	ns.Guard("test.SetFilter", window.sidebar.SetFilter, window.sidebar, "bon")
+	M.RunFrames(4)
+	ns.Guard("test.SetFilter", window.sidebar.SetFilter, window.sidebar, "")
+	M.RunFrames(4)
+	M.FireEvent("PLAYER_TARGET_CHANGED")
+	ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, "Bonkarleif-Outland")
+	M.RunFrames(8)
+
+	eq("an arena target raises nothing at all", #softErrors, 0,
+		table.concat(softErrors, "; ", 1, math.min(#softErrors, 4)))
+	check("and the thread was still created",
+		CM.Get("Bonkarleif-Outland") ~= nil)
+
+	-- A name we *can* read still resolves, so the probe did not simply switch
+	-- the feature off.
+	M.units.target = { name = "Thrall", realm = "", class = "SHAMAN", level = 70 }
+	eq("a readable unit still answers",
+		ns.Compat.ClassFromVisibleUnit(thrall), "SHAMAN")
+
+	-- Half a secret is still a secret: the realm alone is enough to throw.
+	M.units.target = { name = "Thrall", realm = M.Secret(), class = "SHAMAN" }
+	eq("a secret realm is refused too",
+		ns.Compat.ClassFromVisibleUnit(thrall), nil)
+
+	M.units.target = nil
+
+	-- The GUID that rides along with a whisper is a payload like any other, and
+	-- it goes straight into GetPlayerInfoByGUID, whose own answers the client
+	-- can withhold field by field. Both were read without asking.
+	local looked = { pcall(ns.Compat.GetPlayerInfoByGUID, M.Secret()) }
+	check("a secret guid is refused rather than looked up",
+		looked[1] and looked[2] == nil, describe(looked[2]))
+
+	M.guids["G-HIDDEN"] = { class = M.Secret(), race = M.Secret(),
+		name = M.Secret(), realm = M.Secret(), sex = M.Secret() }
+	local ok, class, race, sex, name, realm =
+		pcall(ns.Compat.GetPlayerInfoByGUID, "G-HIDDEN")
+	check("a guid whose answers are secret raises nothing", ok, describe(class))
+	if ok then
+		-- Nothing invented, and -- just as important -- nothing passed on: a
+		-- secret handed to a caller is only an error somewhere further away.
+		check("and invents no class", class == nil, describe(class))
+		check("nor a race", race == nil, describe(race))
+		check("nor a sex", sex == nil, describe(sex))
+		check("nor a name", name == nil, describe(name))
+		check("nor a realm", realm == nil, describe(realm))
+	end
+
+	local before = CM.Count()
+	M.FireEvent("CHAT_MSG_WHISPER", "hallo", "Arenafreund", "Common", "",
+		"Arenafreund", "", 0, 0, "", 0, 1, M.Secret())
+	M.RunTimers(2)
+	M.RunFrames(4)
+	eq("a whisper carrying a secret guid still lands", CM.Count(), before + 1)
+
+	-- Every other reader that hands a client string outward, held to the same
+	-- rule. None of these is restricted content today. Neither was a whisper,
+	-- until it was, and finding that out the way the arena was found out costs
+	-- an evening of screenshots.
+	local function refuses(label, reader, fixture, hidden, readable, expected)
+		fixture(hidden)
+		local got = { pcall(reader, 1) }
+		check(label .. " is refused when the client hides it",
+			got[1] and got[2] == nil, describe(got[2]))
+		fixture(readable)
+		local fine = { pcall(reader, 1) }
+		check(label .. " still answers when it does not",
+			fine[1] and fine[2] == expected, describe(fine[2]))
+		fixture(nil)
+	end
+
+	refuses("a friend's name", ns.Compat.GetFriendInfo,
+		function(rows) M.friends = rows end,
+		{ { name = M.Secret(), level = M.Secret(), class = M.Secret() } },
+		{ { name = "Jaina-Blackrock", level = 70, class = "MAGE" } },
+		"Jaina-Blackrock")
+
+	refuses("a guildmate's name", ns.Compat.GetGuildRosterInfo,
+		function(rows) M.guildRoster = rows end,
+		{ { name = M.Secret(), level = M.Secret(), class = M.Secret() } },
+		{ { name = "Muradin-Blackrock", level = 70, class = "WARRIOR" } },
+		"Muradin-Blackrock")
+
+	refuses("a /who result", ns.Compat.GetWhoInfo,
+		function(rows) M.whoResults = rows end,
+		{ { name = M.Secret(), level = M.Secret(), class = M.Secret(),
+			guild = M.Secret(), zone = M.Secret() } },
+		{ { name = "Thrall-Blackrock", level = 70, class = "SHAMAN",
+			guild = "Frostwolf", zone = "Orgrimmar" } },
+		"Thrall-Blackrock")
+
+	-- Battle.net is keyed by account id rather than an index, so it gets the
+	-- same treatment by hand.
+	M.bnet = M.bnet or {}
+	M.bnet[99] = { tag = M.Secret(), name = M.Secret(), character = M.Secret() }
+	local okBN, tag, account, online, character =
+		pcall(ns.Compat.GetBNAccountInfoByID, 99)
+	check("a hidden Battle.net account raises nothing", okBN, describe(tag))
+	if okBN then
+		check("and invents no BattleTag", tag == nil, describe(tag))
+		check("nor an account name", account == nil, describe(account))
+		check("nor a character", character == nil, describe(character))
+		check("and online is still a boolean", online == true or online == false,
+			describe(online))
+	end
+	M.bnet[99] = nil
+
+	eq("and none of that raised anything either", #softErrors, 0,
+		table.concat(softErrors, "; ", 1, math.min(#softErrors, 4)))
+
+	ns.Guard("test.Select", CM.Select, thrall)
+	M.RunFrames(4)
+	ns.SoftError = realSoftError
+end
+
+--------------------------------------------------------------------------------
 -- Battle.net
 --------------------------------------------------------------------------------
 

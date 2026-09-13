@@ -222,6 +222,30 @@ for name in tocs:
 if os.path.exists(os.path.join(ADDON, "Bindings.xml")):
     notes.append("Bindings.xml present and left for the client to discover")
 
+# ------------------------------------------------- who may read a player --
+# Some client calls answer with a *secret value* in restricted content: in an
+# arena an opponent's name is deliberately not knowable, and reading one -- even
+# comparing it to the empty string -- is a hard error that taints the caller.
+# There is one probe for that, Compat.UnitFullName, and the only way to keep it
+# from being bypassed by the next person who needs a unit's name is to make
+# bypassing it fail here.
+GUARDED_CALLS = ("UnitName", "UnitFullName", "GetUnitName")
+# Compat is where the probe lives, so it is the one place allowed to call them.
+GUARD_HOME = "Core/Compat/"
+guarded_pattern = re.compile(r'(?<![\w.])(' + "|".join(GUARDED_CALLS) + r')\s*\(')
+bypasses = 0
+for rel in declared:
+    if rel.startswith(GUARD_HOME):
+        continue
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    for match in guarded_pattern.finditer(body):
+        line = body[:match.start()].count("\n") + 1
+        err("%s:%d calls %s directly; use Compat.UnitFullName, which asks the "
+            "client whether the name may be read before reading it"
+            % (rel, line, match.group(1)))
+    bypasses += 1
+notes.append("%d files checked for unprobed reads of a player's name" % bypasses)
+
 print("\n".join("  " + n for n in notes))
 if errors:
     print("\nSTRUCTURE ERRORS:")

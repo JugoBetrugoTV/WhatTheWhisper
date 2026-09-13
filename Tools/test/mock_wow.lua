@@ -1055,6 +1055,14 @@ end
 -- arenas, battlegrounds and other restricted content. Any read is an error, and
 -- that is the whole point -- code that reads a payload without asking first has
 -- to fall over here the same way it falls over in the game.
+--
+-- One gap, and it is a gap in Lua rather than in this table: `secret == ""` and
+-- `secret ~= ""` do not raise here, because Lua 5.1 only consults __eq when
+-- both operands are the same type, and a table is not a string. In the game
+-- that comparison is a read and it throws. So a check against the empty string
+-- is NOT proven safe by this suite passing; it is proven safe by the value
+-- having gone through Compat.ReadableText first, which is why
+-- Tools/test/check_structure.py refuses a raw UnitName call outside Compat.
 local secretMT = {
 	__index = function() error("attempt to index a secret value", 2) end,
 	__len = function() error("attempt to get length of a secret value", 2) end,
@@ -1072,7 +1080,10 @@ _G.GetPlayerInfoByGUID = function(guid)
 	local function blank(value) return value == nil and "" or value end
 	return blank(info.localizedClass or info.class), blank(info.class),
 		blank(info.localizedRace or info.race), blank(info.race),
-		2, blank(info.name), blank(info.realm)
+		-- Settable so a fixture can hide it: the client withholds fields one at
+		-- a time, and sex is the one field here that is not a string, so it is
+		-- the one an addon is most likely to pass straight through.
+		info.sex or 2, blank(info.name), blank(info.realm)
 end
 _G.Ambiguate = function(name) return name end
 _G.SendChatMessage = function(text, kind, lang, target)
@@ -1225,8 +1236,16 @@ _G.C_Timer = {
 	NewTicker = function() return { Cancel = function() end } end,
 }
 _G.C_FriendList = {
-	GetNumFriends = function() return 0 end,
-	GetFriendInfoByIndex = function() return nil end,
+	-- Driven by the test through M.friends, the same way /who is driven through
+	-- M.whoResults: these are client strings, and a test has to be able to make
+	-- the client withhold one.
+	GetNumFriends = function() return #(M.friends or {}) end,
+	GetFriendInfoByIndex = function(index)
+		local row = M.friends and M.friends[index]
+		if not row then return nil end
+		return { name = row.name, level = row.level, className = row.class,
+			connected = row.connected ~= false }
+	end,
 	AddFriend = function() end,
 	AddOrDelIgnore = function() end,
 	IsIgnored = function() return false end,
@@ -1264,8 +1283,14 @@ _G.BNSendWhisper = function(id, text)
 	M.sentBN[#M.sentBN + 1] = { id = id, text = text }
 end
 _G.C_GuildInfo = { GuildRoster = function() end }
-_G.GetNumGuildMembers = function() return 0 end
-_G.GetGuildRosterInfo = function() return nil end
+_G.GetNumGuildMembers = function() return #(M.guildRoster or {}) end
+_G.GetGuildRosterInfo = function(index)
+	local row = M.guildRoster and M.guildRoster[index]
+	if not row then return nil end
+	-- The positional shape the client actually uses, holes and all.
+	return row.name, nil, nil, row.level, nil, nil, nil, nil,
+		row.online ~= false, nil, row.class
+end
 _G.C_ClassColor = nil
 _G.C_CreatureInfo = nil
 

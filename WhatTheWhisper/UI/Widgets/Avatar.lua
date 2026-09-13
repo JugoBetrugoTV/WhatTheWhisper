@@ -127,9 +127,7 @@ function Avatar:SetConversation(conv)
 		if Compat.ClassFromVisibleUnit(conv.id) then
 			for _, unit in ipairs({ "target", "focus", "mouseover" }) do
 				if UnitExists(unit) and UnitIsPlayer(unit) then
-					local n, r = UnitName(unit)
-					local full = (r and r ~= "") and (n .. "-" .. r:gsub("%s+", ""))
-						or Compat.NormalizeName(n or "")
+					local full = Compat.UnitFullName(unit)
 					if full == conv.id and Compat.SetPortraitTexture(self.image, unit) then
 						self.image:SetTexCoord(0, 1, 0, 1)
 						self.image:Show()

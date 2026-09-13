@@ -176,7 +176,7 @@ local function readableWhisper(value)
 end
 
 local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
-	text, sender = readableWhisper(text), readableOrNil(sender)
+	text, sender, guid = readableWhisper(text), readableOrNil(sender), readableOrNil(guid)
 	if text == nil or sender == nil or sender == "" then return end
 	local id = Compat.NormalizeName(sender)
 	PlayerInfo.Observe(id, guid)
@@ -204,7 +204,7 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 end
 
 local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
-	text, target = readableWhisper(text), readableOrNil(target)
+	text, target, guid = readableWhisper(text), readableOrNil(target), readableOrNil(guid)
 	if text == nil or target == nil then return end
 	if target == "" then return end
 	local id = Compat.NormalizeName(target)
@@ -254,7 +254,7 @@ end
 -- The target's away/busy auto-reply. Shown inside the thread, where it belongs.
 local function onAutoReply(kind)
 	return function(text, sender, _, _, _, _, _, _, _, _, _, guid)
-		text, sender = readableWhisper(text), readableOrNil(sender)
+		text, sender, guid = readableWhisper(text), readableOrNil(sender), readableOrNil(guid)
 		if text == nil or sender == nil or sender == "" then return end
 		local id = Compat.NormalizeName(sender)
 		if not CM.Get(id) then return end
@@ -424,7 +424,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end)
 
 function ChatEvents.Init()
-	myName = UnitName("player")
+	myName = Compat.PlayerName()
 	buildSystemPatterns()
 
 	for event in pairs(handlers) do

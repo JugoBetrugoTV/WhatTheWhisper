@@ -301,6 +301,42 @@ function Compat.PlayerFullName()
 	return myFullName
 end
 
+-- Your own character, without the realm. Never secret -- the client does not
+-- hide you from yourself -- so this one needs no probe.
+function Compat.PlayerName()
+	return (UnitName("player"))
+end
+
+-- A unit's name, spelled the way this addon spells names, or nil.
+--
+-- UnitName is one of the calls that answers with a *secret value* in restricted
+-- content: an arena opponent's name is deliberately not knowable, and reading
+-- one -- including comparing it to the empty string, or running gsub over it --
+-- is a hard error that taints whatever ran it. An arena target therefore printed
+-- an error for every avatar the addon drew.
+--
+-- nil means "this unit is not one we may identify", which in an arena is the
+-- correct answer rather than a fault. Name and realm are probed separately
+-- because the client can hide either one on its own.
+function Compat.UnitFullName(unit)
+	local ok, name, realm = pcall(UnitName, unit)
+	if not ok then return nil end
+	name = Compat.ReadableText(name)
+	if not name or name == "" then return nil end
+	-- A realm takes three answers, not two. Not given means "the same realm as
+	-- yours", which is knowable. Given but unreadable means we do not know which
+	-- realm, and filling in your own would put a stranger's portrait on a
+	-- friend's thread -- so that unit is simply not identified.
+	if realm ~= nil then
+		realm = Compat.ReadableText(realm)
+		if realm == nil then return nil end
+		if realm ~= "" then
+			return name .. "-" .. gsub(realm, "%s+", "")
+		end
+	end
+	return Compat.NormalizeName(name)
+end
+
 --------------------------------------------------------------------------------
 -- Chat
 --------------------------------------------------------------------------------
@@ -322,6 +358,30 @@ function Compat.ReadableText(value)
 		return type(value) == "string" and strfind(value, "", 1, true) == 1
 	end)
 	if not ok or readable ~= true then return nil end
+	return value
+end
+
+-- What the client told us, or nil.
+--
+-- Two different kinds of "nothing", answered the same way on purpose: a field
+-- the client has not resolved yet comes back as an empty string, and one it will
+-- not resolve at all -- in an arena, a battleground, any restricted content --
+-- comes back as a secret value, where even the test against "" would be a read
+-- and a hard error. Both mean "we have not been told", which the rest of the
+-- addon already knows how to wait for.
+--
+-- Every reader below that hands a client string outward goes through these, so
+-- that nothing further away has to know restricted content exists.
+local function knownText(value)
+	value = Compat.ReadableText(value)
+	if value == nil or value == "" then return nil end
+	return value
+end
+
+-- type() reads the tag rather than the contents, so it is safe on a secret.
+-- Passing one on as a number would only move the error somewhere harder to find.
+local function knownNumber(value)
+	if type(value) ~= "number" then return nil end
 	return value
 end
 
@@ -365,20 +425,14 @@ end
 
 -- Returns englishClass, englishRace, sex, name, realm -- any of them may be nil.
 function Compat.GetPlayerInfoByGUID(guid)
+	guid = Compat.ReadableText(guid)
 	if not guid or guid == "" then return nil end
 	if type(_G.GetPlayerInfoByGUID) ~= "function" then return nil end
 	local ok, _, englishClass, localizedRace, englishRace, sex, name, realm =
 		pcall(_G.GetPlayerInfoByGUID, guid)
 	if not ok then return nil end
-	-- The client answers with empty strings, not nils, for anything it does not
-	-- know about a guid yet. Passing those on turns "we have not been told" into
-	-- a value, which then never gets filled in by a later, better answer.
-	local function blankToNil(value)
-		if value == nil or value == "" then return nil end
-		return value
-	end
-	return blankToNil(englishClass), blankToNil(englishRace), sex,
-		blankToNil(name), blankToNil(realm), blankToNil(localizedRace)
+	return knownText(englishClass), knownText(englishRace), knownNumber(sex),
+		knownText(name), knownText(realm), knownText(localizedRace)
 end
 
 local CLASS_COLORS = _G.RAID_CLASS_COLORS
@@ -427,13 +481,9 @@ function Compat.ClassFromVisibleUnit(fullName)
 	if not fullName then return nil end
 	local function check(unit)
 		if not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
-		local n, r = UnitName(unit)
-		if not n then return nil end
-		local full = (r and r ~= "") and (n .. "-" .. gsub(r, "%s+", "")) or Compat.NormalizeName(n)
-		if full == fullName then
-			return select(2, UnitClass(unit)), UnitLevel(unit)
-		end
-		return nil
+		local full = Compat.UnitFullName(unit)
+		if full ~= fullName then return nil end
+		return select(2, UnitClass(unit)), UnitLevel(unit)
 	end
 	for i = 1, #UNIT_SCAN do
 		local class, level = check(UNIT_SCAN[i])
@@ -482,8 +532,10 @@ end
 function Compat.GetGuildRosterInfo(index)
 	if type(_G.GetGuildRosterInfo) ~= "function" then return nil end
 	local ok, name, _, _, level, _, _, _, _, online, _, classFile = pcall(_G.GetGuildRosterInfo, index)
-	if not ok or not name then return nil end
-	return name, level, classFile, online
+	if not ok then return nil end
+	name = knownText(name)
+	if not name then return nil end
+	return name, knownNumber(level), knownText(classFile), online == true
 end
 
 function Compat.GetNumFriends()
@@ -502,13 +554,19 @@ function Compat.GetFriendInfo(index)
 	if type(_G.C_FriendList) == "table" and _G.C_FriendList.GetFriendInfoByIndex then
 		local ok, info = pcall(_G.C_FriendList.GetFriendInfoByIndex, index)
 		if ok and info then
-			return info.name, info.level, info.className, info.connected
+			local name = knownText(info.name)
+			if not name then return nil end
+			return name, knownNumber(info.level), knownText(info.className),
+				info.connected == true
 		end
 		return nil
 	end
 	if type(_G.GetFriendInfo) == "function" then
 		local ok, name, level, class, _, connected = pcall(_G.GetFriendInfo, index)
-		if ok and name then return name, level, class, connected end
+		name = ok and knownText(name) or nil
+		if name then
+			return name, knownNumber(level), knownText(class), connected == true
+		end
 	end
 	return nil
 end
@@ -567,13 +625,19 @@ function Compat.GetWhoInfo(index)
 	if type(_G.C_FriendList) == "table" and _G.C_FriendList.GetWhoInfo then
 		local ok, info = pcall(_G.C_FriendList.GetWhoInfo, index)
 		if ok and info then
-			return info.fullName, info.level, info.filename, info.fullGuildName, info.area
+			local name = knownText(info.fullName)
+			if not name then return nil end
+			return name, knownNumber(info.level), knownText(info.filename),
+				knownText(info.fullGuildName), knownText(info.area)
 		end
 		return nil
 	end
 	if type(_G.GetWhoInfo) == "function" then
 		local ok, name, guild, level, _, _, zone = pcall(_G.GetWhoInfo, index)
-		if ok and name then return name, level, nil, guild, zone end
+		name = ok and knownText(name) or nil
+		if name then
+			return name, knownNumber(level), nil, knownText(guild), knownText(zone)
+		end
 	end
 	return nil
 end
@@ -640,10 +704,11 @@ function Compat.GetBNFriendInfo(index)
 		local ok, info = pcall(_G.C_BattleNet.GetFriendAccountInfo, index)
 		if ok and info then
 			local ga = info.gameAccountInfo
-			return info.bnetAccountID, info.battleTag, info.accountName,
-				(ga and ga.isOnline) or false,
-				(ga and ga.characterName) or nil,
-				(ga and ga.clientProgram) or nil
+			return info.bnetAccountID, knownText(info.battleTag),
+				knownText(info.accountName),
+				(ga and ga.isOnline) == true,
+				ga and knownText(ga.characterName) or nil,
+				ga and knownText(ga.clientProgram) or nil
 		end
 		return nil
 	end
@@ -677,8 +742,9 @@ function Compat.GetBNAccountInfoByID(bnetAccountID)
 		local ok, info = pcall(_G.C_BattleNet.GetAccountInfoByID, bnetAccountID)
 		if ok and info then
 			local ga = info.gameAccountInfo
-			return info.battleTag, info.accountName, (ga and ga.isOnline) or false,
-				(ga and ga.characterName) or nil
+			return knownText(info.battleTag), knownText(info.accountName),
+				(ga and ga.isOnline) == true,
+				ga and knownText(ga.characterName) or nil
 		end
 	end
 	for i = 1, Compat.GetNumBNFriends() do
