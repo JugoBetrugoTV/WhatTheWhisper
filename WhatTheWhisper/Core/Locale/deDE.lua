@@ -321,6 +321,10 @@ ns.RegisterLocale("deDE", {
 	["Whisper a player"] = "Spieler anflüstern",
 	["Something went wrong repeatedly, so whispers are being shown in the chat frame again. /wtw debug for details."] = "Es ist wiederholt etwas schiefgegangen, deshalb werden Flüsternachrichten wieder im Chatfenster angezeigt. /wtw debug für Details.",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] = "Flüstern kann hier nicht von Addons gelesen werden und wird stattdessen im Chatfenster angezeigt.",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"Flüsternachrichten können hier von Addons noch nicht gelesen werden. Sie stehen im Chatfenster und erscheinen hier, sobald du gehst.",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"Von hier aus können keine Flüsternachrichten gesendet werden. Nutze das normale Chatfenster.",
 	["Debug logging on."] = "Debug-Ausgaben an.",
 	["Debug logging off."] = "Debug-Ausgaben aus.",
 	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - Messenger öffnen oder schließen",

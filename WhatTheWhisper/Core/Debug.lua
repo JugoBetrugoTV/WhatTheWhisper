@@ -69,6 +69,7 @@ local ERROR_LIMIT = 12
 
 local errorCount = 0
 local degraded = false
+local withheldAnnounced = false
 local announced = false
 
 function Debug.IsDegraded()
@@ -91,9 +92,18 @@ function Debug.NoteError(context, err)
 	end
 end
 
--- A payload the client would not let us read. Not an error -- being in an arena
--- is not a fault -- but we cannot store the message, so we must not also be the
--- reason it is missing from the chat frame.
+-- A message the client would not let us read, but whose chat line it will
+-- answer for later. Said once per session: it is a fact about where the player
+-- is standing, not a fault, and it stops being true when they leave.
+function Debug.NoteWithheld()
+	Debug.Log("events", "a whisper was withheld here; held until chat comes back")
+	if withheldAnnounced then return end
+	withheldAnnounced = true
+	ns.Print(ns.L["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."])
+end
+
+-- A payload the client would not let us read and will not answer for either.
+-- Nothing to wait for, so the chat frame stays the only copy.
 function Debug.NoteUnreadable()
 	Debug.Log("events", "a chat payload could not be read; restricted content")
 	if degraded then return end
@@ -108,4 +118,5 @@ function Debug.ClearDegraded()
 	errorCount = 0
 	degraded = false
 	announced = false
+	withheldAnnounced = false
 end

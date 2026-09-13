@@ -343,22 +343,79 @@ end
 
 -- Chat payloads are not always readable.
 --
--- In arenas, battlegrounds and other restricted content the client hands out
--- *secret values* instead of strings. An addon may not look inside one: any
--- read is a hard error, and the attempt taints whatever ran it. So a payload is
--- probed before it is used, and everything that could touch it happens inside
--- the probe -- including the comparison, because the result of a read on a
--- secret is itself secret.
+-- In arenas, rated battlegrounds and other restricted content the client hands
+-- out *secret values* instead of strings. An addon may not look inside one: any
+-- read is a hard error, and the attempt taints whatever ran it.
 --
+-- The client has its own answer to "is this one of those", and it is the one to
+-- use: `issecretvalue` and `hasanysecretvalues` are globals wherever secret
+-- values exist. Older clients have neither, and also have no secret values, so
+-- there the answer is simply no.
+local issecretvalue = _G.issecretvalue
+local hasanysecretvalues = _G.hasanysecretvalues
+
+function Compat.IsSecretValue(value)
+	if not issecretvalue then return false end
+	local ok, secret = pcall(issecretvalue, value)
+	return ok and secret == true
+end
+
+-- Whether any of these is one. Asked of a whole event's arguments at once,
+-- before anything has looked at any of them.
+function Compat.HasAnySecretValues(...)
+	if not hasanysecretvalues then return false end
+	local ok, any = pcall(hasanysecretvalues, ...)
+	return ok and any == true
+end
+
+-- Whether the client is withholding chat from addons at all right now. True
+-- inside an arena or a rated battleground, false everywhere else. This is the
+-- question to ask before putting a message aside, and again before taking it
+-- back out.
+local inChatLockdown = _G.C_ChatInfo and _G.C_ChatInfo.InChatMessagingLockdown
+function Compat.InChatMessagingLockdown()
+	if not inChatLockdown then return false end
+	local ok, locked = pcall(inChatLockdown)
+	return ok and locked == true
+end
+
 -- Returns the value when it can be read, and nil when it cannot. nil is a normal
 -- answer here, not a fault: being in an arena is not an error.
+--
+-- The fallback path, for a client with no `issecretvalue`, does the reading
+-- inside a pcall -- including the comparison, because the result of a read on a
+-- secret is itself secret.
 function Compat.ReadableText(value)
 	if value == nil then return nil end
+	if issecretvalue then
+		if Compat.IsSecretValue(value) then return nil end
+		return type(value) == "string" and value or nil
+	end
 	local ok, readable = pcall(function()
 		return type(value) == "string" and strfind(value, "", 1, true) == 1
 	end)
 	if not ok or readable ~= true then return nil end
 	return value
+end
+
+-- The message the client would not hand over live.
+--
+-- A chat line's ID is never secret. Keeping it is what makes a withheld message
+-- recoverable: once the restriction lifts, the client will answer for that line,
+-- and a whisper sent to you in an arena ends up in its conversation after the
+-- arena instead of being lost. Returns text, sender, guid -- each nil on its own
+-- if the client still will not say.
+function Compat.GetChatLine(lineID)
+	local info = _G.C_ChatInfo
+	if not info or type(lineID) ~= "number" then return nil end
+	local function ask(fn)
+		if type(fn) ~= "function" then return nil end
+		local ok, value = pcall(fn, lineID)
+		if not ok then return nil end
+		return Compat.ReadableText(value)
+	end
+	return ask(info.GetChatLineText), ask(info.GetChatLineSenderName),
+		ask(info.GetChatLineSenderGUID)
 end
 
 -- What the client told us, or nil.
@@ -908,6 +965,35 @@ local ALWAYS_DRAWN = { latin = true, cyrillic = true }
 function Compat.CanDrawScript(script)
 	if not script or ALWAYS_DRAWN[script] then return true end
 	return Compat.FontForScript(script) ~= nil
+end
+
+-- The addon compartment: the list behind the button beside the minimap that
+-- modern clients keep every addon's entry in. Only there on Retail, and only
+-- once -- re-registering the same entry on a reload would give the player two.
+--
+-- Returns the entry so its text and icon can be changed later, or nil where
+-- there is no compartment to register with, which is not a failure.
+function Compat.RegisterAddonCompartment(entry)
+	local compartment = _G.AddonCompartmentFrame
+	if not compartment or type(compartment.RegisterAddon) ~= "function" then
+		return nil
+	end
+	local registered = compartment.registeredAddons
+	if type(registered) == "table" then
+		for i = 1, #registered do
+			if registered[i] == entry or (registered[i] and registered[i].text == entry.text) then
+				return entry
+			end
+		end
+	end
+	if not pcall(compartment.RegisterAddon, compartment, entry) then return nil end
+	return entry
+end
+
+function Compat.RefreshAddonCompartment()
+	local compartment = _G.AddonCompartmentFrame
+	if not compartment or type(compartment.UpdateDisplay) ~= "function" then return end
+	pcall(compartment.UpdateDisplay, compartment)
 end
 
 --------------------------------------------------------------------------------

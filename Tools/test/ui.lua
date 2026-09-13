@@ -1486,6 +1486,53 @@ if type(atlas) == "table" then
 end
 
 --------------------------------------------------------------------------------
+-- A window remembered from a bigger screen
+--------------------------------------------------------------------------------
+
+-- A window remembers where it was; it does not remember what the screen was. A
+-- position saved at one resolution, or on another character with a different UI
+-- scale, can come back with the title bar past the edge -- and a title bar you
+-- cannot reach is a window you cannot move, close, or get out of the way.
+do
+	local window = ns.MainWindow.Get()
+	local screenW = UIParent:GetWidth()
+	local screenH = UIParent:GetHeight()
+
+	local function restoredAt(left, top)
+		ns.db.profile.layout.point = { left = left, top = top }
+		window:RestoreGeometry()
+		M.RunFrames(2)
+		local l, b, w, h = M.Geometry(window)
+		return l, b + h, w, h
+	end
+
+	local cases = {
+		{ "far off the right", screenW + 500, screenH * 0.6 },
+		{ "far off the left", -2000, screenH * 0.6 },
+		{ "below the bottom", 200, -800 },
+		{ "above the top", 200, screenH + 900 },
+	}
+	for i = 1, #cases do
+		local label, left, top = cases[i][1], cases[i][2], cases[i][3]
+		local l, t, w = restoredAt(left, top)
+		check("a window saved " .. label .. " comes back with something on screen",
+			l < screenW and (l + w) > 0, ("left %.0f width %.0f"):format(l, w))
+		check("and with its title bar reachable " .. label,
+			t > 0 and t <= screenH + 1, ("top %.0f of %.0f"):format(t, screenH))
+	end
+
+	-- And a position that is already fine is left exactly where it was: a rescue
+	-- that moves windows nobody asked it to move is its own bug.
+	local l, t = restoredAt(220, screenH - 80)
+	check("an on-screen window is not moved", math.abs(l - 220) < 0.5
+		and math.abs(t - (screenH - 80)) < 0.5, ("%.1f, %.1f"):format(l, t))
+
+	ns.db.profile.layout.point = nil
+	window:RestoreGeometry()
+	M.RunFrames(2)
+end
+
+--------------------------------------------------------------------------------
 -- Opening a window
 --------------------------------------------------------------------------------
 

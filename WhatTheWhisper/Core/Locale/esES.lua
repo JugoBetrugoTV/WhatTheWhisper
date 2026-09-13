@@ -352,6 +352,10 @@ ns.RegisterLocale("esES", {
 		"Algo ha fallado varias veces, así que los susurros vuelven a mostrarse en la ventana de chat. /wtw debug para más detalles.",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] =
 		"Aquí los complementos no pueden leer los susurros, así que se muestran en la ventana de chat.",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"Aquí los complementos todavía no pueden leer los susurros. Están en la ventana de chat y aparecerán aquí cuando salgas.",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"Desde aquí no se pueden enviar susurros. Usa el chat del juego.",
 	["Debug logging on."] = "Registro de depuración activado.",
 	["Debug logging off."] = "Registro de depuración desactivado.",
 	["/wtw show / hide - open or close the messenger"] =

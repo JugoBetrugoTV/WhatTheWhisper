@@ -9,7 +9,7 @@
 -- pixels; a full button width clear of the edge is where a tray belongs.
 
 local _, ns = ...
-local Theme, W, Anim = ns.Theme, ns.Widgets, ns.Anim
+local Theme, W, Anim, Compat = ns.Theme, ns.Widgets, ns.Anim, ns.Compat
 local CM = ns.ConversationManager
 local L = ns.L
 
@@ -17,6 +17,9 @@ local MinimapButton = {}
 ns.Minimap = MinimapButton
 
 local button
+-- Forward declared: the compartment entry is defined below, next to the clicks
+-- it shares with the button, but Update above it has to keep its count current.
+local refreshCompartment
 local SIZE = 30
 -- Clearance between the minimap's own edge and the near edge of the button.
 local ORBIT_GAP = 3
@@ -78,12 +81,10 @@ local function unreadConversations()
 	return out
 end
 
-local function refreshTooltip(waiting)
-	if not button then return end
-	if #waiting == 0 then
-		W.SetTooltip(button, L["WhatTheWhisper"], L["/wtw - toggle the messenger"])
-		return
-	end
+-- The names, or the slash command when there are none. Shared by the minimap
+-- button and the compartment entry, which say the same thing in two places.
+local function tooltipBody(waiting)
+	if #waiting == 0 then return L["/wtw - toggle the messenger"] end
 	local lines = {}
 	for i = 1, math.min(#waiting, MAX_LISTED) do
 		local conv = waiting[i]
@@ -93,7 +94,12 @@ local function refreshTooltip(waiting)
 		lines[#lines + 1] = ("+%d"):format(#waiting - MAX_LISTED)
 	end
 	lines[#lines + 1] = L["Right-click for the list"]
-	W.SetTooltip(button, L["WhatTheWhisper"], table.concat(lines, "\n"))
+	return table.concat(lines, "\n")
+end
+
+local function refreshTooltip(waiting)
+	if not button then return end
+	W.SetTooltip(button, L["WhatTheWhisper"], tooltipBody(waiting))
 end
 
 --------------------------------------------------------------------------------
@@ -267,6 +273,9 @@ function MinimapButton.Update()
 			Anim.Attention(button.badge, false)
 			button:Hide()
 		end
+		-- Hiding the minimap button is exactly when the compartment entry
+		-- becomes the way in, so it keeps counting.
+		refreshCompartment(ns.db.profile.notifications.badge and CM.TotalUnread() or 0)
 		return
 	end
 	if not build() then return end
@@ -281,8 +290,56 @@ function MinimapButton.Update()
 	-- Breathing, not flashing. Something is waiting; it is not an emergency.
 	Anim.Attention(button.badge, count > 0)
 	refreshTooltip(count > 0 and waiting or {})
+	refreshCompartment(count)
 
 	button:Show()
+end
+
+--------------------------------------------------------------------------------
+-- The addon compartment
+--------------------------------------------------------------------------------
+
+-- Modern clients collect every addon behind one button next to the minimap.
+-- Being in there is how a player who hides minimap buttons -- which is most of
+-- the reason that list exists -- still has a way in. It does the same two things
+-- the minimap button does, because they are the same two things.
+local compartment
+local function compartmentEntry()
+	if compartment then return compartment end
+	compartment = {
+		text = L["WhatTheWhisper"],
+		icon = "Interface\\AddOns\\WhatTheWhisper\\Art\\Logo",
+		notCheckable = true,
+		func = function(_, inputData)
+			if inputData and inputData.buttonName == "RightButton" then
+				onRightClick()
+			else
+				onLeftClick()
+			end
+		end,
+		funcOnEnter = function(self)
+			local waiting = unreadConversations()
+			refreshTooltip(#waiting > 0 and waiting or {})
+			ns.Tooltip.Show(self, { text = L["WhatTheWhisper"],
+				subtext = tooltipBody(waiting) })
+		end,
+		funcOnLeave = function() ns.Tooltip.Hide() end,
+	}
+	return compartment
+end
+
+function MinimapButton.RegisterCompartment()
+	Compat.RegisterAddonCompartment(compartmentEntry())
+end
+
+-- The unread count, where the player can see it without opening the list.
+function refreshCompartment(count)
+	if not compartment then return end
+	local text = L["WhatTheWhisper"]
+	if count > 0 then text = ("%s (%d)"):format(text, count) end
+	if compartment.text == text then return end
+	compartment.text = text
+	Compat.RefreshAddonCompartment()
 end
 
 function MinimapButton.ApplyTheme()

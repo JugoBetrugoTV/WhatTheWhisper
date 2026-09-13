@@ -150,6 +150,9 @@ end
 -- Being somewhere restricted is not a fault, so an unreadable payload is not
 -- reported as one. It is counted, and `/wtw debug` says how often it happened.
 local unreadable = 0
+-- Set only while a held message is being put back, so the handlers below store
+-- it with the time it was sent instead of the time it was recovered.
+local replayTimestamp
 
 function ChatEvents.UnreadableCount()
 	return unreadable
@@ -198,7 +201,7 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 	-- drawn for anybody.
 	PlayerInfo.NoteActivity(id)
 
-	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind)
+	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp)
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
 end
@@ -220,7 +223,7 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 
 	-- Sent from the default chat frame or another addon: adopt it.
 	Debug.Log("dedupe", "adopting foreign outgoing whisper to %s", id)
-	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, nil, ns.SEND_OK)
+	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, replayTimestamp, ns.SEND_OK)
 	if ns.db.profile.messages.openOnSend then
 		ns.UI.EnsureConversationOpen(id, true)
 	end
@@ -234,7 +237,7 @@ local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSe
 		name = name or accountName, battleTag = tag, bnetAccountID = bnSenderID,
 	})
 	conv.bnetAccountID = bnSenderID
-	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET)
+	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET, replayTimestamp)
 	Debug.Log("events", "bnet whisper in on %s", id)
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
 end
@@ -248,7 +251,7 @@ local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _
 		return
 	end
 	Debug.Log("dedupe", "adopting foreign outgoing bnet whisper on %s", id)
-	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, nil, ns.SEND_OK)
+	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, replayTimestamp, ns.SEND_OK)
 end
 
 -- The target's away/busy auto-reply. Shown inside the thread, where it belongs.
@@ -263,7 +266,7 @@ local function onAutoReply(kind)
 		-- which is where class and race come from. Both were being dropped.
 		PlayerInfo.Observe(id, guid)
 		PlayerInfo.NoteActivity(id)
-		CM.AddMessage(id, ns.DIR_IN, text, kind)
+		CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp)
 	end
 end
 
@@ -384,13 +387,33 @@ local function shouldHide()
 	return db.profile.messages.hideFromChatFrame
 end
 
-local function suppressFilter()
+-- The client passes the frame and the event before the payload.
+local function suppressFilter(_, _, ...)
+	-- A message this addon could not read must stay in the chat frame: it is the
+	-- only copy the player has until the restriction lifts. Checked per message
+	-- rather than latched, so ordinary whispers a second later are still taken
+	-- out of the chat frame the way they were asked to be.
+	if Compat.HasAnySecretValues((select(1, ...)), (select(2, ...))) then
+		return false
+	end
 	return shouldHide()
 end
 
 --------------------------------------------------------------------------------
 -- Event plumbing
 --------------------------------------------------------------------------------
+
+-- Events whose payload the client can be asked for again later, by chat line
+-- id. CHAT_MSG_SYSTEM is deliberately absent: those are read only to notice
+-- "no player named" and friends coming online, and one missed costs nothing.
+local DEFERRABLE = {
+	CHAT_MSG_WHISPER = true,
+	CHAT_MSG_WHISPER_INFORM = true,
+	CHAT_MSG_BN_WHISPER = true,
+	CHAT_MSG_BN_WHISPER_INFORM = true,
+	CHAT_MSG_AFK = true,
+	CHAT_MSG_DND = true,
+}
 
 local handlers = {
 	CHAT_MSG_WHISPER = onWhisper,
@@ -418,14 +441,49 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		return
 	end
 	local handler = handlers[event] or rosterHandlers[event]
-	if handler then
-		ns.Guard(event, handler, ...)
+	if not handler then return end
+
+	-- Asked before any handler has looked at anything, and asked only of the two
+	-- arguments a message cannot do without: the text and who sent it. The GUID
+	-- beside them is sometimes withheld on its own, and holding a whole whisper
+	-- back over a field that only fills in a class colour would be trading the
+	-- message for the decoration.
+	--
+	-- A withheld message is not dropped: it is put aside with its chat line id
+	-- and comes back the moment the client will answer for that line, which is
+	-- what makes a whisper sent to you in an arena end up in its thread instead
+	-- of only in the chat frame.
+	if DEFERRABLE[event] and Compat.HasAnySecretValues((select(1, ...)), (select(2, ...))) then
+		unreadable = unreadable + 1
+		if ns.Deferred.Hold(event, ...) then
+			Debug.NoteWithheld()
+		else
+			Debug.NoteUnreadable()
+		end
+		return
 	end
+
+	ns.Guard(event, handler, ...)
 end)
+
+-- How a message that was put aside gets back in. `args` is the original event's
+-- arguments with the three the client withheld filled in from the chat line,
+-- and `args.timestamp` is when it actually arrived rather than when we caught
+-- up -- a thread that reorders itself after an arena is worse than one that was
+-- briefly behind.
+local function replay(event, args)
+	local handler = handlers[event]
+	if not handler then return end
+	replayTimestamp = args.timestamp
+	local ok = ns.Guard(event, handler, unpack(args, 1, 20))
+	replayTimestamp = nil
+	return ok
+end
 
 function ChatEvents.Init()
 	myName = Compat.PlayerName()
 	buildSystemPatterns()
+	ns.Deferred.SetDispatcher(replay)
 
 	for event in pairs(handlers) do
 		if not Compat.RegisterEventSafe(frame, event) then

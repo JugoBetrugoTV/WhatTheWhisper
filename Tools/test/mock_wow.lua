@@ -1148,6 +1148,33 @@ function M.Secret()
 	return setmetatable({}, secretMT)
 end
 
+-- The client's own answers about secret values, which is what an addon is meant
+-- to use rather than probing. Present only on clients new enough to have them.
+_G.issecretvalue = function(value)
+	return type(value) == "table" and getmetatable(value) == secretMT
+end
+_G.hasanysecretvalues = function(...)
+	for i = 1, select("#", ...) do
+		if _G.issecretvalue((select(i, ...))) then return true end
+	end
+	return false
+end
+
+-- Chat withheld from addons: true in an arena or a rated battleground. Driven by
+-- the test through M.chatLockdown.
+--
+-- M.chatLines is what the client would answer for a line id once it is willing
+-- to: { [lineID] = { text, sender, guid } }. During lockdown it answers nothing,
+-- which is the whole reason a message has to be held rather than read late.
+M.chatLockdown = false
+M.chatLines = {}
+
+local function chatLineField(lineID, key)
+	if M.chatLockdown then return nil end
+	local line = M.chatLines and M.chatLines[lineID]
+	return line and line[key] or nil
+end
+
 _G.GetPlayerInfoByGUID = function(guid)
 	local info = M.guids and M.guids[guid]
 	if not info then return nil end
@@ -1309,6 +1336,23 @@ _G.C_Timer = {
 	NewTimer = function(delay, fn) M.timers[#M.timers + 1] = fn return { Cancel = function() end } end,
 	NewTicker = function() return { Cancel = function() end } end,
 }
+-- The list every modern client keeps behind the button beside the minimap.
+-- Present here so an addon that registers with it is exercised; Tools/test/run.lua
+-- removes it for the clients that have no such thing.
+_G.AddonCompartmentFrame = {
+	registeredAddons = {},
+	RegisterAddon = function(self, entry)
+		self.registeredAddons[#self.registeredAddons + 1] = entry
+	end,
+	UpdateDisplay = function(self) self.updates = (self.updates or 0) + 1 end,
+}
+
+_G.C_ChatInfo = _G.C_ChatInfo or {}
+_G.C_ChatInfo.InChatMessagingLockdown = function() return M.chatLockdown == true end
+_G.C_ChatInfo.GetChatLineText = function(lineID) return chatLineField(lineID, "text") end
+_G.C_ChatInfo.GetChatLineSenderName = function(lineID) return chatLineField(lineID, "sender") end
+_G.C_ChatInfo.GetChatLineSenderGUID = function(lineID) return chatLineField(lineID, "guid") end
+
 _G.C_FriendList = {
 	-- Driven by the test through M.friends, the same way /who is driven through
 	-- M.whoResults: these are client strings, and a test has to be able to make

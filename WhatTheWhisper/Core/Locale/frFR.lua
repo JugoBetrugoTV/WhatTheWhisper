@@ -349,6 +349,10 @@ ns.RegisterLocale("frFR", {
 		"Des erreurs répétées se sont produites : les chuchotements réapparaissent dans la fenêtre de discussion. /wtw debug pour les détails.",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] =
 		"Ici, les chuchotements ne peuvent pas être lus par les addons : ils sont affichés dans la fenêtre de discussion.",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"Les chuchotements ne sont pas encore lisibles par les addons ici. Ils sont dans la fenêtre de discussion et apparaîtront ici à votre sortie.",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"Impossible d'envoyer des chuchotements d'ici. Utilisez la fenêtre de discussion du jeu.",
 	["Debug logging on."] = "Journalisation activée.",
 	["Debug logging off."] = "Journalisation désactivée.",
 	["/wtw show / hide - open or close the messenger"] =

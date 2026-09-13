@@ -192,7 +192,9 @@ function P:RestoreGeometry()
 	self:SetSize(max(width, ns.SZ.POPOUT_MIN_W), max(height, ns.SZ.POPOUT_MIN_H))
 	self:ClearAllPoints()
 	if saved and saved.left and saved.top then
-		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", saved.left, saved.top)
+		local left, top = W.ClampToScreen(saved.left, saved.top,
+			self:GetWidth(), self:GetHeight())
+		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
 	else
 		-- Cascade new windows so they never land exactly on top of each other.
 		local count = 0

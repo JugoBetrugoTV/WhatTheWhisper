@@ -49,6 +49,7 @@ function addon:OnEnable()
 	ns.Combat.Init()
 	ns.UI.Init()
 	ns.Minimap.Update()
+	ns.Minimap.RegisterCompartment()
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnteringWorld")
 	self:RegisterEvent("UI_SCALE_CHANGED", "OnScaleChanged")

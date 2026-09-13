@@ -385,19 +385,58 @@ do
 	end
 	eq("twenty of them raise nothing at all", softErrors, 0)
 
-	-- And a whisper: the message cannot be stored, so the addon must stop
-	-- taking whispers out of the chat frame rather than swallow them.
+	-- And a whisper. It cannot be read now, but the chat line it arrived on can
+	-- be asked about later, so it is put aside rather than lost -- and until it
+	-- comes back the chat frame has to keep showing it, because that is the only
+	-- copy the player has.
 	ns.Debug.ClearDegraded()
-	eq("not degraded to begin with", ns.Debug.IsDegraded(), false)
+	ns.Deferred.Clear()
+	M.chatLockdown = true
+	M.chatLines[4242] = { text = "gl hf", sender = "Arenagegner", guid = "G-ARENA" }
+
 	local conversationsBefore = ns.ConversationManager.Count()
-	M.FireEvent("CHAT_MSG_WHISPER", M.Secret(), "Arenagegner", "Common", "",
-		"Arenagegner", "", 0, 0, "", 0, 1, "G-ARENA")
+	local ARENA_WHISPER = { M.Secret(), M.Secret(), "Common", "", "Arenagegner",
+		"", 0, 0, "", 0, 4242, 1, "G-ARENA" }
+	check("the chat frame keeps a whisper the addon cannot read",
+		M.ChatFrameWouldShow("CHAT_MSG_WHISPER", unpack(ARENA_WHISPER)))
+
+	M.FireEvent("CHAT_MSG_WHISPER", unpack(ARENA_WHISPER))
 	M.RunTimers(2)
 	eq("an unreadable whisper raises nothing", softErrors, 0)
 	eq("and creates no half-empty thread",
 		ns.ConversationManager.Count(), conversationsBefore)
-	check("the chat frame gets its whispers back", ns.Debug.IsDegraded())
+	eq("it is held instead of dropped", ns.Deferred.Count(), 1)
 	check("and it was counted", ns.ChatEvents.UnreadableCount() > 0)
+
+	-- Still in the arena: the client answers for nothing, so nothing moves.
+	ns.Deferred.Flush()
+	M.RunTimers(2)
+	eq("nothing is released while chat is still withheld", ns.Deferred.Count(), 1)
+	eq("and no thread appears early",
+		ns.ConversationManager.Count(), conversationsBefore)
+
+	-- The arena ends.
+	M.chatLockdown = false
+	M.RunTimers(4)
+	eq("the held whisper is released once chat comes back", ns.Deferred.Count(), 0)
+	eq("and now there is a thread",
+		ns.ConversationManager.Count(), conversationsBefore + 1)
+	local recovered = ns.ConversationManager.Get(
+		ns.Compat.NormalizeName("Arenagegner"))
+	check("with the message in it", recovered ~= nil
+		and #recovered.messages == 1
+		and recovered.messages[1][3] == "gl hf",
+		recovered and #recovered.messages or "no thread")
+	eq("no errors while releasing it", softErrors, 0)
+
+	-- An ordinary whisper in the same session is still taken out of the chat
+	-- frame: being in an arena once is not a reason to stop doing the job.
+	check("and an ordinary whisper is still suppressed",
+		not M.ChatFrameWouldShow("CHAT_MSG_WHISPER", "hallo", "Thrall", "Common",
+			"", "Thrall", "", 0, 0, "", 0, 4243, 1, "G-THRALL"))
+
+	ns.Deferred.Clear()
+	M.chatLines[4242] = nil
 	ns.Debug.ClearDegraded()
 	ns.SoftError = realSoftError
 end

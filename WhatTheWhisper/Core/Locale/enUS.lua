@@ -318,6 +318,8 @@ ns.RegisterLocale("enUS", {
 	["Whisper a player"] = true,
 	["Something went wrong repeatedly, so whispers are being shown in the chat frame again. /wtw debug for details."] = true,
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] = true,
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] = true,
+	["Whispers cannot be sent from here. Use the game's own chat box."] = true,
 	["Debug logging on."] = true,
 	["Debug logging off."] = true,
 	["/wtw show / hide - open or close the messenger"] = true,

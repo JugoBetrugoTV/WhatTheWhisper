@@ -374,6 +374,15 @@ function CM.SendMessage(id, text)
 	text = ns.Text.Trim(text or "")
 	if text == "" then return false end
 
+	-- The client refuses chat sent by an addon in an arena or a rated
+	-- battleground. Saying so is the whole of the fix: what somebody typed stays
+	-- in the box, because dropping it silently is the one outcome worse than not
+	-- being able to send it.
+	if Compat.InChatMessagingLockdown() then
+		ns.Print(ns.L["Whispers cannot be sent from here. Use the game's own chat box."])
+		return false
+	end
+
 	local parts = ns.Text.SplitForSend(text, ns.MAX_MESSAGE_BYTES)
 	local sentAny = false
 

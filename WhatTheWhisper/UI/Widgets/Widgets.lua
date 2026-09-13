@@ -373,6 +373,30 @@ function W.MakeInteractive(frame, onState, opts)
 	return frame
 end
 
+-- How much of a window has to stay reachable. A window remembers where it was;
+-- it does not remember what the screen was. A position saved at one resolution,
+-- or on another character with a different UI scale, can come back with the
+-- title bar past the edge -- and a title bar you cannot reach is a window you
+-- cannot move, close, or get out of the way.
+local ONSCREEN_MARGIN = 48
+
+-- Corrects a remembered TOPLEFT, in UIParent's bottom-left coordinates, so that
+-- this much of the window is on screen. Returns the position unchanged when it
+-- already is, which is the normal case.
+function W.ClampToScreen(left, top, width, height)
+	local screenW = (UIParent and UIParent:GetWidth()) or 0
+	local screenH = (UIParent and UIParent:GetHeight()) or 0
+	if screenW <= 0 or screenH <= 0 then return left, top end
+	width, height = width or 0, height or 0
+
+	local margin = math.min(ONSCREEN_MARGIN, math.max(width, 1))
+	left = math.max(margin - width, math.min(left, screenW - margin))
+	-- The top edge carries the title bar, so it is the edge that must stay
+	-- reachable: above the bottom of the screen, and not pushed off the top.
+	top = math.max(math.min(ONSCREEN_MARGIN, height), math.min(top, screenH))
+	return left, top
+end
+
 function W.SetTooltip(frame, text, subtext)
 	if text then
 		frame.__wtwTooltip = { text = text, subtext = subtext }

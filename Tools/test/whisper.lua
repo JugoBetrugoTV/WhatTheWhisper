@@ -369,5 +369,37 @@ whisper("stillschweigend", "Muradin", "G-MURADIN")
 M.RunFrames(8)
 check("and the setting genuinely switches it off", ns.UI.IsShown() == false)
 
+--------------------------------------------------------------------------------
+-- Sending where the client will not carry it
+--------------------------------------------------------------------------------
+
+-- In an arena the client refuses chat sent by an addon. Failing silently there
+-- would lose what somebody typed, which is worse than not sending it.
+do
+	local printed = {}
+	local realPrint = ns.Print
+	ns.Print = function(text) printed[#printed + 1] = tostring(text) end
+
+	local before = #CM.Get("Muradin-Blackrock").messages
+	local sentBefore = #(M.sent or {})
+	M.chatLockdown = true
+	local sent = CM.SendMessage("Muradin-Blackrock", "gl hf")
+	check("a whisper is not sent while chat is withheld", sent == false or sent == nil)
+	eq("and nothing is written into the thread",
+		#CM.Get("Muradin-Blackrock").messages, before)
+	eq("nor handed to the server", #(M.sent or {}), sentBefore)
+	check("and the player is told why", #printed > 0,
+		table.concat(printed, " | "))
+
+	M.chatLockdown = false
+	printed = {}
+	sent = CM.SendMessage("Muradin-Blackrock", "gl hf")
+	check("and it sends again afterwards", sent == true)
+	eq("with nothing more to say about it", #printed, 0,
+		table.concat(printed, " | "))
+
+	ns.Print = realPrint
+end
+
 print(("\n%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

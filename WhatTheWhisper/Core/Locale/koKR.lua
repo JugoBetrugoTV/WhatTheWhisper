@@ -351,6 +351,10 @@ ns.RegisterLocale("koKR", {
 		"문제가 거듭 일어나서 귓속말을 다시 대화창에 표시합니다. 자세한 내용은 /wtw debug.",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] =
 		"이곳에서는 애드온이 귓속말을 읽을 수 없어서 대화창에 표시합니다.",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"이곳에서는 애드온이 아직 귓속말을 읽을 수 없습니다. 대화창에 있으며, 나가면 여기에 나타납니다.",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"여기서는 귓속말을 보낼 수 없습니다. 게임의 기본 대화창을 이용하세요.",
 	["Debug logging on."] = "디버그 기록을 켰습니다.",
 	["Debug logging off."] = "디버그 기록을 껐습니다.",
 	["/wtw show / hide - open or close the messenger"] =

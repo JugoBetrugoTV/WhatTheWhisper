@@ -291,7 +291,9 @@ function M:RestoreGeometry()
 	self:ClearAllPoints()
 	local point = layout.point
 	if point and point.left and point.top then
-		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", point.left, point.top)
+		local left, top = W.ClampToScreen(point.left, point.top,
+			self:GetWidth(), self:GetHeight())
+		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
 	else
 		self:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
 	end

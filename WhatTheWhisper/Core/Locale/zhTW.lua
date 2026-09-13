@@ -341,6 +341,10 @@ ns.RegisterLocale("zhTW", {
 		"接連出了問題，密語已改回顯示在聊天視窗中。詳情請用 /wtw debug。",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] =
 		"此處插件無法讀取密語，因此改在聊天視窗中顯示。",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"此處插件還讀不到密語。它們在聊天視窗裡，等你離開後會出現在這裡。",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"這裡無法傳送密語。請使用遊戲內建的聊天視窗。",
 	["Debug logging on."] = "除錯紀錄已開啟。",
 	["Debug logging off."] = "除錯紀錄已關閉。",
 	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - 開啟或關閉訊息視窗",

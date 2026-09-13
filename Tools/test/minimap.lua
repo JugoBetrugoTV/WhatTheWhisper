@@ -224,6 +224,72 @@ check("and the blink is off", button.badge.__wtwAttentionOn ~= true)
 eq("full opacity restored", button.badge:GetAlpha(), 1)
 
 --------------------------------------------------------------------------------
+-- The addon compartment
+--------------------------------------------------------------------------------
+
+-- Hiding minimap buttons is most of the reason the compartment list exists, so
+-- the entry has to be there and has to keep working when the button is not.
+do
+	local frame = _G.AddonCompartmentFrame
+	local entry
+	for i = 1, #frame.registeredAddons do
+		local candidate = frame.registeredAddons[i]
+		if candidate.text and candidate.text:find("WhatTheWhisper", 1, true) then
+			entry = candidate
+		end
+	end
+	check("the addon is in the compartment", entry ~= nil)
+
+	if entry then
+		eq("registered exactly once", #frame.registeredAddons, 1)
+		ns.Minimap.RegisterCompartment()
+		eq("and registering again does not add a second", #frame.registeredAddons, 1)
+
+		check("it has an icon", type(entry.icon) == "string" and entry.icon ~= "")
+		check("it has something to do", type(entry.func) == "function")
+
+		-- Left click opens, right click offers the list -- the same two things
+		-- the minimap button does, because they are the same two things.
+		ns.UI.Hide()
+		M.RunFrames(3)
+		ns.Guard("test.compartment", entry.func, entry, { buttonName = "LeftButton" })
+		M.RunFrames(4)
+		check("left click opens the messenger", ns.UI.IsShown())
+
+		ns.Guard("test.compartment", entry.func, entry, { buttonName = "RightButton" })
+		M.RunFrames(2)
+		check("right click opens a menu", ns.Menu.IsOpen())
+		ns.Menu.Close()
+		M.RunFrames(2)
+
+		-- The count follows, and keeps following once the button is hidden.
+		CM.AddMessage("Sylvanas-Blackrock", ns.DIR_IN, "hallo", ns.MSG_WHISPER)
+		ns.UI.Hide()
+		M.RunFrames(4)
+		ns.Minimap.Update()
+		check("the entry carries the unread count",
+			entry.text:find("%(%d+%)") ~= nil, entry.text)
+
+		ns.Options.Set("advanced.minimap.hide", true)
+		M.RunFrames(3)
+		eq("the minimap button is gone", button:IsShown(), false)
+		check("but the compartment still counts",
+			entry.text:find("%(%d+%)") ~= nil, entry.text)
+		ns.Options.Set("advanced.minimap.hide", false)
+		M.RunFrames(3)
+	end
+end
+
+-- A client with no compartment must not be a client with an error.
+do
+	local frame = _G.AddonCompartmentFrame
+	_G.AddonCompartmentFrame = nil
+	local ok = pcall(ns.Minimap.RegisterCompartment)
+	check("a client without a compartment is not a client with an error", ok)
+	_G.AddonCompartmentFrame = frame
+end
+
+--------------------------------------------------------------------------------
 
 eq("nothing errored", #M.errors, 0,
 	table.concat(M.errors, "\n      ", 1, math.min(#M.errors, 6)))

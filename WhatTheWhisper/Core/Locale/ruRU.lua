@@ -352,6 +352,10 @@ ns.RegisterLocale("ruRU", {
 		"Что-то несколько раз пошло не так, поэтому шёпот снова выводится в окне чата. Подробности -- /wtw debug.",
 	["Whispers here cannot be read by addons, so they are being shown in the chat frame instead."] =
 		"Здесь аддоны не могут прочитать шёпот, поэтому он показывается в окне чата.",
+	["Whispers here cannot be read by addons yet. They are in the chat frame, and will appear here when you leave."] =
+		"Здесь аддоны пока не могут прочитать шёпот. Он в окне чата и появится здесь, когда вы выйдете.",
+	["Whispers cannot be sent from here. Use the game's own chat box."] =
+		"Отсюда шёпот отправить нельзя. Воспользуйтесь обычной строкой чата.",
 	["Debug logging on."] = "Отладочный журнал включён.",
 	["Debug logging off."] = "Отладочный журнал выключен.",
 	["/wtw show / hide - open or close the messenger"] =

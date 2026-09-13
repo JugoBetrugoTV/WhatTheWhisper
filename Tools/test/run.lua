@@ -37,6 +37,11 @@ for _, path in ipairs(LOCALE_FONTS[M.locale] or {}) do
 	M.fontFiles[path] = true
 end
 
+if profile.project ~= 1 then
+	-- The addon compartment is a Retail thing; everywhere else the button next
+	-- to the minimap is the only way in.
+	_G.AddonCompartmentFrame = nil
+end
 if profile.legacy then
 	-- 9.x era rendering API: no new SetGradient, no SetResizeBounds.
 	M.Disable("Texture", "SetGradient")
