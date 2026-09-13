@@ -327,6 +327,7 @@ ns.RegisterLocale("enUS", {
 	["Theme"] = true,
 	["Language"] = true,
 	["Independent of the game's own language."] = true,
+	["Languages this game client has no font for are not listed."] = true,
 	["Typography"] = true,
 	["Show chat bubbles"] = true,
 	["Delivery"] = true,

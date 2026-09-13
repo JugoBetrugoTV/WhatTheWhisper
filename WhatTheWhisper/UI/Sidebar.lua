@@ -52,8 +52,10 @@ local function createRow(sidebar)
 	row.time = W.Text(row, "MICRO", "textMuted")
 	row.time:SetJustifyH("RIGHT")
 
-	row.pin = W.Icon(row, "pin_filled", ns.SZ.ICON_MARK, "textMuted")
-	row.mute = W.Icon(row, "bell_off", ns.SZ.ICON_MARK, "textMuted")
+	-- These two are the only marks on a row that mean something rather than
+	-- decorate it, and at textMuted on a busy list they were easy to miss.
+	row.pin = W.Icon(row, "pin_filled", ns.SZ.ICON_MARK, "textSecondary")
+	row.mute = W.Icon(row, "bell_off", ns.SZ.ICON_MARK, "textSecondary")
 
 	row.badge = ns.Controls.Badge(row)
 

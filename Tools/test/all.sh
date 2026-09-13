@@ -54,7 +54,13 @@ echo "== combat lockdown =="
 lua5.1 Tools/test/combat.lua | tail -1
 
 echo "== languages =="
-lua5.1 Tools/test/locale.lua | tail -1
+# Once as a Western client, where Korean and Chinese cannot be drawn at all, and
+# once as a client that has those fonts. Half of every decision in the language
+# layer is only visible from one side or the other.
+for client in enUS koKR zhCN zhTW; do
+	printf '%-9s ' "$client"
+	lua5.1 Tools/test/locale.lua "$client" | tail -1
+done
 
 echo "== settings =="
 lua5.1 Tools/test/settings.lua | tail -1

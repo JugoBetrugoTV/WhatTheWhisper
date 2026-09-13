@@ -283,6 +283,19 @@ function W.RefreshText(fs)
 	W.SetTextRole(fs, fs.__wtwRole or "textPrimary")
 end
 
+-- Draws one string in a font other than the theme's, and puts the theme's back
+-- when asked for nil. Used for the language picker: the only place in the addon
+-- where a single line is written in a script the rest of the window is not.
+function W.SetTextFont(fs, path)
+	if not fs or not fs.__wtwToken then return end
+	if path then
+		fs:SetFont(path, Theme.FontSize(fs.__wtwToken), "")
+	else
+		fs:SetFontObject(Theme.Font(fs.__wtwToken))
+	end
+	fs.__wtwFontOverride = path
+end
+
 --------------------------------------------------------------------------------
 -- Interaction state machine
 --------------------------------------------------------------------------------

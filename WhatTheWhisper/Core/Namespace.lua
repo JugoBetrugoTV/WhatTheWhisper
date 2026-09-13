@@ -83,26 +83,27 @@ ns.SZ = {
 	BADGE_H           = 18,
 	-- The delivery mark beside an outgoing bubble. The smallest glyph the UI
 	-- draws, so the icon set's stroke weight is chosen to survive it.
-	STATUS_ICON       = 13,
+	STATUS_ICON       = 14,
 	STATUS_DOT        = 8,
 
 	-- Glyphs used to be drawn small enough to be tasteful and small enough to
-	-- squint at. A step up across the board: the buttons keep their footprint,
-	-- the marks inside them are simply bigger in it.
+	-- squint at. Two steps up now, and the buttons keep their footprint through
+	-- both: what grows is the mark inside, not the space it sits in, so nothing
+	-- around it moves and everything in it is easier to read.
 	ICON_BTN          = 30,
 	-- The tighter icon button used in title bars and search bars, where a full
 	-- size one would crowd the row it sits in.
 	ICON_BTN_SM       = 26,
-	ICON_GLYPH        = 18,
-	ICON_GLYPH_SM     = 15,
+	ICON_GLYPH        = 20,
+	ICON_GLYPH_SM     = 17,
 	-- Only for glyphs inside something already small, like a tab's close mark.
-	ICON_GLYPH_XS     = 12,
+	ICON_GLYPH_XS     = 13,
 	-- The pin and mute marks beside a name in the sidebar, and the resize grip.
 	-- Small on purpose -- they annotate a row rather than being read on their
 	-- own -- but not so small that the shape dissolves.
-	ICON_MARK         = 13,
+	ICON_MARK         = 15,
 	-- The logo, wherever it is drawn as a mark rather than as art.
-	ICON_LOGO         = 16,
+	ICON_LOGO         = 18,
 	SEND_BTN          = 32,
 
 	SCROLLBAR_W       = 4,
@@ -126,7 +127,7 @@ ns.SZ = {
 
 	MENU_ITEM_H       = 28,
 	MENU_MIN_W        = 168,
-	MENU_ICON         = 15,
+	MENU_ICON         = 16,
 
 	TOAST_W           = 320,
 	TOAST_H           = 62,

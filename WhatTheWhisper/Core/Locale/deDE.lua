@@ -330,6 +330,8 @@ ns.RegisterLocale("deDE", {
 	["Theme"] = "Thema",
 	["Language"] = "Sprache",
 	["Independent of the game's own language."] = "Unabhängig von der Spielsprache.",
+	["Languages this game client has no font for are not listed."] =
+		"Sprachen, für die dieser Spielclient keine Schriftart hat, werden nicht aufgeführt.",
 	["Typography"] = "Typografie",
 	["Show chat bubbles"] = "Sprechblasen anzeigen",
 	["Delivery"] = "Zustellung",

@@ -365,6 +365,8 @@ ns.RegisterLocale("ptBR", {
 	["Theme"] = "Tema",
 	["Language"] = "Idioma",
 	["Independent of the game's own language."] = "Independente do idioma do jogo.",
+	["Languages this game client has no font for are not listed."] =
+		"Os idiomas para os quais este cliente não tem fonte não aparecem na lista.",
 	["Typography"] = "Tipografia",
 	["Show chat bubbles"] = "Mostrar balões de fala",
 	["Delivery"] = "Entrega",

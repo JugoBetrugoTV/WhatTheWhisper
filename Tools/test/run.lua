@@ -25,6 +25,18 @@ _G.WOW_PROJECT_ID = profile.project
 _G.locale = nil
 M.locale = (arg and arg[2]) or "enUS"
 
+-- The fonts that client would actually have on disk. A Korean install has the
+-- Korean ones and not the Chinese ones, and a German install has neither, which
+-- is the whole reason the addon probes instead of assuming.
+local LOCALE_FONTS = {
+	koKR = { "Fonts\\2002.TTF", "Fonts\\2002B.TTF", "Fonts\\K_Damage.TTF" },
+	zhCN = { "Fonts\\ARKai_T.ttf", "Fonts\\ARKai_C.ttf", "Fonts\\ARHei.ttf" },
+	zhTW = { "Fonts\\bLEI00D.TTF", "Fonts\\bHEI00M.TTF", "Fonts\\bKAI00M.TTF" },
+}
+for _, path in ipairs(LOCALE_FONTS[M.locale] or {}) do
+	M.fontFiles[path] = true
+end
+
 if profile.legacy then
 	-- 9.x era rendering API: no new SetGradient, no SetResizeBounds.
 	M.Disable("Texture", "SetGradient")

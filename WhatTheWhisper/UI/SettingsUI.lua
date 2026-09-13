@@ -51,7 +51,7 @@ local function createNavRow(parent)
 		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
 	})
 	row.accent:Hide()
-	row.icon = W.Icon(row, "dot", ns.SZ.ICON_GLYPH_SM, "textMuted")
+	row.icon = W.Icon(row, "dot", ns.SZ.ICON_GLYPH, "textSecondary")
 	row.icon:SetPoint("LEFT", row, "LEFT", ns.S.LG, 0)
 	row.label = W.Text(row, "SMALL", "textSecondary")
 	row.label:SetPoint("LEFT", row.icon, "RIGHT", ns.S.MD, 0)
@@ -262,8 +262,10 @@ local function buildControl(spec, parent)
 	if spec.type == "toggle" then
 		control:SetValue(readValue(spec) and true or false, false)
 	elseif spec.type == "slider" then
-		control.minValue, control.maxValue, control.step = spec.minValue, spec.maxValue, spec.step
+		-- Width first, then the range, then the value: every one of those is an
+		-- input to where the thumb sits, and the control lays itself out on each.
 		control:SetWidth(CONTROL_W)
+		control:SetRange(spec.minValue, spec.maxValue, spec.step)
 		control:SetValue(tonumber(readValue(spec)) or spec.minValue, false)
 	elseif spec.type == "dropdown" then
 		control:SetWidth(CONTROL_W)
@@ -570,6 +572,10 @@ end
 
 function SettingsUI.RowPool()
 	return frame and frame.rowPool
+end
+
+function SettingsUI.Frame()
+	return frame
 end
 
 function SettingsUI.SetFilter(value)

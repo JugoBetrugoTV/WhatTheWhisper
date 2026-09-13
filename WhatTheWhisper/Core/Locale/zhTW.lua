@@ -351,6 +351,8 @@ ns.RegisterLocale("zhTW", {
 	["Theme"] = "佈景主題",
 	["Language"] = "語言",
 	["Independent of the game's own language."] = "與遊戲本身的語言無關。",
+	["Languages this game client has no font for are not listed."] =
+		"本遊戲用戶端沒有字型的語言不會列出。",
 	["Typography"] = "文字",
 	["Show chat bubbles"] = "顯示對話框",
 	["Delivery"] = "送達",

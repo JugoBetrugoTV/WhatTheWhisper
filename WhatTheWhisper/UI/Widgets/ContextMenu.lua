@@ -209,6 +209,9 @@ function Menu.Open(entries, opts)
 			row:SetHeight(ITEM_H)
 			row.danger = entry.danger
 			row.onClick = entry.onClick
+			-- A row may be written in a script the theme font cannot draw; the
+			-- language picker is the one place that happens.
+			W.SetTextFont(row.label, entry.font)
 			row.label:SetText(entry.text or "")
 			W.SetTextRole(row.label, entry.danger and "danger"
 				or (entry.disabled and "textDisabled") or "textPrimary")
@@ -225,6 +228,7 @@ function Menu.Open(entries, opts)
 			if entry.tooltip then W.SetTooltip(row, entry.tooltip) else W.SetTooltip(row, nil) end
 
 			measure:SetWidth(0)
+			W.SetTextFont(measure, entry.font)
 			measure:SetText(entry.text or "")
 			width = max(width, measure:GetStringWidth() + LABEL_X + ns.S.MD + ns.S.SM)
 

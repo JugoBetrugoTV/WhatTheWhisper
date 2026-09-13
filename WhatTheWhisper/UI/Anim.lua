@@ -210,15 +210,23 @@ end
 function Anim.PopIn(frame, duration, fromScale)
 	if not frame then return end
 	duration = duration or Theme.Duration("WINDOW")
-	frame:Show()
+	local ag = frame.__wtwPop
+
+	-- Read while the frame is at rest. Opening a window that is already opening
+	-- would otherwise take the half-grown scale for the real one, and the window
+	-- would come back a little smaller every single time.
+	if not ag or not ag:IsPlaying() then
+		frame.__wtwBaseScale = frame:GetScale() or 1
+	end
+	local base = frame.__wtwBaseScale or 1
+
 	if duration <= 0 or not Theme.AnimationsEnabled() then
+		frame:SetScale(base)
 		frame:SetAlpha(1)
-		frame:SetScale(frame.__wtwBaseScale or 1)
+		frame:Show()
 		return
 	end
-	frame.__wtwBaseScale = frame.__wtwBaseScale or frame:GetScale() or 1
-	local base = frame.__wtwBaseScale
-	local ag = frame.__wtwPop
+
 	if not ag then
 		ag = frame:CreateAnimationGroup()
 		local s = ag:CreateAnimation("Scale")
@@ -228,19 +236,35 @@ function Anim.PopIn(frame, duration, fromScale)
 		frame.__wtwPop = ag
 		frame.__wtwPopScale = s
 		frame.__wtwPopAlpha = a
-		ag:SetScript("OnFinished", function()
+		-- On both endings, not just the happy one. An open that is interrupted
+		-- -- closed again mid-animation, or the parent hidden out from under it
+		-- -- leaves the frame at alpha 0, and the next open finds a window that
+		-- is shown, sized, laid out, and completely invisible.
+		local function settle()
 			frame:SetScale(frame.__wtwBaseScale or 1)
 			frame:SetAlpha(1)
-		end)
+		end
+		ag:SetScript("OnFinished", settle)
+		ag:SetScript("OnStop", settle)
 	end
+
 	local s, a = frame.__wtwPopScale, frame.__wtwPopAlpha
 	ag:Stop()
 	local from = fromScale or 0.97
 	if HAS_SCALE_TO then
 		s:SetScaleFrom(from, from)
 		s:SetScaleTo(1, 1)
+		-- A Scale animation multiplies the frame's own scale rather than
+		-- replacing it, so the frame keeps its real one. Shrinking it here as
+		-- well meant the window opened at `from` squared and landed on `from`,
+		-- and the jump to full size at the end was OnFinished cleaning up after
+		-- an animation that had ended in the wrong place.
+		frame:SetScale(base)
 	else
+		-- The older API scales by a factor over the run instead of between two,
+		-- so there the frame does have to start shrunk to grow back to base.
 		s:SetScale(1 / from, 1 / from)
+		frame:SetScale(base * from)
 	end
 	s:SetDuration(duration)
 	s:SetSmoothing("OUT")
@@ -252,8 +276,11 @@ function Anim.PopIn(frame, duration, fromScale)
 	end
 	a:SetDuration(duration * 0.8)
 	a:SetSmoothing("OUT")
-	frame:SetScale(base * from)
 	frame:SetAlpha(0)
+	-- Shown last, already invisible and already sized: showing it first drew one
+	-- frame of a full-size, fully opaque window before the animation's first
+	-- frame replaced it, which is the flash you see instead of a fade.
+	frame:Show()
 	ag:Play()
 end
 

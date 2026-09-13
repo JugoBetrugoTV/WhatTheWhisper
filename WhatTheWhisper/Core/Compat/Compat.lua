@@ -853,6 +853,63 @@ function Compat.ValidateFont(path)
 	return result
 end
 
+-- Fonts that can draw a given writing system, in the order they are preferred.
+--
+-- A client ships the fonts for its own locale and no others. On a German
+-- install there is no Korean or Chinese glyph anywhere: asking the default font
+-- for 한국어 gets three empty boxes, which is exactly what the language picker
+-- looked like. So the addon asks the client what it has rather than assuming,
+-- and what it does not have, it does not try to draw.
+--
+-- Latin and Cyrillic are absent from this table on purpose: every client draws
+-- them with the font it is already using, so there is nothing to look up.
+local SCRIPT_FONTS = {
+	korean = {
+		"Fonts\\2002.TTF", "Fonts\\2002B.TTF",
+		"Fonts\\K_Damage.TTF", "Fonts\\K_Pagetext.TTF",
+	},
+	hans = {
+		"Fonts\\ARKai_T.ttf", "Fonts\\ARKai_C.ttf", "Fonts\\ARHei.ttf",
+		"Fonts\\ZYKai_T.ttf", "Fonts\\ZYHei.ttf",
+	},
+	hant = {
+		"Fonts\\bLEI00D.TTF", "Fonts\\bHEI00M.TTF", "Fonts\\bHEI01B.TTF",
+		"Fonts\\bKAI00M.TTF", "Fonts\\arheiuhk_bd.TTF", "Fonts\\ARKai_T.ttf",
+	},
+}
+
+local scriptFonts = {}
+
+-- The first font this client actually has for that script, or nil when it has
+-- none -- which is a fact about the install, not a failure.
+function Compat.FontForScript(script)
+	if not script then return nil end
+	local cached = scriptFonts[script]
+	if cached ~= nil then return cached or nil end
+	local candidates = SCRIPT_FONTS[script]
+	local found = false
+	if candidates then
+		for i = 1, #candidates do
+			if Compat.ValidateFont(candidates[i]) then
+				found = candidates[i]
+				break
+			end
+		end
+	end
+	scriptFonts[script] = found
+	return found or nil
+end
+
+-- Every script this addon has strings in is either one the client draws anyway
+-- or one it needs a font for. Answering "yes" for the first kind is what keeps
+-- the picker from hiding French on a Chinese client.
+local ALWAYS_DRAWN = { latin = true, cyrillic = true }
+
+function Compat.CanDrawScript(script)
+	if not script or ALWAYS_DRAWN[script] then return true end
+	return Compat.FontForScript(script) ~= nil
+end
+
 --------------------------------------------------------------------------------
 -- Colour picker
 --------------------------------------------------------------------------------

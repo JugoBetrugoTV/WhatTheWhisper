@@ -1486,6 +1486,92 @@ if type(atlas) == "table" then
 end
 
 --------------------------------------------------------------------------------
+-- Opening a window
+--------------------------------------------------------------------------------
+
+-- What the player actually watches, rather than what is left behind once it is
+-- over. An animation that only ends in the right place because its OnFinished
+-- put it there is one the player sees snap.
+do
+	ns.db.profile.appearance.animations = "normal"
+	ns.Theme.Refresh()
+
+	local function opens(label, frame, show, hide, from)
+		hide()
+		M.RunFrames(4)
+		show()
+		M.RunFrames(1)
+		local first, last = M.AnimationFrames(frame)
+		if not first then
+			check(label .. " animates when it opens", false, "nothing played")
+			return
+		end
+		local base = frame.__wtwBaseScale or 1
+		check(label .. " starts small", math.abs(first.scale - base * from) < 0.001,
+			("%.4f, wanted %.4f"):format(first.scale, base * from))
+		check(label .. " ends at its own size, with nothing left to correct",
+			math.abs(last.scale - base) < 0.001,
+			("%.4f, wanted %.4f"):format(last.scale, base))
+		check(label .. " starts invisible", math.abs(first.alpha) < 0.001, first.alpha)
+		check(label .. " ends fully visible", math.abs(last.alpha - 1) < 0.001, last.alpha)
+		check(label .. " is left visible", math.abs((frame:GetAlpha() or 1) - 1) < 0.001,
+			frame:GetAlpha())
+		check(label .. " is left at its own size",
+			math.abs((frame:GetScale() or 1) - base) < 0.001, frame:GetScale())
+	end
+
+	local window = ns.MainWindow.Get()
+	-- Each window asks for its own starting size; the numbers here are the ones
+	-- the callers pass, so a caller that stops animating fails too.
+	opens("the messenger", window, ns.UI.Show, ns.UI.Hide, 0.97)
+	ns.SettingsUI.Show()
+	opens("the settings window", ns.SettingsUI.Frame(),
+		ns.SettingsUI.Show, ns.SettingsUI.Hide, 0.98)
+	ns.SettingsUI.Hide()
+	M.RunFrames(2)
+	ns.UI.Show()
+	M.RunFrames(2)
+
+	-- Opened again and again, which is what a player does with a messenger.
+	-- The base scale was read back from a frame the animation had shrunk, so
+	-- every open made the window a little smaller than the last.
+	local before = window:GetScale() or 1
+	for _ = 1, 6 do
+		ns.UI.Hide()
+		M.RunFrames(2)
+		ns.UI.Show()
+		M.RunFrames(2)
+	end
+	check("six opens leave the window the size it started",
+		math.abs((window:GetScale() or 1) - before) < 0.001,
+		("%.4f, started %.4f"):format(window:GetScale() or 1, before))
+
+	-- An open that is cut short -- closed again mid-animation, or the parent
+	-- hidden out from under it -- never reaches OnFinished, so whatever
+	-- OnFinished was going to put right stays wrong: a window that is shown,
+	-- sized, laid out and completely invisible.
+	--
+	-- The mock finishes an animation the instant it starts, so the interruption
+	-- itself cannot be staged here. What can be checked is that the group has
+	-- something to run when it is stopped, and that running it settles the
+	-- window -- which is the whole of the guard.
+	local group = window.__wtwPop
+	check("the open animation has a handler for being cut short",
+		group ~= nil and group:GetScript("OnStop") ~= nil)
+	if group and group:GetScript("OnStop") then
+		window:SetAlpha(0)
+		window:SetScale(before * 0.5)
+		group:GetScript("OnStop")(group)
+		check("and it leaves the window visible",
+			(window:GetAlpha() or 1) > 0.99, window:GetAlpha())
+		check("and at its own size",
+			math.abs((window:GetScale() or 1) - before) < 0.001, window:GetScale())
+	end
+	ns.UI.Hide()
+	M.RunFrames(2)
+end
+
+--------------------------------------------------------------------------------
 
 eq("nothing errored while auditing", #M.errors, 0,
 	table.concat(M.errors, "\n      ", 1, math.min(#M.errors, 6)))

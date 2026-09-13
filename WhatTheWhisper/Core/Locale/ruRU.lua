@@ -365,6 +365,8 @@ ns.RegisterLocale("ruRU", {
 	["Theme"] = "Тема",
 	["Language"] = "Язык",
 	["Independent of the game's own language."] = "Не зависит от языка самой игры.",
+	["Languages this game client has no font for are not listed."] =
+		"Языки, для которых в этом клиенте нет шрифта, в списке не показаны.",
 	["Typography"] = "Шрифты",
 	["Show chat bubbles"] = "Показывать облачка сообщений",
 	["Delivery"] = "Доставка",

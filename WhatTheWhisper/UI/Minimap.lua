@@ -17,7 +17,7 @@ local MinimapButton = {}
 ns.Minimap = MinimapButton
 
 local button
-local SIZE = 26
+local SIZE = 30
 -- Clearance between the minimap's own edge and the near edge of the button.
 local ORBIT_GAP = 3
 -- Fallback for the rare client where the minimap has not been sized yet.

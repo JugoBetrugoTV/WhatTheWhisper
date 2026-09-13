@@ -365,6 +365,8 @@ ns.RegisterLocale("esMX", {
 	["Theme"] = "Tema",
 	["Language"] = "Idioma",
 	["Independent of the game's own language."] = "Independiente del idioma del juego.",
+	["Languages this game client has no font for are not listed."] =
+		"Los idiomas para los que este cliente no tiene ninguna fuente no aparecen en la lista.",
 	["Typography"] = "Tipografía",
 	["Show chat bubbles"] = "Mostrar burbujas de chat",
 	["Delivery"] = "Entrega",

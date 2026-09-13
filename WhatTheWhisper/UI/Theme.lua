@@ -57,6 +57,12 @@ local function buildFonts()
 	if not path or path == "" or not Compat.ValidateFont(path) then
 		path = Compat.GetDefaultFont()
 	end
+	-- Korean and Chinese are drawn with the font the client keeps for them, not
+	-- with the one the player picked: no Latin font has those glyphs, so
+	-- honouring the choice would honour it into a window full of empty boxes.
+	-- Latin and Cyrillic have no entry here and keep whatever was chosen.
+	local scriptFont = Compat.FontForScript(ns.ScriptOf(ns.ActiveLocale()))
+	if scriptFont then path = scriptFont end
 	Theme.fontPath = path
 
 	local offset = tonumber(ap.fontScale) or 0
@@ -106,6 +112,9 @@ function Theme.Measure(token)
 	end
 	fs:SetFontObject(Theme.Font(token))
 	fs:SetSpacing(ns.LINE_SPACING)
+	-- Stamped so a caller measuring a string in another script can put that
+	-- script's font on it; the SetFontObject above clears it again next time.
+	fs.__wtwToken = token
 	return fs
 end
 

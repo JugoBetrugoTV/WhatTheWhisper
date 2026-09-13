@@ -360,6 +360,8 @@ ns.RegisterLocale("frFR", {
 	["Theme"] = "Thème",
 	["Language"] = "Langue",
 	["Independent of the game's own language."] = "Indépendant de la langue du jeu.",
+	["Languages this game client has no font for are not listed."] =
+		"Les langues pour lesquelles ce client de jeu n'a pas de police ne sont pas listées.",
 	["Typography"] = "Typographie",
 	["Show chat bubbles"] = "Afficher les bulles",
 	["Delivery"] = "Remise",

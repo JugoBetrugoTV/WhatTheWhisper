@@ -18,22 +18,43 @@ local _, ns = ...
 -- The locales the client actually ships
 --------------------------------------------------------------------------------
 
--- In the order the picker offers them. `native` is what a speaker of that
--- language calls it, because a menu of language names written in a language you
--- cannot read is not a menu you can use.
+-- In the order the picker offers them.
+--
+-- `native` is what a speaker of that language calls it, because a menu of
+-- language names written in a language you cannot read is not a menu you can
+-- use. `english` is the fallback for when the native name is one this client
+-- has no font for -- a German install has no Korean glyphs at all, and "한국어"
+-- there is three empty boxes, which is worse than "Korean".
+--
+-- `script` is what the strings are written in, which decides both of the above
+-- and which font the addon draws itself with while that language is chosen.
 ns.LOCALES = {
-	{ code = "enUS", native = "English" },
-	{ code = "deDE", native = "Deutsch" },
-	{ code = "frFR", native = "Français" },
-	{ code = "esES", native = "Español (EU)" },
-	{ code = "esMX", native = "Español (AL)" },
-	{ code = "itIT", native = "Italiano" },
-	{ code = "ptBR", native = "Português" },
-	{ code = "ruRU", native = "Русский" },
-	{ code = "koKR", native = "한국어" },
-	{ code = "zhCN", native = "简体中文" },
-	{ code = "zhTW", native = "繁體中文" },
+	{ code = "enUS", native = "English",      english = "English",               script = "latin" },
+	{ code = "deDE", native = "Deutsch",      english = "German",                script = "latin" },
+	{ code = "frFR", native = "Français",     english = "French",                script = "latin" },
+	{ code = "esES", native = "Español (EU)", english = "Spanish (EU)",          script = "latin" },
+	{ code = "esMX", native = "Español (AL)", english = "Spanish (LA)",          script = "latin" },
+	{ code = "itIT", native = "Italiano",     english = "Italian",               script = "latin" },
+	{ code = "ptBR", native = "Português",    english = "Portuguese",            script = "latin" },
+	{ code = "ruRU", native = "Русский",      english = "Russian",               script = "cyrillic" },
+	{ code = "koKR", native = "한국어",          english = "Korean",                script = "korean" },
+	{ code = "zhCN", native = "简体中文",        english = "Chinese (Simplified)",  script = "hans" },
+	{ code = "zhTW", native = "繁體中文",        english = "Chinese (Traditional)", script = "hant" },
 }
+
+local BY_CODE = {}
+for i = 1, #ns.LOCALES do BY_CODE[ns.LOCALES[i].code] = ns.LOCALES[i] end
+
+function ns.LocaleEntry(code)
+	return BY_CODE[code]
+end
+
+-- The writing system a locale is set in, which is what decides whether this
+-- client can draw it at all.
+function ns.ScriptOf(code)
+	local entry = BY_CODE[code]
+	return entry and entry.script or "latin"
+end
 
 local BASE = "enUS"
 
@@ -79,12 +100,23 @@ ns.CLIENT_LOCALE = clientLocale
 -- The player's choice, or the client's language when they have not made one.
 -- Read through a function rather than cached, because the setting can change
 -- while the addon is running and every string has to follow it.
+-- A language is only usable if the client can actually draw it. Choosing one it
+-- cannot would turn every label in the addon into a row of boxes -- including
+-- the settings row you would need to read to change it back.
+local function usable(code)
+	if not code or not tables[code] then return false end
+	local Compat = ns.Compat
+	if not Compat or not Compat.CanDrawScript then return true end
+	return Compat.CanDrawScript(ns.ScriptOf(code))
+end
+ns.LocaleIsUsable = usable
+
 local function activeCode()
 	local db = ns.db
 	local chosen = db and db.profile and db.profile.appearance
 		and db.profile.appearance.locale
-	if chosen and chosen ~= "auto" and tables[chosen] then return chosen end
-	if tables[clientLocale] then return clientLocale end
+	if chosen and chosen ~= "auto" and usable(chosen) then return chosen end
+	if usable(clientLocale) then return clientLocale end
 	return BASE
 end
 ns.ActiveLocale = activeCode

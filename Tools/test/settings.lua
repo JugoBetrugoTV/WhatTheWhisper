@@ -389,6 +389,86 @@ ns.SettingsUI.Hide()
 M.RunFrames(3)
 
 --------------------------------------------------------------------------------
+-- Sliders land where their value says
+--------------------------------------------------------------------------------
+
+-- The thumb and the number beside it are two readings of one value, and they
+-- disagreed: the panel opened with every thumb parked at the far left while the
+-- number read correctly. The cause is not visible here on its own, because this
+-- mock resolves anchors the moment they are set and the live client does not --
+-- a frame anchored on both sides reports the width it had *before* its parent
+-- was resized, and zero the first time it is laid out at all. So the track is
+-- made to lie about its width, which is what the client does, and the thumb has
+-- to be right anyway.
+do
+	ns.SettingsUI.Show()
+	ns.SettingsUI.SelectCategory("appearance")
+	M.RunFrames(4)
+
+	local checked = 0
+	for row in ns.SettingsUI.RowPool():EnumerateActive() do
+		local slider = row.control
+		if slider and slider.spec and slider.spec.type == "slider" then
+			checked = checked + 1
+			local path = slider.spec.path
+
+			-- What the client would have said, before and instead of the truth.
+			local honest = slider.track.GetWidth
+			slider.track.GetWidth = function() return 0 end
+			slider:SetWidth(190)
+			slider:SetRange(slider.spec.minValue, slider.spec.maxValue, slider.spec.step)
+			slider:SetValue(slider.spec.maxValue, false)
+
+			local trackLeft, _, trackW = M.Geometry(slider.track)
+			local thumbLeft, _, thumbW = M.Geometry(slider.thumb)
+			local centre = (thumbLeft + thumbW / 2) - trackLeft
+			check(path .. ": a full slider puts the thumb at the far end",
+				math.abs(centre - trackW) < 1,
+				("thumb at %.1f of %.1f"):format(centre, trackW))
+			check(path .. ": and fills the track", (slider.fill:GetWidth() or 0) >= trackW - 1,
+				("fill %.1f of %.1f"):format(slider.fill:GetWidth() or 0, trackW))
+
+			slider:SetValue(slider.spec.minValue, false)
+			thumbLeft, _, thumbW = M.Geometry(slider.thumb)
+			centre = (thumbLeft + thumbW / 2) - trackLeft
+			check(path .. ": an empty slider puts it at the near end",
+				math.abs(centre) < 1, ("thumb at %.1f"):format(centre))
+
+			-- And in between, which is where the screenshot's +1 belonged. The
+			-- expectation is read back from the slider rather than assumed:
+			-- a step of 0.05 on a 0.35..1 scale has no exact midpoint.
+			local span = slider.spec.maxValue - slider.spec.minValue
+			slider:SetValue(slider.spec.minValue + span / 2, false)
+			local want = trackW * ((slider:GetValue() - slider.spec.minValue) / span)
+			thumbLeft, _, thumbW = M.Geometry(slider.thumb)
+			centre = (thumbLeft + thumbW / 2) - trackLeft
+			check(path .. ": and in the middle for a value in the middle",
+				math.abs(centre - want) < 1,
+				("thumb at %.1f, wanted %.1f of %.1f"):format(centre, want, trackW))
+
+			slider.track.GetWidth = honest
+		end
+	end
+	check("there were sliders to check", checked > 0, checked)
+
+	-- A pooled slider carries the previous row's value into the next row's
+	-- range. Without a re-clamp it shows a number its own scale cannot reach.
+	local pooled
+	for row in ns.SettingsUI.RowPool():EnumerateActive() do
+		if row.control and row.control.spec and row.control.spec.type == "slider" then
+			pooled = row.control break
+		end
+	end
+	pooled:SetRange(0, 1, 0.05)
+	pooled:SetValue(1, false)
+	pooled:SetRange(-2, 4, 1)
+	check("a reused slider clamps into its new range",
+		pooled:GetValue() >= -2 and pooled:GetValue() <= 4, pooled:GetValue())
+	ns.SettingsUI.Hide()
+	M.RunFrames(2)
+end
+
+--------------------------------------------------------------------------------
 -- Profile reset
 --------------------------------------------------------------------------------
 

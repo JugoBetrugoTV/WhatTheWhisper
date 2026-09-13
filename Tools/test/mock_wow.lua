@@ -489,7 +489,31 @@ function fsMethods:SetText(text) self._text = text and tostring(text) or "" end
 function fsMethods:GetText() return self._text or "" end
 function fsMethods:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
 function fsMethods:SetFontObject(fo) self._font = fo end
+-- Which font files this client has. A real install ships the fonts for its own
+-- locale and no others: on a German client SetFont on a Korean font fails and
+-- leaves the old font in place, which is the only way an addon can find out that
+-- 한국어 is about to render as three boxes. M.fontFiles = nil accepts anything,
+-- for the tests that do not care.
+-- The default is a Western install, because that is the one where the question
+-- has an interesting answer: no Korean or Chinese glyph exists anywhere on it.
+-- Tools/test/run.lua swaps this per client locale. Set it to nil to accept any
+-- path, for tests that do not care what is installed.
+M.fontFiles = {
+	["Fonts\\FRIZQT__.TTF"] = true,
+	["Fonts\\FRIZQT___CYR.TTF"] = true,
+	["Fonts\\ARIALN.TTF"] = true,
+	["Fonts\\MORPHEUS.TTF"] = true,
+	["Fonts\\SKURRI.TTF"] = true,
+	["Fonts\\NIM_____.ttf"] = true,
+}
+local function fontInstalled(path)
+	if not M.fontFiles then return true end
+	return M.fontFiles[path] == true
+end
+M.FontInstalled = fontInstalled
+
 function fsMethods:SetFont(path, size, flags)
+	if not fontInstalled(path) then return false end
 	self._fontPath, self._fontSize = path, size
 	return true
 end
@@ -538,12 +562,17 @@ function animMethods:SetOrder() end
 function animMethods:SetDuration(d) self._duration = d end
 function animMethods:SetSmoothing() end
 function animMethods:SetStartDelay() end
-function animMethods:SetFromAlpha() end
-function animMethods:SetToAlpha() end
-function animMethods:SetChange() end
-function animMethods:SetScaleFrom() end
-function animMethods:SetScaleTo() end
-function animMethods:SetScale() end
+-- Recorded rather than discarded, so a test can ask what the player would see
+-- at the first and last frame of the animation instead of only what is left
+-- behind once it has finished.
+function animMethods:SetFromAlpha(a) self._fromAlpha = a end
+function animMethods:SetToAlpha(a) self._toAlpha = a end
+function animMethods:SetChange(a) self._alphaChange = a end
+-- Scale factors are multipliers over the region's own scale, not replacements
+-- for it: a frame at scale 0.9 running SetScaleTo(1, 1) still renders at 0.9.
+function animMethods:SetScaleFrom(x) self._scaleFrom = x end
+function animMethods:SetScaleTo(x) self._scaleTo = x end
+function animMethods:SetScale(x) self._scaleBy = x end
 function animMethods:SetOffset() end
 function animMethods:SetTarget() end
 local animProto, animMT = makeObject("Animation", animMethods)
@@ -560,14 +589,55 @@ function agMethods:CreateAnimation(kind)
 	self._animations[#self._animations + 1] = a
 	return a
 end
+-- What the animation itself does, worked out before OnFinished gets a chance to
+-- tidy up after it. An animation that only looks right because its OnFinished
+-- corrects the frame is an animation the player watches go wrong, so the two are
+-- recorded separately: M.AnimationFrames(frame) reports the first and last frame
+-- the animation draws, and the frame's own state afterwards is the cleanup.
 function agMethods:Play()
+	local parent = self._parent
+	local scale = (parent.GetScale and parent:GetScale()) or 1
+	local alpha = (parent.GetAlpha and parent:GetAlpha()) or 1
+	local first = { scale = scale, alpha = alpha }
+	local last = { scale = scale, alpha = alpha }
+	for _, a in ipairs(self._animations or {}) do
+		if a._type == "Scale" then
+			if a._scaleFrom then first.scale = scale * a._scaleFrom end
+			if a._scaleTo then last.scale = scale * a._scaleTo end
+			if a._scaleBy then last.scale = scale * a._scaleBy end
+		elseif a._type == "Alpha" then
+			if a._fromAlpha ~= nil then first.alpha = a._fromAlpha end
+			if a._toAlpha ~= nil then last.alpha = a._toAlpha end
+			if a._alphaChange ~= nil then last.alpha = alpha + a._alphaChange end
+		end
+	end
+	parent.__mockAnimation = { first = first, last = last }
 	self._playing = true
 	-- Fire OnFinished immediately so callbacks that depend on it are exercised.
+	-- The cost is that an animation is never *in flight* here, so an interrupted
+	-- one cannot be staged: a test that cares about being cut short has to call
+	-- the group's OnStop handler itself.
 	local script = self._scripts and self._scripts.OnFinished
 	self._playing = false
 	if script then script(self) end
 end
-function agMethods:Stop() self._playing = false end
+
+-- The first and last frame the last animation on this region drew, as tables of
+-- { scale, alpha }, or nil if it has never animated.
+function M.AnimationFrames(region)
+	local rec = region and region.__mockAnimation
+	if not rec then return nil end
+	return rec.first, rec.last
+end
+-- Stopping an animation group fires OnStop, not OnFinished: whatever the group
+-- was going to put right when it finished does not get put right, which is how
+-- an interrupted open leaves a window at alpha 0.
+function agMethods:Stop()
+	local wasPlaying = self._playing
+	self._playing = false
+	local script = self._scripts and self._scripts.OnStop
+	if wasPlaying and script then script(self) end
+end
 function agMethods:Finish() self._playing = false end
 function agMethods:IsPlaying() return self._playing or false end
 function agMethods:SetLooping() end
@@ -982,7 +1052,11 @@ _G.UISpecialFrames = {}
 local function makeFontObject(name, size)
 	local fo = {
 		_size = size,
-		SetFont = function(self, path, s) self._path, self._size = path, s return true end,
+		SetFont = function(self, path, s)
+			if not M.FontInstalled(path) then return false end
+			self._path, self._size = path, s
+			return true
+		end,
 		GetFont = function(self) return self._path or "Fonts\\FRIZQT__.TTF", self._size or 12, "" end,
 		SetShadowOffset = function() end,
 		SetShadowColor = function() end,

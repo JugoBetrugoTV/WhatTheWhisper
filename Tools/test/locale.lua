@@ -12,6 +12,21 @@ local ROOT = "/home/user/WhatTheWhisper/"
 dofile(ROOT .. "Tools/test/mock_wow.lua")
 local M = _G.WOWMOCK
 
+-- Which client this run is pretending to be. The default is a Western install,
+-- where Korean and Chinese cannot be drawn at all; pass a locale code to run the
+-- same file against a client that has those fonts, which is the only way to see
+-- the other half of every decision below.
+local CLIENT = (arg and arg[1]) or "enUS"
+local LOCALE_FONTS = {
+	koKR = { "Fonts\\2002.TTF", "Fonts\\2002B.TTF", "Fonts\\K_Damage.TTF" },
+	zhCN = { "Fonts\\ARKai_T.ttf", "Fonts\\ARKai_C.ttf", "Fonts\\ARHei.ttf" },
+	zhTW = { "Fonts\\bLEI00D.TTF", "Fonts\\bHEI00M.TTF", "Fonts\\bKAI00M.TTF" },
+}
+for _, path in ipairs(LOCALE_FONTS[CLIENT] or {}) do
+	M.fontFiles[path] = true
+end
+M.locale = CLIENT
+
 _G.SlashCmdList = {}
 _G.UnitRace = function() return "Human", "Human" end
 _G.UnitFactionGroup = function() return "Alliance", "Alliance" end
@@ -197,9 +212,25 @@ check("no empty or padded translations", shapeProblems == 0)
 -- The lookup
 --------------------------------------------------------------------------------
 
+eq("the addon speaks English out of the box",
+	ns.defaults.profile.appearance.locale, "enUS")
+eq("and a fresh profile agrees", ns.db.profile.appearance.locale, "enUS")
+
+-- What the lookup lands on when the chosen language cannot be used: the
+-- client's own, or English when even that has no font here.
+local FALLBACK = ns.LocaleIsUsable(ns.CLIENT_LOCALE) and ns.CLIENT_LOCALE or "enUS"
+local function fallbackText(key)
+	local table_ = ns.LocaleData[FALLBACK]
+	local value = table_ and table_[key]
+	if value == nil or value == true then return key end
+	return value
+end
+
 ns.Options.Set("appearance.locale", "auto")
-eq("auto follows the client", ns.ActiveLocale(), ns.CLIENT_LOCALE)
-eq("and the client here is English", ns.CLIENT_LOCALE, "enUS")
+eq("auto follows the client", ns.ActiveLocale(), FALLBACK)
+eq("the client here is " .. CLIENT, ns.CLIENT_LOCALE, CLIENT)
+
+ns.Options.Set("appearance.locale", "enUS")
 eq("English renders the key itself", L["Settings"], "Settings")
 eq("a key nobody wrote falls through to itself",
 	L["no string anywhere uses this"], "no string anywhere uses this")
@@ -215,17 +246,18 @@ eq("an unknown key still falls through in a translation",
 	L["no string anywhere uses this"], "no string anywhere uses this")
 
 ns.Options.Set("appearance.locale", "zzQQ")
-eq("an unknown locale falls back rather than blanking", ns.ActiveLocale(), "enUS")
-eq("and its strings are the English", L["Settings"], "Settings")
+eq("an unknown locale falls back rather than blanking", ns.ActiveLocale(), FALLBACK)
+eq("and its strings are the fallback's", L["Settings"], fallbackText("Settings"))
 
 ns.Options.Set("appearance.locale", "auto")
-eq("back to auto", L["Settings"], "Settings")
+eq("back to auto", L["Settings"], fallbackText("Settings"))
 
 do
 	local before = #softErrors
+	local was = L["Settings"]
 	L["Settings"] = "nope"
 	check("writing to L is reported", #softErrors == before + 1)
-	eq("and changes nothing", L["Settings"], "Settings")
+	eq("and changes nothing", L["Settings"], was)
 	table.remove(softErrors)
 end
 
@@ -236,8 +268,37 @@ check("and what is not", ns.LocaleIsAvailable("zzQQ") ~= true)
 -- The picker
 --------------------------------------------------------------------------------
 
+-- What this client can actually draw. A Western install has no Korean or
+-- Chinese glyph anywhere, and a language rendered as a row of empty boxes is
+-- not a language on offer -- least of all when the settings row you would need
+-- to read to change it back would be boxes too.
+local drawable, undrawable = {}, {}
+for i = 1, #ns.LOCALES do
+	local entry = ns.LOCALES[i]
+	if ns.Compat.CanDrawScript(entry.script) then
+		drawable[#drawable + 1] = entry
+	else
+		undrawable[#undrawable + 1] = entry
+	end
+end
+if CLIENT == "enUS" then
+	check("a Western client cannot draw every script", #undrawable > 0,
+		"the fixture is meant to be a Western install")
+else
+	check("a " .. CLIENT .. " client can draw its own script",
+		ns.Compat.CanDrawScript(ns.ScriptOf(CLIENT)))
+	check("and " .. CLIENT .. " is therefore on offer", (function()
+		for i = 1, #drawable do
+			if drawable[i].code == CLIENT then return true end
+		end
+		return false
+	end)())
+end
+check("and can draw most of them", #drawable > #undrawable)
+
 local options = ns.Options.LocaleOptions()
-eq("the picker lists automatic plus every language", #options, #ns.LOCALES + 1)
+eq("the picker lists automatic plus every language this client can draw",
+	#options, #drawable + 1)
 eq("automatic comes first", options[1].value, "auto")
 check("automatic is labelled", options[1].label ~= nil and options[1].label ~= "")
 local seenValues = {}
@@ -249,8 +310,29 @@ for i = 1, #options do
 		tostring(option.value))
 	seenValues[option.value] = true
 end
-for i = 1, #ns.LOCALES do
-	check(ns.LOCALES[i].code .. " is in the picker", seenValues[ns.LOCALES[i].code] == true)
+for i = 1, #drawable do
+	check(drawable[i].code .. " is in the picker", seenValues[drawable[i].code] == true)
+end
+for i = 1, #undrawable do
+	check(undrawable[i].code .. " is not offered on a client with no font for it",
+		seenValues[undrawable[i].code] ~= true)
+end
+
+-- Every label has to be readable with the font it will be drawn in: either the
+-- theme's, or the one the option carries for its own script.
+for i = 1, #options do
+	local option = options[i]
+	local entry = option.value ~= "auto" and ns.LocaleEntry(option.value) or nil
+	if entry then
+		local needsFont = entry.script ~= "latin" and entry.script ~= "cyrillic"
+		if needsFont then
+			check(entry.code .. " carries the font its own name needs",
+				option.font ~= nil and option.font ~= "", tostring(option.font))
+		else
+			check(entry.code .. " is named in itself",
+				string.find(option.label, entry.native, 1, true) == 1, option.label)
+		end
+	end
 end
 -- Complete locales are named plainly; the percentage is the warning label for a
 -- half-finished one, so it must not be attached to a finished one.
@@ -259,6 +341,19 @@ for i = 1, #options do
 	if string.find(options[i].label, "%%%)$") then labelled = labelled + 1 end
 end
 eq("no complete language is labelled with a percentage", labelled, 0)
+
+-- A list shorter than the eleven languages the addon ships has to say why, or
+-- it reads as a bug rather than as a fact about the client.
+do
+	local caption = ns.Options.LocaleCaption()
+	local explains = string.find(caption,
+		L["Languages this game client has no font for are not listed."], 1, true) ~= nil
+	if #undrawable > 0 then
+		check("a shortened list explains itself", explains, caption)
+	else
+		check("a complete list says nothing extra", not explains, caption)
+	end
+end
 
 -- ...and the label is not dead code. Every locale ships complete today, so the
 -- only way to see the warning a half-finished one would carry is to make one.
@@ -351,8 +446,8 @@ check("nothing on screen is still in English", #stale == 0,
 
 -- Every language in turn, with the window open, is where a translation that
 -- breaks layout or throws on a format string shows itself.
-for i = 1, #ns.LOCALES do
-	local code = ns.LOCALES[i].code
+for i = 1, #drawable do
+	local code = drawable[i].code
 	ns.Options.Set("appearance.locale", code)
 	M.RunFrames(2)
 	ns.SettingsUI.SetFilter(ns.L["Language"])
@@ -364,6 +459,25 @@ for i = 1, #ns.LOCALES do
 	check("the messenger survives " .. code, ns.UI.IsShown())
 end
 
+-- A setting can still name one the client cannot draw -- an old profile, a
+-- profile copied from a Korean client. The text falls back rather than becoming
+-- boxes, and the setting is left alone so the same profile is right again on a
+-- client that does have the font.
+for i = 1, #undrawable do
+	local code = undrawable[i].code
+	ns.Options.Set("appearance.locale", code)
+	M.RunFrames(2)
+	eq("a language with no font on this client is not used",
+		ns.ActiveLocale(), FALLBACK)
+	eq("and the text is readable rather than boxes",
+		ns.L["Settings"], fallbackText("Settings"))
+	eq("while the profile keeps what it was told",
+		ns.db.profile.appearance.locale, code)
+	check("the messenger survives it", ns.UI.IsShown())
+end
+ns.Options.Set("appearance.locale", "enUS")
+M.RunFrames(2)
+
 ns.Options.Set("appearance.locale", "auto")
 M.RunFrames(3)
 ns.SettingsUI.Hide()
@@ -372,6 +486,44 @@ M.RunFrames(2)
 check("no soft errors while switching languages", #softErrors == 0,
 	table.concat(softErrors, "; ", 1, math.min(#softErrors, 4)))
 ns.SoftError = realSoftError
+
+--------------------------------------------------------------------------------
+-- The font the addon draws itself with
+--------------------------------------------------------------------------------
+
+-- Korean and Chinese are not a matter of taste: no Latin font has those glyphs,
+-- so the font the player picked cannot be honoured while one of those languages
+-- is chosen without honouring it into a window full of boxes.
+do
+	ns.Options.Set("appearance.locale", "enUS")
+	ns.Options.Set("appearance.font", "Fonts\\MORPHEUS.TTF")
+	ns.Theme.Refresh()
+	eq("a Latin language keeps the font the player picked",
+		ns.Theme.fontPath, "Fonts\\MORPHEUS.TTF")
+
+	local cjk
+	for i = 1, #drawable do
+		local script = drawable[i].script
+		if script ~= "latin" and script ~= "cyrillic" then cjk = drawable[i] break end
+	end
+	if cjk then
+		ns.Options.Set("appearance.locale", cjk.code)
+		M.RunFrames(2)
+		eq("but " .. cjk.code .. " is drawn with a font that can draw it",
+			ns.Theme.fontPath, ns.Compat.FontForScript(cjk.script))
+		check("which is not the one the player picked",
+			ns.Theme.fontPath ~= "Fonts\\MORPHEUS.TTF")
+		check("and the window survives it", ns.UI.IsShown())
+		ns.Options.Set("appearance.locale", "enUS")
+		M.RunFrames(2)
+		eq("and the picked font comes back afterwards",
+			ns.Theme.fontPath, "Fonts\\MORPHEUS.TTF")
+	else
+		check("no drawable non-Latin language on this client to check", #undrawable > 0)
+	end
+	ns.Options.Set("appearance.font", false)
+	ns.Theme.Refresh()
+end
 
 print(("\n%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

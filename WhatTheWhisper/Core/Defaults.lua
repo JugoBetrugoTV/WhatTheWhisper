@@ -30,10 +30,14 @@ ns.defaults = {
 		},
 
 		appearance = {
-			-- "auto" follows the client. Anything else overrides it, which is
-			-- the whole reason the strings do not live in AceLocale: it keeps
-			-- only the client's own language and discards the rest at load.
-			locale         = "auto",
+			-- English out of the box, on every client. "auto" is offered in the
+			-- picker and follows the game's language instead; it is not the
+			-- default because the addon's own English is the text that has been
+			-- read, and a player who wants their own language can say so in one
+			-- click. Overriding the client at all is the whole reason the
+			-- strings do not live in AceLocale, which keeps only the client's
+			-- own language and discards the rest at load.
+			locale         = "enUS",
 			skin           = "midnight",
 			font           = false,      -- false = the client's own chat font
 			fontScale      = 0,          -- -2 .. +4, applied to the whole type scale

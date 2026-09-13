@@ -15,6 +15,10 @@ ns.Options = Options
 -- Path access
 --------------------------------------------------------------------------------
 
+-- Scripts the client cannot draw with whatever font it is already using. Latin
+-- and Cyrillic are absent because every client draws those.
+local SCRIPT_NEEDS_FONT = { korean = true, hans = true, hant = true }
+
 local function resolve(path)
 	local node = ns.db.profile
 	local last
@@ -63,6 +67,10 @@ local APPLY = {
 	-- so refreshing the windows redraws the old language. The language is the
 	-- one setting that has to reach back into them and rewrite the text.
 	["appearance.locale"] = function()
+		-- The font first: Korean and Chinese are drawn with the font the client
+		-- keeps for them, so the language decides the typeface and the typeface
+		-- has to be in place before anything is laid out in it.
+		ns.Theme.Refresh()
 		ns.UI.RefreshLayout()
 		ns.UI.RefreshAll()
 		ns.UI.Relocalize()
@@ -97,20 +105,49 @@ end
 -- names written in a language you cannot read is not a menu you can use -- and
 -- carrying how much of it is actually translated, because picking one that is
 -- a third done should be a decision rather than a discovery.
+--
+-- Named in itself, drawn in a font that can draw it. A client only installs the
+-- fonts for its own locale, so "한국어" on a German install is three empty boxes;
+-- where that is the case the row falls back to the English name of the language,
+-- which every client can draw. A language this client could not render at all
+-- is not offered, because choosing it would turn the settings window -- the one
+-- place you could change it back -- into boxes as well.
 function Options.LocaleOptions()
 	local out = {
 		{ value = "auto", label = L["Automatic"] },
 	}
 	for i = 1, #ns.LOCALES do
 		local entry = ns.LOCALES[i]
-		local done, total = ns.LocaleCoverage(entry.code)
-		local label = entry.native
-		if total > 0 and done < total then
-			label = ("%s  (%d%%)"):format(label, math.floor(done / total * 100))
+		if Compat.CanDrawScript(entry.script) then
+			local done, total = ns.LocaleCoverage(entry.code)
+			local font = Compat.FontForScript(entry.script)
+			-- No font of its own means the client draws this script with the one
+			-- it is already using, so the native name is safe.
+			local label = entry.native
+			if SCRIPT_NEEDS_FONT[entry.script] and not font then
+				label = entry.english
+			end
+			if total > 0 and done < total then
+				label = ("%s  (%d%%)"):format(label, math.floor(done / total * 100))
+			end
+			out[#out + 1] = { value = entry.code, label = label, font = font }
 		end
-		out[#out + 1] = { value = entry.code, label = label }
 	end
 	return out
+end
+
+-- The caption under the language row. It says the extra sentence only when there
+-- is something to explain: a list that is shorter than the eleven languages the
+-- addon ships, on a client with no font for the rest, otherwise reads as a bug.
+function Options.LocaleCaption()
+	local caption = L["Independent of the game's own language."]
+	for i = 1, #ns.LOCALES do
+		if not Compat.CanDrawScript(ns.LOCALES[i].script) then
+			return caption .. " "
+				.. L["Languages this game client has no font for are not listed."]
+		end
+	end
+	return caption
 end
 
 function Options.SkinOptions()
@@ -221,7 +258,7 @@ function Options.BuildSchema()
 					rows = {
 						dropdown("appearance.locale", L["Language"],
 							Options.LocaleOptions(),
-							L["Independent of the game's own language."]),
+							Options.LocaleCaption()),
 					},
 				},
 				{

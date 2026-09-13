@@ -362,6 +362,8 @@ ns.RegisterLocale("koKR", {
 	["Theme"] = "테마",
 	["Language"] = "언어",
 	["Independent of the game's own language."] = "게임 언어와 상관없이 정할 수 있습니다.",
+	["Languages this game client has no font for are not listed."] =
+		"이 게임 클라이언트에 글꼴이 없는 언어는 목록에 표시되지 않습니다.",
 	["Typography"] = "글자",
 	["Show chat bubbles"] = "말풍선 표시",
 	["Delivery"] = "전달",

@@ -351,6 +351,8 @@ ns.RegisterLocale("zhCN", {
 	["Theme"] = "主题",
 	["Language"] = "语言",
 	["Independent of the game's own language."] = "与游戏本身的语言无关。",
+	["Languages this game client has no font for are not listed."] =
+		"本游戏客户端没有字体的语言不会列出。",
 	["Typography"] = "文字",
 	["Show chat bubbles"] = "显示气泡",
 	["Delivery"] = "送达",

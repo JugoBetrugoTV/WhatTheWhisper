@@ -157,12 +157,25 @@ function Controls.Slider(parent, opts)
 	s.step = opts.step or 0
 	s.value = s.minValue
 
+	-- Anchored on the left only, and given its width. A track anchored on both
+	-- sides has no width of its own: it has the one the layout engine works out
+	-- later, and asking for it in the same frame the slider was resized gets you
+	-- the width from before the resize -- or zero, the first time a pooled
+	-- slider is used at all. Every position below is computed from that width,
+	-- so the settings panel opened with each thumb parked at the far left while
+	-- the number beside it read correctly.
 	s.track = CreateFrame("Frame", nil, s)
 	s.track:SetHeight(ns.SZ.SLIDER_TRACK)
 	s.track:SetPoint("LEFT", s, "LEFT", ns.SZ.SLIDER_THUMB / 2, 0)
-	s.track:SetPoint("RIGHT", s, "RIGHT",
-		-(ns.SZ.SLIDER_THUMB / 2 + ns.SZ.SLIDER_VALUE_W + ns.SZ.SLIDER_VALUE_GAP), 0)
 	s.track.surface = W.Surface(s.track, { color = "trackBg", radius = ns.SZ.SLIDER_TRACK / 2 })
+
+	-- The room left for the track once the thumb has its half-width at each end
+	-- and the value label has its column. Derived from the slider's own width,
+	-- which was set explicitly and is therefore true the moment it is set.
+	local TRACK_INSET = ns.SZ.SLIDER_THUMB + ns.SZ.SLIDER_VALUE_W + ns.SZ.SLIDER_VALUE_GAP
+	local function trackWidth()
+		return max(1, (s:GetWidth() or 0) - TRACK_INSET)
+	end
 
 	s.fill = CreateFrame("Frame", nil, s.track)
 	s.fill:SetHeight(ns.SZ.SLIDER_TRACK)
@@ -193,9 +206,11 @@ function Controls.Slider(parent, opts)
 	end
 
 	local function layout()
-		local width = s.track:GetWidth() or 1
+		local width = trackWidth()
+		s.track:SetWidth(width)
 		local range = s.maxValue - s.minValue
 		local progress = range > 0 and (s.value - s.minValue) / range or 0
+		progress = min(max(progress, 0), 1)
 		s.fill:SetWidth(max(1, width * progress))
 		s.thumb:ClearAllPoints()
 		s.thumb:SetPoint("CENTER", s.track, "LEFT", width * progress, 0)
@@ -207,7 +222,7 @@ function Controls.Slider(parent, opts)
 		local scale = s.track:GetEffectiveScale() or 1
 		local cursorX = select(1, GetCursorPosition()) / scale
 		local left = s.track:GetLeft() or 0
-		local width = s.track:GetWidth() or 1
+		local width = trackWidth()
 		local progress = min(max((cursorX - left) / width, 0), 1)
 		return snap(s.minValue + progress * (s.maxValue - s.minValue))
 	end
@@ -253,6 +268,15 @@ function Controls.Slider(parent, opts)
 
 	s:HookScript("OnSizeChanged", layout)
 
+	-- Called before SetValue when a pooled control is handed a different setting.
+	-- The old row's value is almost never legal in the new row's range, and a
+	-- slider showing a number outside its own scale is worse than a wrong one.
+	function s:SetRange(minValue, maxValue, step)
+		s.minValue, s.maxValue, s.step = minValue or 0, maxValue or 1, step or 0
+		s.value = snap(s.value)
+		layout()
+	end
+
 	function s:SetValue(value, fireCallback)
 		local snapped = snap(value)
 		if snapped == s.value then
@@ -296,7 +320,9 @@ function Controls.Dropdown(parent, opts)
 	d.label = W.Text(d, "SMALL", "textPrimary")
 	d.label:SetPoint("LEFT", d, "LEFT", ns.S.MD, 0)
 	d.label:SetPoint("RIGHT", d, "RIGHT", -(ns.S.MD + ns.SZ.ICON_GLYPH_SM), 0)
-	d.chevron = W.Icon(d, "chevron_down", ns.SZ.ICON_GLYPH_SM, "textMuted")
+	-- Secondary, not muted: this one says the row opens, and a hint you have to
+	-- look for is not a hint.
+	d.chevron = W.Icon(d, "chevron_down", ns.SZ.ICON_GLYPH_SM, "textSecondary")
 	d.chevron:SetPoint("RIGHT", d, "RIGHT", -ns.S.SM, 0)
 
 	W.MakeInteractive(d, function(state, instant)
@@ -307,11 +333,19 @@ function Controls.Dropdown(parent, opts)
 		W.SetTextRole(d.label, state == "disabled" and "textDisabled" or "textPrimary")
 	end)
 
-	local function labelFor(value)
+	local function optionFor(value)
 		for i = 1, #d.options do
-			if d.options[i].value == value then return d.options[i].label end
+			if d.options[i].value == value then return d.options[i] end
 		end
-		return tostring(value)
+		return nil
+	end
+
+	-- The label and the font it needs, together: an option written in a script
+	-- the theme font cannot draw carries the font that can.
+	local function showValue(value)
+		local option = optionFor(value)
+		W.SetTextFont(d.label, option and option.font or nil)
+		d.label:SetText(option and option.label or tostring(value))
 	end
 
 	d:HookScript("OnMouseUp", function(self)
@@ -321,6 +355,7 @@ function Controls.Dropdown(parent, opts)
 			local option = d.options[i]
 			entries[#entries + 1] = {
 				text = option.label,
+				font = option.font,
 				icon = option.value == d.value and "check" or nil,
 				onClick = function() d:SetValue(option.value, true) end,
 			}
@@ -333,12 +368,12 @@ function Controls.Dropdown(parent, opts)
 
 	function d:SetOptions(options)
 		d.options = options or {}
-		d.label:SetText(labelFor(d.value))
+		showValue(d.value)
 	end
 
 	function d:SetValue(value, fireCallback)
 		d.value = value
-		d.label:SetText(labelFor(value))
+		showValue(value)
 		if fireCallback and opts.onChange then
 			ns.Guard("Dropdown.onChange", opts.onChange, value)
 		end
@@ -349,6 +384,9 @@ function Controls.Dropdown(parent, opts)
 	function d:ApplyTheme()
 		d.surface:ApplyTheme()
 		W.RefreshText(d.label)
+		-- RefreshText puts the theme font back, which is right for every label
+		-- but this one: the chosen option may be the one that needs its own.
+		showValue(d.value)
 		W.RefreshIcon(d.chevron)
 		d.UpdateVisualState(true)
 	end
@@ -389,7 +427,7 @@ function Controls.SearchBox(parent, opts)
 	box.input.editBox:SetPoint("TOPLEFT", box.input, "TOPLEFT", ns.S.HUGE, 0)
 	box.input.placeholder:SetPoint("LEFT", box.input, "LEFT", ns.S.HUGE, 0)
 
-	box.icon = W.Icon(box, "search", ns.SZ.ICON_GLYPH_SM, "textMuted", "OVERLAY")
+	box.icon = W.Icon(box, "search", ns.SZ.ICON_GLYPH_SM, "textSecondary", "OVERLAY")
 	box.icon:SetPoint("LEFT", box, "LEFT", ns.S.MD, 0)
 
 	box.clear = ns.Button.Icon(box, {
