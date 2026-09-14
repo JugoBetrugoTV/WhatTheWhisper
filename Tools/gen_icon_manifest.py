@@ -109,18 +109,22 @@ def master(entry, render):
 
 # Safe padding inside the master square, in master pixels.
 #
-# It is not one number, because the icons are not all drawn at one size. A mark
-# rendered at 14px has so little room that the shape needs the whole square; a
-# glyph rendered at 20 has room to spare and looks oversized next to its
-# neighbours unless it is held back.
+# Deliberately small. The glyph is drawn at about seven tenths of its button, and
+# padding baked into the file comes straight off that: 10px of a 64px square is
+# a sixth of the width gone before the artwork starts, and the mark ends up
+# looking like the small grey suggestion this set exists to stop being.
+#
+# It is not one number, because the icons are not all drawn at one size. A
+# delivery tick rendered at 16px has so little room on screen that it needs
+# nearly the whole square; a glyph at 24 can afford a little more.
 def padding(entry, render, size):
-    if entry["size"] == "STATUS_ICON":
-        return 6
-    if render <= 15:
-        return 7
-    if render >= 20:
+    if size >= 128:
         return 10
-    return 9
+    if entry["size"] == "STATUS_ICON":
+        return 4
+    if render >= 22:
+        return 6
+    return 5
 
 
 rows = []
@@ -189,9 +193,12 @@ is the quickest way to find out whether a file landed in the right folder.
   looks assembled rather than designed.
 * **Rounded caps and joins**, geometric construction, no gradients, no inner
   shadows, no text, no perspective.
-* **Leave the safe padding empty.** The table gives a figure per icon, in source
-  pixels. Artwork that runs to the edge of the square looks larger than
-  everything beside it once it is scaled down.
+* **Leave the safe padding empty -- but only that much.** The table gives a
+  figure per icon, in source pixels, and it is small on purpose: the addon draws
+  these at about seven tenths of their button, so every pixel of padding baked
+  into the file is a pixel off the mark the player actually sees. Artwork that
+  runs right to the edge looks larger than everything beside it; artwork with a
+  wide margin looks timid. The figures below are the middle of that.
 * **It has to survive 14px.** Squint at it. If the shape only makes sense
   because of a detail three pixels across, it is the wrong drawing -- simplify
   it rather than making the detail bigger.

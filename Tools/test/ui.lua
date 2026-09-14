@@ -354,6 +354,7 @@ end
 -- title bar controls looks like it was assembled by hand.
 local function checkIconCentring(label, root)
 	local offenders, sample = 0, nil
+	local fills = {}
 	local nodes = auditable(root)
 	for i = 1, #nodes do
 		local node = nodes[i]
@@ -379,15 +380,48 @@ local function checkIconCentring(label, root)
 							sample = sample or (describe(kid)
 								.. (" off centre by %.2f,%.2f in its button"):format(dx, dy))
 						end
+						fills[#fills + 1] = { node = kid, ratio = iw / bw,
+							clearance = (bw - iw) / 2 }
 					end
 				end
 			end
 		end
 	end
 	check(label, offenders == 0, sample)
+	return fills
 end
 
-checkIconCentring("icons are centred in their buttons", window)
+local iconFills = checkIconCentring("icons are centred in their buttons", window)
+
+-- ...and they fill their buttons properly. Bounded at both ends, because both
+-- ends are wrong in a way that is hard to argue about afterwards.
+--
+-- Too small and the mark is a grey suggestion nobody can read -- which is what
+-- 56% turned out to be once real artwork went in the folder, rather than the
+-- heavier system glyphs the proportion was borrowed from. Too large and it
+-- touches the edge of its own hover wash, which reads as a rendering fault.
+--
+-- The floor sits at 60%. The buttons proper run 67-69%; the tightest thing that
+-- counts as one is the search field's clear button at 63%, which is a small X
+-- inside a small circle and right at that size.
+if #iconFills > 0 then
+	local thin, fat, thinSample, fatSample = 0, 0, nil, nil
+	for i = 1, #iconFills do
+		local fill = iconFills[i]
+		if fill.ratio < 0.60 then
+			thin = thin + 1
+			thinSample = thinSample or (describe(fill.node)
+				.. (" fills %.0f%% of its button"):format(fill.ratio * 100))
+		elseif fill.clearance < 2 then
+			fat = fat + 1
+			fatSample = fatSample or (describe(fill.node)
+				.. (" leaves %.1fpx of clearance"):format(fill.clearance))
+		end
+	end
+	check("icons are large enough to read in their buttons", thin == 0, thinSample)
+	check("and not so large they touch the edges", fat == 0, fatSample)
+	check("there were icon buttons to measure", #iconFills >= 4, tostring(#iconFills))
+end
 
 --------------------------------------------------------------------------------
 -- Bubbles: padding, alignment and the rhythm they share with the composer

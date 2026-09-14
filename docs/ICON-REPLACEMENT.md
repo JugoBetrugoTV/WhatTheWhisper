@@ -32,9 +32,12 @@ is the quickest way to find out whether a file landed in the right folder.
   looks assembled rather than designed.
 * **Rounded caps and joins**, geometric construction, no gradients, no inner
   shadows, no text, no perspective.
-* **Leave the safe padding empty.** The table gives a figure per icon, in source
-  pixels. Artwork that runs to the edge of the square looks larger than
-  everything beside it once it is scaled down.
+* **Leave the safe padding empty -- but only that much.** The table gives a
+  figure per icon, in source pixels, and it is small on purpose: the addon draws
+  these at about seven tenths of their button, so every pixel of padding baked
+  into the file is a pixel off the mark the player actually sees. Artwork that
+  runs right to the edge looks larger than everything beside it; artwork with a
+  wide margin looks timid. The figures below are the middle of that.
 * **It has to survive 14px.** Squint at it. If the shape only makes sense
   because of a detail three pixels across, it is the wrong drawing -- simplify
   it rather than making the detail bigger.
@@ -50,46 +53,46 @@ nothing in this set does.
 
 | File | What it is for | Rendered at | Source | Tintable | Safe padding | What it should look like | Hover/active art | Used in |
 |---|---|---|---|---|---|---|---|---|
-| `advanced.tga` | Settings category: Advanced | 18px | 64 x 64 | yes | 9px | keyboard, or a wrench | not needed | 1 place |
-| `animations.tga` | Settings category: Animations | 18px | 64 x 64 | yes | 9px | circular arrow | not needed | 1 place |
-| `appearance.tga` | Settings category: Appearance | 18px | 64 x 64 | yes | 9px | eye, or a paint drop | not needed | 1 place |
-| `bell.tga` | Unmute, in the conversation menu | 18px | 64 x 64 | yes | 9px | plain bell | not needed | 2 places |
-| `block.tga` | Ignore this player | 16px | 64 x 64 | yes | 9px | circle with a diagonal bar | not needed | 1 place |
-| `bullet.tga` | The default menu and settings-category mark, when nothing better fits | 16px | 64 x 64 | yes | 9px | a small filled dot | not needed | 3 places |
-| `chat.tga` | Whisper someone; empty-state illustration | 18px | 64 x 64 | yes | 9px | plain speech bubble | not needed | 6 places |
-| `close.tga` | Close buttons: window, popout, dialogs, clearing a search | 18px | 64 x 64 | yes | 9px | a thin X, equal-armed | not needed | 10 places |
-| `combat.tga` | Settings category: Combat | 18px | 64 x 64 | yes | 9px | shield outline | not needed | 1 place |
-| `copy.tga` | Copy name, copy message, copy URL | 16px | 64 x 64 | yes | 9px | two overlapping rounded squares | not needed | 3 places |
-| `delivered.tga` | Delivery: the server echoed it back | 14px | 64 x 64 | yes | 6px | two overlapping checks | not needed | 1 place |
-| `dock.tga` | Put a detached conversation back in the main window | 18px | 64 x 64 | yes | 9px | arrow entering a square | not needed | 2 places |
-| `down.tga` | Next search match, jump-to-latest, and dropdown chevrons | 16px | 64 x 64 | yes | 9px | chevron pointing down | not needed | 3 places |
-| `emoji.tga` | Opens the emoji picker, left of the composer field | 18px | 64 x 64 | yes | 9px | simple round smile | not needed | 1 place |
-| `export.tga` | Export or copy a whole conversation | 16px | 64 x 64 | yes | 9px | tray with an arrow leaving upward | not needed | 3 places |
-| `failed.tga` | Delivery: it did not go | 14px | 64 x 64 | yes | 6px | circled exclamation or X | not needed | 1 place |
-| `grid.tga` | Show every open conversation window at once | 18px | 64 x 64 | yes | 9px | four rounded squares | not needed | 2 places |
-| `grip.tga` | The window's resize corner | 15px | 64 x 64 | yes | 7px | three short diagonal strokes | not needed | 1 place |
-| `history.tga` | Settings category: History | 18px | 64 x 64 | yes | 9px | clock face | not needed | 1 place |
-| `info.tga` | Show character details under the conversation header | 18px | 64 x 64 | yes | 9px | circled lower-case i | not needed | 1 place |
-| `invite.tga` | Invite this player to your group | 16px | 64 x 64 | yes | 9px | head and shoulders with a plus | not needed | 1 place |
-| `link.tga` | Open a link in the browser | 16px | 64 x 64 | yes | 9px | globe with two meridians | not needed | 1 place |
-| `logo.tga` | The addon's mark: title bar and minimap button | 18px | 128 x 128 | yes | 9px | the addon's own mark; a speech bubble | not needed | 3 places |
-| `minimize.tga` | Minimise the window and collapse a popout to its header | 18px | 64 x 64 | yes | 9px | single horizontal bar, low | not needed | 2 places |
-| `more.tga` | The overflow menu in the conversation header and tab strip | 18px | 64 x 64 | yes | 9px | three horizontal dots | not needed | 2 places |
-| `mute.tga` | Muted conversation marker, and the mute action | 15px | 64 x 64 | yes | 7px | bell with a slash | not needed | 2 places |
-| `newchat.tga` | Start a new conversation, top right of the sidebar | 18px | 64 x 64 | yes | 9px | speech bubble with a plus | not needed | 1 place |
-| `person.tga` | Target this player; nickname actions | 16px | 64 x 64 | yes | 9px | head and shoulders | not needed | 2 places |
-| `pin.tga` | Pinned conversation marker, and the pin action | 15px | 64 x 64 | yes | 7px | push-pin, filled | not needed | 4 places |
-| `popout.tga` | Detach this conversation into its own window | 18px | 64 x 64 | yes | 9px | square with an arrow leaving it | not needed | 2 places |
-| `reveal.tga` | Show a message the game has hidden | 16px | 64 x 64 | yes | 9px | an open eye | not needed | 1 place |
-| `search.tga` | Search fields, and the header's search-in-thread button | 18px | 64 x 64 | yes | 9px | magnifier, handle to lower right | not needed | 5 places |
-| `send.tga` | The send button in the composer | 20px | 64 x 64 | yes | 10px | paper plane, pointing up-right | not needed | 1 place |
-| `sent.tga` | Delivery: sent, waiting for the server's echo | 14px | 64 x 64 | yes | 6px | single check | not needed | 4 places |
-| `settings.tga` | Opens the settings window; the Appearance-level settings category | 18px | 64 x 64 | yes | 9px | two horizontal sliders | not needed | 3 places |
-| `sounds.tga` | Settings category: Sounds | 18px | 64 x 64 | yes | 9px | speaker with one wave | not needed | 1 place |
-| `star.tga` | Add friend | 16px | 64 x 64 | yes | 9px | five-pointed star, outline | not needed | 1 place |
-| `trash.tga` | Clear or delete a conversation | 16px | 64 x 64 | yes | 9px | waste bin with a lid | not needed | 1 place |
-| `unpin.tga` | Unpin, in the conversation menu | 16px | 64 x 64 | yes | 9px | push-pin, outline only | not needed | 2 places |
-| `up.tga` | Previous search match | 16px | 64 x 64 | yes | 9px | chevron pointing up | not needed | 1 place |
+| `advanced.tga` | Settings category: Advanced | 22px | 64 x 64 | yes | 6px | keyboard, or a wrench | not needed | 1 place |
+| `animations.tga` | Settings category: Animations | 22px | 64 x 64 | yes | 6px | circular arrow | not needed | 1 place |
+| `appearance.tga` | Settings category: Appearance | 22px | 64 x 64 | yes | 6px | eye, or a paint drop | not needed | 1 place |
+| `bell.tga` | Unmute, in the conversation menu | 22px | 64 x 64 | yes | 6px | plain bell | not needed | 2 places |
+| `block.tga` | Ignore this player | 20px | 64 x 64 | yes | 5px | circle with a diagonal bar | not needed | 1 place |
+| `bullet.tga` | The default menu and settings-category mark, when nothing better fits | 20px | 64 x 64 | yes | 5px | a small filled dot | not needed | 3 places |
+| `chat.tga` | Whisper someone; empty-state illustration | 22px | 64 x 64 | yes | 6px | plain speech bubble | not needed | 6 places |
+| `close.tga` | Close buttons: window, popout, dialogs, clearing a search | 22px | 64 x 64 | yes | 6px | a thin X, equal-armed | not needed | 10 places |
+| `combat.tga` | Settings category: Combat | 22px | 64 x 64 | yes | 6px | shield outline | not needed | 1 place |
+| `copy.tga` | Copy name, copy message, copy URL | 20px | 64 x 64 | yes | 5px | two overlapping rounded squares | not needed | 3 places |
+| `delivered.tga` | Delivery: the server echoed it back | 16px | 64 x 64 | yes | 4px | two overlapping checks | not needed | 1 place |
+| `dock.tga` | Put a detached conversation back in the main window | 22px | 64 x 64 | yes | 6px | arrow entering a square | not needed | 2 places |
+| `down.tga` | Next search match, jump-to-latest, and dropdown chevrons | 19px | 64 x 64 | yes | 5px | chevron pointing down | not needed | 3 places |
+| `emoji.tga` | Opens the emoji picker, left of the composer field | 22px | 64 x 64 | yes | 6px | simple round smile | not needed | 1 place |
+| `export.tga` | Export or copy a whole conversation | 20px | 64 x 64 | yes | 5px | tray with an arrow leaving upward | not needed | 3 places |
+| `failed.tga` | Delivery: it did not go | 16px | 64 x 64 | yes | 4px | circled exclamation or X | not needed | 1 place |
+| `grid.tga` | Show every open conversation window at once | 22px | 64 x 64 | yes | 6px | four rounded squares | not needed | 2 places |
+| `grip.tga` | The window's resize corner | 18px | 64 x 64 | yes | 5px | three short diagonal strokes | not needed | 1 place |
+| `history.tga` | Settings category: History | 22px | 64 x 64 | yes | 6px | clock face | not needed | 1 place |
+| `info.tga` | Show character details under the conversation header | 22px | 64 x 64 | yes | 6px | circled lower-case i | not needed | 1 place |
+| `invite.tga` | Invite this player to your group | 20px | 64 x 64 | yes | 5px | head and shoulders with a plus | not needed | 1 place |
+| `link.tga` | Open a link in the browser | 20px | 64 x 64 | yes | 5px | globe with two meridians | not needed | 1 place |
+| `logo.tga` | The addon's mark: title bar and minimap button | 22px | 128 x 128 | yes | 10px | the addon's own mark; a speech bubble | not needed | 3 places |
+| `minimize.tga` | Minimise the window and collapse a popout to its header | 22px | 64 x 64 | yes | 6px | single horizontal bar, low | not needed | 2 places |
+| `more.tga` | The overflow menu in the conversation header and tab strip | 22px | 64 x 64 | yes | 6px | three horizontal dots | not needed | 2 places |
+| `mute.tga` | Muted conversation marker, and the mute action | 18px | 64 x 64 | yes | 5px | bell with a slash | not needed | 2 places |
+| `newchat.tga` | Start a new conversation, top right of the sidebar | 22px | 64 x 64 | yes | 6px | speech bubble with a plus | not needed | 1 place |
+| `person.tga` | Target this player; nickname actions | 20px | 64 x 64 | yes | 5px | head and shoulders | not needed | 2 places |
+| `pin.tga` | Pinned conversation marker, and the pin action | 18px | 64 x 64 | yes | 5px | push-pin, filled | not needed | 4 places |
+| `popout.tga` | Detach this conversation into its own window | 22px | 64 x 64 | yes | 6px | square with an arrow leaving it | not needed | 2 places |
+| `reveal.tga` | Show a message the game has hidden | 20px | 64 x 64 | yes | 5px | an open eye | not needed | 1 place |
+| `search.tga` | Search fields, and the header's search-in-thread button | 22px | 64 x 64 | yes | 6px | magnifier, handle to lower right | not needed | 5 places |
+| `send.tga` | The send button in the composer | 24px | 64 x 64 | yes | 6px | paper plane, pointing up-right | not needed | 1 place |
+| `sent.tga` | Delivery: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
+| `settings.tga` | Opens the settings window; the Appearance-level settings category | 22px | 64 x 64 | yes | 6px | two horizontal sliders | not needed | 3 places |
+| `sounds.tga` | Settings category: Sounds | 22px | 64 x 64 | yes | 6px | speaker with one wave | not needed | 1 place |
+| `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 1 place |
+| `trash.tga` | Clear or delete a conversation | 20px | 64 x 64 | yes | 5px | waste bin with a lid | not needed | 1 place |
+| `unpin.tga` | Unpin, in the conversation menu | 20px | 64 x 64 | yes | 5px | push-pin, outline only | not needed | 2 places |
+| `up.tga` | Previous search match | 19px | 64 x 64 | yes | 5px | chevron pointing up | not needed | 1 place |
 
 ## Notes on specific ones
 

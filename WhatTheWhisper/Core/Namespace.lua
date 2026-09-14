@@ -98,35 +98,42 @@ ns.SZ = {
 	AVATAR_XS         = 20,
 
 	BADGE_H           = 20,
-	-- The delivery mark tucked into the corner of an outgoing bubble. The
-	-- smallest glyph the UI draws, so the icon set's stroke weight is chosen to
-	-- survive it. Double-check marks are wider than they are tall.
-	STATUS_ICON       = 14,
-	STATUS_ICON_W     = 18,
+	-- The delivery mark tucked into the corner of an outgoing bubble. Still the
+	-- smallest glyph the UI draws -- it shares a line with an 11px timestamp and
+	-- must not out-shout it -- but a tick nobody can resolve is a tick that may
+	-- as well not be drawn. Double-check marks are wider than they are tall.
+	STATUS_ICON       = 16,
+	STATUS_ICON_W     = 21,
 	STATUS_DOT        = 7,
 
-	-- An icon button is a hit target with a mark floating in the middle of it.
-	-- The two sizes are independent on purpose: the target is what the mouse
-	-- needs and the glyph is what the eye needs, and they are not the same
-	-- number. 32/18 is the macOS toolbar proportion -- a generous target with a
-	-- mark that does not fill it, which is what keeps a row of them quiet.
+	-- An icon button is a hit target with a mark inside it. The two sizes are
+	-- independent on purpose: the target is what the mouse needs and the glyph is
+	-- what the eye needs, and they are not the same number.
+	--
+	-- The glyph fills about seven tenths of its button. That is the proportion
+	-- the messengers use, and it is deliberately fuller than a system toolbar's:
+	-- a toolbar icon is drawn at a weight the operating system controls, and
+	-- these are drawn by whoever made the file. At 56% the marks were technically
+	-- present and practically unreadable -- a row of small grey suggestions. The
+	-- button's footprint did not change, so nothing around them moved.
 	ICON_BTN          = 32,
 	-- The tighter button used in title bars and search bars, where a full size
 	-- one would crowd the row it sits in.
 	ICON_BTN_SM       = 28,
 	-- The mark inside the composer's send button, which is the one glyph in the
 	-- addon that is meant to be noticed.
-	ICON_GLYPH_LG     = 20,
-	ICON_GLYPH        = 18,
-	ICON_GLYPH_SM     = 16,
+	ICON_GLYPH_LG     = 24,
+	ICON_GLYPH        = 22,
+	ICON_GLYPH_SM     = 19,
 	-- Only for glyphs inside something already small, like a tab's close mark.
-	ICON_GLYPH_XS     = 13,
+	ICON_GLYPH_XS     = 15,
 	-- The pin and mute marks beside a name in the sidebar, and the resize grip.
-	-- Small on purpose -- they annotate a row rather than being read on their
-	-- own -- but not so small that the shape dissolves.
-	ICON_MARK         = 15,
+	-- These annotate a row rather than being read on their own, so they stay
+	-- below the button glyphs -- but they are marks with a meaning, not texture,
+	-- and at 15 the shape was dissolving.
+	ICON_MARK         = 18,
 	-- The logo, wherever it is drawn as a mark rather than as art.
-	ICON_LOGO         = 18,
+	ICON_LOGO         = 22,
 	SEND_BTN          = 36,
 
 	SCROLLBAR_W       = 4,
@@ -154,7 +161,9 @@ ns.SZ = {
 
 	MENU_ITEM_H       = 32,
 	MENU_MIN_W        = 184,
-	MENU_ICON         = 16,
+	-- A menu entry's mark is read as part of the line it labels, so it is set
+	-- against the entry's text rather than against a button.
+	MENU_ICON         = 20,
 
 	-- A notification, not a dialog. Wide enough for a name and one line of
 	-- message, and no taller than that needs.
@@ -216,9 +225,11 @@ ns.SZ = {
 	-- boundary and only the hairline is drawn, so the panels stay flush.
 	SPLITTER_HIT      = 12,
 
-	-- The corner resize handle. 16 was too small to hit reliably; 20 is about a
-	-- 5mm target at scale 1.0, and the glyph inside it does not change size.
-	RESIZE_GRIP       = 20,
+	-- The corner resize handle. 16 was too small to hit reliably, and 20 left the
+	-- mark inside it one pixel from the edge once the glyphs were enlarged --
+	-- which reads as a rendering fault rather than as a handle. 24 is a better
+	-- grab target and gives the mark room to be a mark.
+	RESIZE_GRIP       = 24,
 
 	-- The bar along the top edge of the active tab. The only place left that
 	-- marks a selection with a drawn bar rather than with the surface under it:
