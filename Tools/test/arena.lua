@@ -920,19 +920,28 @@ do
 end
 
 --------------------------------------------------------------------------------
--- Being unable to read is not being unable to write
+-- Which question decides whether a whisper may be sent
 --------------------------------------------------------------------------------
 
--- Two different questions with two different APIs. Not being allowed to read an
--- opponent's whisper does not by itself mean you cannot answer it, and refusing
--- to send on the strength of the wrong question would refuse in places the
--- client would have carried the message.
+-- Exactly one: InChatMessagingLockdown, which is documented as "API security
+-- restrictions regarding chat messaging are in effect".
+--
+-- Not C_ChatInfo.AreOutgoingAddonChatMessagesRestricted. That one reads like the
+-- precise answer and is not: Blizzard documents it as whether addons may send
+-- outgoing chat messages, "controlled on a realm-by-realm basis (tournament
+-- realms allow it)" -- the hidden channel addons talk to each other on, a
+-- property of the realm rather than of where the player is standing. On an
+-- ordinary realm it says restricted, permanently, and this addon gated whispers
+-- on it and refused every message anybody ever typed.
+--
+-- So the tests below pin both halves: the lockdown decides, and the addon-comms
+-- flag has no effect whatever it says.
 do
-	-- The flags are set after reset(), which clears them: a helper that quietly
-	-- undoes its own setup is a helper that passes for the wrong reason.
-	local function attemptSend(lockdown, restricted)
+	local function attemptSend(lockdown, addonComms)
 		reset()
-		M.chatLockdown, M.outgoingRestricted = lockdown, restricted
+		-- Set after reset(), which clears them: a helper that quietly undoes its
+		-- own setup is a helper that passes for the wrong reason.
+		M.chatLockdown, M.outgoingRestricted = lockdown, addonComms
 		CM.GetOrCreate(ns.Compat.NormalizeName("Empfaenger"))
 		M.sent = {}
 		local realPrint = ns.Print
@@ -943,29 +952,60 @@ do
 		return sent, #(M.sent or {}), printed
 	end
 
-	local sent, reached, told = attemptSend(true, true)
-	check("both restricted: refused", not sent)
-	eq("nothing reached the server", reached, 0)
-	check("and the player is told", told > 0)
-
-	-- Chat is withheld, but sending is not restricted: the message goes.
-	sent, reached = attemptSend(true, false)
-	check("withheld chat alone does not stop a send", sent == true)
+	-- The regression. This is the shipped bug, in one assertion: an ordinary
+	-- realm, an ordinary place, addon comms restricted as they always are.
+	local sent, reached = attemptSend(false, true)
+	check("a realm that restricts addon comms does not stop a whisper", sent == true)
 	eq("and it reached the server", reached, 1)
 
-	-- Neither: ordinary.
 	sent, reached = attemptSend(false, false)
-	check("unrestricted: sent", sent == true)
+	check("neither restricted: sent", sent == true)
 	eq("and reached the server", reached, 1)
 
-	-- A client with no specific API falls back to the general one.
-	local specific = _G.C_ChatInfo.AreOutgoingAddonChatMessagesRestricted
-	_G.C_ChatInfo.AreOutgoingAddonChatMessagesRestricted = nil
+	-- In lockdown -- an arena or a rated battleground -- it is refused, and the
+	-- refusal is said out loud rather than swallowed.
+	local told
 	sent, reached, told = attemptSend(true, false)
-	check("without the specific API, withheld chat refuses the send", not sent)
+	check("in chat lockdown: refused", not sent)
 	eq("nothing reached the server", reached, 0)
 	check("and the player is told", told > 0)
-	_G.C_ChatInfo.AreOutgoingAddonChatMessagesRestricted = specific
+
+	-- ...and with addon comms restricted too, which changes nothing.
+	sent, reached = attemptSend(true, true)
+	check("still refused, for the one reason that matters", not sent)
+	eq("and still nothing reached the server", reached, 0)
+
+	-- Said once. Somebody who cannot send presses Enter again, and again, and
+	-- repeating the same sentence per press fills the chat frame with the
+	-- addon's voice at the moment the addon is being least useful.
+	reset()
+	M.chatLockdown = true
+	-- Past the quiet window the refusals above opened. Without this the first of
+	-- the five would be swallowed by the last assertion's, and the count below
+	-- would be measuring the wrong thing.
+	M.now = M.now + 60
+	CM.GetOrCreate(ns.Compat.NormalizeName("Empfaenger"))
+	local realPrint = ns.Print
+	local printed = 0
+	ns.Print = function() printed = printed + 1 end
+	for _ = 1, 5 do
+		CM.SendMessage(ns.Compat.NormalizeName("Empfaenger"), "nochmal")
+	end
+	eq("five refused attempts say so once", printed, 1)
+
+	-- ...and it is news again once enough time has gone by.
+	M.now = M.now + 60
+	CM.SendMessage(ns.Compat.NormalizeName("Empfaenger"), "viel spaeter")
+	eq("and again after a while", printed, 2)
+
+	-- A send that works clears the memory of the refusal, so leaving the arena
+	-- and coming back does not start in silence.
+	M.chatLockdown = false
+	CM.SendMessage(ns.Compat.NormalizeName("Empfaenger"), "geht wieder")
+	M.chatLockdown = true
+	CM.SendMessage(ns.Compat.NormalizeName("Empfaenger"), "und wieder nicht")
+	eq("a successful send makes the next refusal news again", printed, 3)
+	ns.Print = realPrint
 
 	M.chatLockdown, M.outgoingRestricted = false, nil
 	reset()

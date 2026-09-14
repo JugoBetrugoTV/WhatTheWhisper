@@ -40,13 +40,26 @@ path on every supported client rather than only on Retail.
 
 Three questions that look like one and are not, which is why `Compat` keeps them
 apart: `issecretvalue` existing says the client *can* withhold values;
-`C_Secrets.HasSecretRestrictions()` says the restricted state is switched on;
-`InChatMessagingLockdown()` says incoming chat in particular is being withheld;
-and `AreOutgoingAddonChatMessagesRestricted()` says an outgoing message would be
-refused. `Compat.HasSecretRestrictions()` returns nil rather than false where the
-client does not answer, because "I was not told" and "I was told no" are not the
-same answer. Nothing in the event path branches on it; it is there so a bug
-report can say which of the four was true.
+`C_Secrets.HasSecretRestrictions()` says the restricted state is switched on; and
+`InChatMessagingLockdown()` says chat in particular is restricted.
+`Compat.HasSecretRestrictions()` returns nil rather than false where the client
+does not answer, because "I was not told" and "I was told no" are not the same
+answer. Nothing in the event path branches on it; it is there so a bug report can
+say which of the three was true.
+
+### The one that is not a fourth question
+
+`C_ChatInfo.AreOutgoingAddonChatMessagesRestricted()` reads like the precise
+answer to "may this whisper be sent" and is not. Blizzard documents it as whether
+addons may send outgoing chat messages, *"controlled on a realm-by-realm basis
+(tournament realms allow it)"* — the hidden channel addons use to talk to each
+other, and a property of the realm rather than of where the player is standing.
+On an ordinary realm it says restricted, permanently.
+
+This addon gated whispers on it and refused every message anybody typed, with
+"Whispers cannot be sent from here." Sending now asks `InChatMessagingLockdown()`
+and nothing else. This addon sends no addon messages at all, so that function has
+no caller here and should not acquire one.
 
 ## Feature audit
 

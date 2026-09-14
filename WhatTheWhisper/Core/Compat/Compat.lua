@@ -404,23 +404,27 @@ function Compat.HasSecretRestrictions()
 	return restricted == true
 end
 
--- Whether the client will carry a message an addon tries to send.
+-- Whether the client will carry a whisper the player has typed here.
 --
--- Not the same question as InChatMessagingLockdown, which is about what the
--- client will *tell* an addon. Being unable to read an arena opponent's whisper
--- does not by itself mean you cannot answer it, so the specific API is asked
--- first and the general one is only a fallback for a client without it.
--- Looked up per call rather than captured at load: this one is asked once per
--- message the player sends, so the table index costs nothing, and a client that
--- gains or loses the function mid-session then gets the right answer instead of
--- the one from login.
+-- This asks InChatMessagingLockdown and nothing else, and the reason is worth
+-- writing down because getting it wrong shipped once.
+--
+-- C_ChatInfo.AreOutgoingAddonChatMessagesRestricted looks like the precise
+-- answer and is not. Blizzard's own documentation: "Returns false if addons are
+-- allowed to send outgoing chat messages. This is controlled on a realm-by-realm
+-- basis (tournament realms allow it)". That is about SendAddonMessage -- the
+-- hidden channel addons talk to each other on -- and it is a property of the
+-- realm, not of where the player is standing. On an ordinary realm it says
+-- restricted, permanently, and gating whispers on it refused every message the
+-- player ever typed with "Whispers cannot be sent from here."
+--
+-- This addon does not send addon messages at all, so that function has no
+-- caller here and should not acquire one.
+--
+-- InChatMessagingLockdown is the documented signal for player chat: "API
+-- security restrictions regarding chat messaging are in effect". It is true in
+-- an arena or a rated battleground and false everywhere else.
 function Compat.OutgoingChatRestricted()
-	local info = _G.C_ChatInfo
-	local specific = info and info.AreOutgoingAddonChatMessagesRestricted
-	if type(specific) == "function" then
-		local ok, restricted = pcall(specific)
-		if ok then return restricted == true end
-	end
 	return Compat.InChatMessagingLockdown()
 end
 

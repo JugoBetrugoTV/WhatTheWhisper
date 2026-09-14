@@ -174,6 +174,33 @@ notes.append("%d SetPoint offsets checked against the spacing scale"
              % len(SPACING))
 
 # ---------------------------------------------------------------------------
+# One API that must not come back.
+#
+# C_ChatInfo.AreOutgoingAddonChatMessagesRestricted answers "may addons send on
+# the hidden channel they use to talk to each other", and it is a realm setting:
+# on an ordinary realm it says restricted, permanently. It reads like the answer
+# to "may this whisper be sent", and this addon believed that and refused every
+# message anybody typed.
+#
+# This addon sends no addon messages at all, so there is no correct caller for
+# it here. Naming it in a comment is fine -- that is how the next person finds
+# out why -- but calling it is the bug, so calling it is what fails.
+
+FORBIDDEN_CALL = "AreOutgoingAddonChatMessagesRestricted"
+for rel in declared:
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    for line_no, line in enumerate(body.split("\n"), 1):
+        stripped = line.strip()
+        if stripped.startswith("--"):
+            continue
+        if FORBIDDEN_CALL in stripped:
+            err("%s:%d calls %s. That is a realm setting about addon-to-addon "
+                "messages, not about whether a whisper may be sent; use "
+                "Compat.OutgoingChatRestricted, which asks "
+                "InChatMessagingLockdown" % (rel, line_no, FORBIDDEN_CALL))
+notes.append("the addon-comms restriction is not consulted for player chat")
+
+# ---------------------------------------------------------------------------
 # Every icon the UI asks for must resolve to art that exists.
 #
 # Icons are named for what they mean, and the name is looked up at runtime. A

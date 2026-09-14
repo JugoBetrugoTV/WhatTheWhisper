@@ -263,19 +263,14 @@ if Client.HasChatRestrictionAPI(FLAVOUR) then
 	eq("and nothing was invented for it",
 		CM.Get(Compat.NormalizeName("Gegner")), nil)
 
-	-- Outgoing is its own switch. Being unable to read an opponent's whisper
-	-- does not mean the player cannot answer it, so the addon must ask the
-	-- specific question rather than infer from the general one.
-	M.outgoingRestricted = false
-	eq("sending can still be allowed while chat is withheld",
-		Compat.OutgoingChatRestricted(), false)
-	M.sent = {}
-	check("so a whisper still goes out",
-		CM.SendMessage(Compat.NormalizeName("Thrall"), "trotzdem") == true)
-	eq("and reached the client", #(M.sent or {}), 1)
-
+	-- Sending follows the lockdown and nothing else. The addon-comms restriction
+	-- is a realm setting about the channel addons talk to each other on, and it
+	-- says "restricted" on every ordinary realm -- so a whisper that consulted it
+	-- would never be sent anywhere. It is switched on here to prove it is
+	-- ignored.
 	M.outgoingRestricted = true
-	eq("and refused when the client says so", Compat.OutgoingChatRestricted(), true)
+	eq("the addon-comms restriction does not decide this",
+		Compat.OutgoingChatRestricted(), Compat.InChatMessagingLockdown())
 	do
 		-- What the player typed stays in the box. Not a failed bubble: a failed
 		-- bubble is for a message the client took and the server rejected, and
@@ -301,6 +296,17 @@ if Client.HasChatRestrictionAPI(FLAVOUR) then
 		eq("and still nothing reached the client", #(M.sent or {}), 0)
 		composer.input:SetText("")
 	end
+
+	-- ...and once chat is no longer withheld the same send goes out, with the
+	-- addon-comms restriction still saying no.
+	M.chatLockdown = false
+	M.sent = {}
+	eq("sending is allowed again as soon as the lockdown lifts",
+		Compat.OutgoingChatRestricted(), false)
+	check("so the whisper goes",
+		CM.SendMessage(Compat.NormalizeName("Thrall"), "jetzt schon") == true)
+	eq("and reached the client", #(M.sent or {}), 1)
+	M.chatLockdown = true
 	M.outgoingRestricted = nil
 
 	-- Recovery. The client stops withholding, the line becomes readable, and

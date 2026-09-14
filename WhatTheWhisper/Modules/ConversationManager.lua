@@ -16,6 +16,13 @@ local conversations = {}
 local orderCache = {}
 local orderDirty = true
 local selectedID
+
+-- How long the same refusal stays quiet after it has been said once. A player
+-- who cannot send presses Enter again, and again -- that is what people do --
+-- and repeating the explanation once per press fills the chat frame with the
+-- addon's own voice at the exact moment the addon is being unhelpful.
+local REFUSAL_QUIET_SECONDS = 30
+local lastRefusalAt
 local totalUnread = 0
 
 local sort, wipe = table.sort, wipe
@@ -452,13 +459,22 @@ function CM.SendMessage(id, text)
 	if text == "" then return false end
 
 	-- The client refuses chat sent by an addon in an arena or a rated
-	-- battleground. Saying so is the whole of the fix: what somebody typed stays
-	-- in the box, because dropping it silently is the one outcome worse than not
-	-- being able to send it.
+	-- battleground. What somebody typed stays in the box, because dropping it
+	-- silently is the one outcome worse than not being able to send it.
+	--
+	-- Said out loud the first time and then not again for a while. The refusal
+	-- is the same every time and the player has already read it; what they need
+	-- after that is the text still sitting in the composer, which they have.
 	if Compat.OutgoingChatRestricted() then
-		ns.Print(ns.L["Whispers cannot be sent from here. Use the game's own chat box."])
+		local now = Compat.GetServerTime()
+		if not lastRefusalAt or (now - lastRefusalAt) >= REFUSAL_QUIET_SECONDS then
+			lastRefusalAt = now
+			ns.Print(ns.L["Whispers cannot be sent from here. Use the game's own chat box."])
+		end
 		return false
 	end
+	-- Sending worked, so the next refusal is news again.
+	lastRefusalAt = nil
 
 	local parts = ns.Text.SplitForSend(text, ns.MAX_MESSAGE_BYTES)
 	local sentAny = false
