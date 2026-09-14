@@ -15,7 +15,7 @@ local M = _G.WOWMOCK
 local Client = dofile(ROOT .. "Tools/test/client.lua")
 
 local FLAVOUR = (arg and arg[1]) or "retail"
-local profile = Client.Setup(FLAVOUR, arg and arg[2])
+Client.Setup(FLAVOUR, arg and arg[2])
 
 _G.SlashCmdList = {}
 _G.UnitRace = function() return "Human", "Human" end
@@ -123,16 +123,14 @@ check("and can send to it", Compat.canSendBattleNet)
 check("and can resolve its friends", Compat.canResolveBattleNetFriends)
 
 do
-	local FRIENDS = {
-		[1] = { bnetAccountID = 7001, battleTag = "Kumpel#1111",
-			accountName = "Kumpel",
-			gameAccountInfo = { isOnline = true, characterName = "Main" } },
+	-- One fixture, read through whichever door this client has: the modern
+	-- namespace on the shipping clients, BNGetFriendInfo on the artificial
+	-- fallback. Setting it up per client shape is how the legacy branch would
+	-- stop being tested without anyone noticing.
+	M.bnFriends = {
+		{ id = 7001, tag = "Kumpel#1111", name = "Kumpel", character = "Main" },
 	}
-	_G.C_BattleNet.GetFriendAccountInfo = function(i) return FRIENDS[i] end
-	_G.C_BattleNet.GetAccountInfoByID = function(id)
-		return FRIENDS[1].bnetAccountID == id and FRIENDS[1] or nil
-	end
-	if _G.BNGetNumFriends then _G.BNGetNumFriends = function() return 1 end end
+	M.bnet = { [7001] = { tag = "Kumpel#1111", name = "Kumpel", character = "Main" } }
 
 	M.FireEvent("CHAT_MSG_BN_WHISPER",
 		unpack(args("moin", "Kumpel", { bnet = 7001 }), 1, 13))
@@ -170,52 +168,169 @@ do
 	eq("an unresolvable Battle.net identity opens no thread", CM.Count(), before)
 	eq("and is never hidden from the chat frame", suppressed, false)
 
-	-- A refused send is a failed bubble, not a delivered one.
+	-- A refused send is a failed bubble, not a delivered one -- on a client that
+	-- can say it refused. C_BattleNet.SendWhisper returns a boolean and all four
+	-- shipping clients have it; the old BNSendWhisper global returns nothing at
+	-- all, so on the fallback there is no refusal to observe. That is a property
+	-- of the client rather than of this addon, and it is asserted as one instead
+	-- of being quietly skipped.
+	local canRefuse = type(_G.C_BattleNet) == "table"
+		and type(_G.C_BattleNet.SendWhisper) == "function"
+	eq("this client's Battle.net send reports its own refusals", canRefuse,
+		Client.HasChatRestrictionAPI(FLAVOUR))
+
 	M.refuseBN = true
 	local conv2 = CM.Get("BN:Kumpel#1111")
 	local n = #conv2.messages
 	CM.SendMessage(conv2.id, "wird abgelehnt")
 	eq("a refused send still records the message", #conv2.messages, n + 1)
 	eq("marked as failed", conv2.messages[#conv2.messages][ns.MSG_STATUS],
-		ns.SEND_FAILED)
+		canRefuse and ns.SEND_FAILED or ns.SEND_PENDING)
 	M.RunTimers(4)
 	eq("and the sweep never upgrades it",
-		conv2.messages[#conv2.messages][ns.MSG_STATUS], ns.SEND_FAILED)
+		conv2.messages[#conv2.messages][ns.MSG_STATUS],
+		canRefuse and ns.SEND_FAILED or ns.SEND_PENDING)
 	M.refuseBN = false
 	noErrors("nothing raised")
 end
 
 --------------------------------------------------------------------------------
--- Restricted content, where the client has it
+-- Restricted content
 --------------------------------------------------------------------------------
 
--- Retail 12.0 and later only. Everywhere else these functions do not exist, and
--- the addon has to behave as though nothing is ever withheld -- which is a
--- different thing from crashing because it asked.
-if profile.project == 1 then
-	eq("this client can withhold chat", Compat.InChatMessagingLockdown(), false)
-	M.chatLockdown = true
-	eq("and says so when it does", Compat.InChatMessagingLockdown(), true)
+-- Not a Retail question. C_ChatInfo's restriction and chat-line functions,
+-- C_Secrets.HasSecretRestrictions and the issecretvalue globals are all present
+-- on 12.1.0, 5.5.4, 2.5.6 and 1.15.9 alike, so every shipping client runs the
+-- whole block. The only client that skips it is the artificial fallback, which
+-- has those APIs taken away on purpose -- and it is made to prove that taking
+-- them away leaves the addon working rather than guessing.
+if Client.HasChatRestrictionAPI(FLAVOUR) then
+	-- Three separate questions, and the addon is wrong the moment it collapses
+	-- them into one. The API being there is not the restriction being on; the
+	-- restriction being on is not chat being withheld; chat being withheld is
+	-- not an outgoing message being refused.
+	eq("this client answers the restriction question at all",
+		type(Compat.HasSecretRestrictions()), "boolean")
+	eq("and says no while nothing is restricted", Compat.HasSecretRestrictions(), false)
+	eq("chat is not withheld", Compat.InChatMessagingLockdown(), false)
+	eq("and sending is not refused", Compat.OutgoingChatRestricted(), false)
 
-	local l = lineID()
-	M.chatLines[l] = { text = "aus der arena", sender = "Gegner", guid = "G-G" }
+	-- Restrictions on without chat being withheld: the client can be in the
+	-- restricted state for something other than this addon's business, and an
+	-- addon that holds whispers on that signal holds them for nothing.
+	M.secretRestrictions = true
+	eq("restrictions can be on with chat still flowing",
+		Compat.HasSecretRestrictions(), true)
+	eq("and chat is still not withheld", Compat.InChatMessagingLockdown(), false)
+	M.secretRestrictions = nil
+
+	-- An ordinary whisper, with the APIs present and nothing restricted. The
+	-- case that has to keep working, and the one a nervous implementation
+	-- breaks first.
+	do
+		local l = lineID()
+		M.chatLines[l] = { text = "ganz normal", sender = "Normalo", guid = "G-N" }
+		M.FireEvent("CHAT_MSG_WHISPER",
+			unpack(args("ganz normal", "Normalo", { line = l, guid = "G-N" }), 1, 13))
+		M.RunTimers(2)
+		local conv = CM.Get(Compat.NormalizeName("Normalo"))
+		check("an ordinary whisper is simply stored", conv ~= nil
+			and conv.messages[#conv.messages][ns.MSG_TEXT] == "ganz normal",
+			conv and conv.messages[#conv.messages][ns.MSG_TEXT] or "no thread")
+		eq("with nothing held", ns.Deferred.Count(), 0)
+	end
+
+	-- Lockdown, both ways round.
+	M.chatLockdown = true
+	eq("the client says so when chat is withheld",
+		Compat.InChatMessagingLockdown(), true)
+	eq("and reports itself restricted", Compat.HasSecretRestrictions(), true)
+
+	-- What a chat line is worth while chat is withheld: the id is never secret,
+	-- but the client will not give up the text yet. Asking is allowed; the
+	-- answer is nothing, and nothing is not an error.
+	local held = lineID()
+	M.chatLines[held] = { text = "aus der arena", sender = "Gegner", guid = "G-G" }
+	eq("a held line is still a line the client knows",
+		Compat.IsValidChatLine(held), true)
+	eq("a line that has aged out is not", Compat.IsValidChatLine(999999), false)
+	eq("and its text is withheld for now", (Compat.GetChatLine(held)), nil)
+
 	M.FireEvent("CHAT_MSG_WHISPER",
-		unpack(args(M.Secret(), M.Secret(), { line = l, guid = "G-G" }), 1, 13))
+		unpack(args(M.Secret(), M.Secret(), { line = held, guid = "G-G" }), 1, 13))
 	M.RunTimers(2)
-	eq("a withheld whisper is held", ns.Deferred.Count(), 1)
+	eq("a withheld whisper is held, not dropped", ns.Deferred.Count(), 1)
+	eq("and nothing was invented for it",
+		CM.Get(Compat.NormalizeName("Gegner")), nil)
+
+	-- Outgoing is its own switch. Being unable to read an opponent's whisper
+	-- does not mean the player cannot answer it, so the addon must ask the
+	-- specific question rather than infer from the general one.
+	M.outgoingRestricted = false
+	eq("sending can still be allowed while chat is withheld",
+		Compat.OutgoingChatRestricted(), false)
+	M.sent = {}
+	check("so a whisper still goes out",
+		CM.SendMessage(Compat.NormalizeName("Thrall"), "trotzdem") == true)
+	eq("and reached the client", #(M.sent or {}), 1)
+
+	M.outgoingRestricted = true
+	eq("and refused when the client says so", Compat.OutgoingChatRestricted(), true)
+	do
+		-- What the player typed stays in the box. Not a failed bubble: a failed
+		-- bubble is for a message the client took and the server rejected, and
+		-- this one was never taken -- retyping it is the one outcome worse than
+		-- being told it cannot go.
+		local id = Compat.NormalizeName("Thrall")
+		local conv = CM.Get(id)
+		local n = #conv.messages
+		M.sent = {}
+		eq("a restricted send reports failure", CM.SendMessage(id, "geht nicht"), false)
+		eq("and nothing reached the client", #(M.sent or {}), 0)
+		eq("and no bubble is invented for it", #conv.messages, n)
+
+		-- Through the composer, which is where the player actually meets this.
+		CM.Select(id)
+		ns.UI.Show()
+		M.RunFrames(2)
+		local composer = ns.MainWindow.Get().view.composer
+		composer.input:SetText("geht nicht")
+		composer:Submit()
+		M.RunFrames(2)
+		eq("the text stays in the box", composer.input:GetText(), "geht nicht")
+		eq("and still nothing reached the client", #(M.sent or {}), 0)
+		composer.input:SetText("")
+	end
+	M.outgoingRestricted = nil
+
+	-- Recovery. The client stops withholding, the line becomes readable, and
+	-- the held message is reconstructed from it -- with the timestamp of when
+	-- it was sent, not of when the addon caught up.
 	M.chatLockdown = false
+	eq("restrictions lift with the lockdown", Compat.HasSecretRestrictions(), false)
+	eq("and the line is readable now", (Compat.GetChatLine(held)), "aus der arena")
 	for _ = 1, 4 do M.RunTimers(2) M.RunFrames(2) end
-	eq("and released afterwards", ns.Deferred.Count(), 0)
-	check("into its thread", CM.Get(Compat.NormalizeName("Gegner")) ~= nil)
+	eq("the held whisper is released", ns.Deferred.Count(), 0)
+	do
+		local conv = CM.Get(Compat.NormalizeName("Gegner"))
+		check("into its own thread", conv ~= nil, "no thread for the released message")
+		eq("with the text the client gave back",
+			conv and conv.messages[1][ns.MSG_TEXT], "aus der arena")
+		eq("exactly once", conv and #conv.messages, 1)
+	end
 	noErrors("nothing raised")
 else
-	-- No secret values here, so nothing may be treated as withheld.
-	eq("nothing is ever withheld on this client",
-		Compat.InChatMessagingLockdown(), false)
-	eq("and no value is ever secret", Compat.IsSecretValue("hallo"), false)
+	-- The artificial fallback: none of those APIs. The addon must behave as
+	-- though nothing is ever withheld, which is a different thing from crashing
+	-- because it asked, and different again from claiming to know the answer.
+	eq("this client cannot answer the restriction question",
+		Compat.HasSecretRestrictions(), nil)
+	eq("nothing is ever withheld", Compat.InChatMessagingLockdown(), false)
+	eq("no value is ever secret", Compat.IsSecretValue("hallo"), false)
 	eq("sending is never restricted", Compat.OutgoingChatRestricted(), false)
 	eq("a chat line has no validity to ask about", Compat.IsValidChatLine(1), nil)
-	eq("and nothing is ever censored", Compat.IsChatLineCensored(1), false)
+	eq("nothing is ever censored", Compat.IsChatLineCensored(1), false)
+	eq("and there is no line text to reconstruct from", (Compat.GetChatLine(1)), nil)
 
 	local l = lineID()
 	M.FireEvent("CHAT_MSG_WHISPER",

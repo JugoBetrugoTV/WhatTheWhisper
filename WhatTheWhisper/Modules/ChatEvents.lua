@@ -137,6 +137,15 @@ local bnKeyCache = {}
 -- under. Set only for the duration of one handler call.
 local admittedBNAccountID
 
+-- Work that happens because a message was stored, rather than in order to store
+-- it: a toast, a sound, the window scrolling. None of it can un-store anything,
+-- so a failure here is recorded and stepped over -- and, crucially, does not
+-- make a replayed message look unstored and get delivered twice.
+local function aftermath(label, fn, ...)
+	if type(fn) ~= "function" then return end
+	ns.Guard(label, fn, ...)
+end
+
 -- The account id behind a Battle.net whisper, or nil.
 --
 -- The id arrives beside the text and is sometimes the one thing withheld -- and
@@ -263,10 +272,19 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 	-- drawn for anybody.
 	PlayerInfo.NoteActivity(id)
 
+	-- The commit. Everything above is working out where it goes; this is the
+	-- line that means the message exists.
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp, nil,
 		censoredLine and { censoredLine = censoredLine } or nil)
+	if not msg then return false end
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
-	ns.Notifications.OnIncoming(conv, msg, isMention(text))
+
+	-- ...and everything below is what happens because it exists. Guarded on its
+	-- own so a toast that throws cannot un-store a stored message: a replayed
+	-- one would otherwise be retried and land twice.
+	aftermath("Notifications.OnIncoming", ns.Notifications.OnIncoming, conv, msg,
+		isMention(text))
+	return true
 end
 
 local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
@@ -280,16 +298,21 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 	PlayerInfo.NoteActivity(id)
 
 	if resolvePending(id, text) then
+		-- Matching an echo to a message already on screen is a commit too: the
+		-- model changed, and replaying it would mark the same message twice.
 		Debug.Log("dedupe", "inform matched a pending message to %s", id)
-		return
+		return true
 	end
 
 	-- Sent from the default chat frame or another addon: adopt it.
 	Debug.Log("dedupe", "adopting foreign outgoing whisper to %s", id)
-	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, replayTimestamp, ns.SEND_OK)
+	local msg = CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, replayTimestamp,
+		ns.SEND_OK)
+	if not msg then return false end
 	if ns.db.profile.messages.openOnSend then
-		ns.UI.EnsureConversationOpen(id, true)
+		aftermath("UI.EnsureConversationOpen", ns.UI.EnsureConversationOpen, id, true)
 	end
+	return true
 end
 
 local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
@@ -308,8 +331,11 @@ local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSe
 	})
 	conv.bnetAccountID = accountID
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET, replayTimestamp)
+	if not msg then return false end
 	Debug.Log("events", "bnet whisper in on %s", id)
-	ns.Notifications.OnIncoming(conv, msg, isMention(text))
+	aftermath("Notifications.OnIncoming", ns.Notifications.OnIncoming, conv, msg,
+		isMention(text))
+	return true
 end
 
 local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
@@ -323,10 +349,11 @@ local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _
 	end
 	if resolvePending(id, text) then
 		Debug.Log("dedupe", "bnet inform matched a pending message on %s", id)
-		return
+		return true
 	end
 	Debug.Log("dedupe", "adopting foreign outgoing bnet whisper on %s", id)
-	CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, replayTimestamp, ns.SEND_OK)
+	return CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_BNET, replayTimestamp,
+		ns.SEND_OK) ~= nil
 end
 
 -- The target's away/busy auto-reply. Shown inside the thread, where it belongs.
@@ -341,7 +368,7 @@ local function onAutoReply(kind)
 		-- which is where class and race come from. Both were being dropped.
 		PlayerInfo.Observe(id, guid)
 		PlayerInfo.NoteActivity(id)
-		CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp)
+		return CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp) ~= nil
 	end
 end
 
@@ -660,15 +687,23 @@ end)
 -- and `args.timestamp` is when it actually arrived rather than when we caught
 -- up -- a thread that reorders itself after an arena is worse than one that was
 -- briefly behind.
+-- Returns whether the message was actually committed to the model -- stored, or
+-- matched to one already there. Not whether the handler ran without throwing:
+-- a handler that threw on its way to AddMessage stored nothing, and treating
+-- that as delivered throws the message away.
 local function replay(event, args, identity)
 	local handler = handlers[event]
-	if not handler then return end
+	if not handler then return false end
 	replayTimestamp = args.timestamp
 	replayCensoredLine = args.censored and args.lineID or false
 	admittedBNAccountID = identity
-	local ok = ns.Guard(event, handler, unpack(args, 1, 20))
+	local ran, committed = pcall(handler, unpack(args, 1, 20))
 	replayTimestamp, replayCensoredLine, admittedBNAccountID = nil, nil, nil
-	return ok
+	if not ran then
+		ns.SoftError("Deferred." .. event, committed)
+		return false
+	end
+	return committed == true
 end
 
 function ChatEvents.Init()

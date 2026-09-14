@@ -75,12 +75,12 @@ for client in enUS koKR zhCN zhTW; do
 done
 
 echo "== per-flavour behaviour =="
-for flavor in retail modern mop tbc classic; do
+for flavor in retail modern mop tbc classic fallback; do
 	suite "flavour: $flavor" Tools/test/flavour.lua "$flavor"
 done
 
 echo "== mock client boots =="
-for flavor in retail modern mop tbc classic; do
+for flavor in retail modern mop tbc classic fallback; do
 	printf '  %-26s ' "$flavor"
 	lua5.1 Tools/test/run.lua "$flavor" 2>&1 | tail -1
 done

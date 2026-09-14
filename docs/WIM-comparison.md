@@ -26,6 +26,28 @@ identity is recovered on the live path too rather than only after a replay.
 
 Where WIM was ahead until this round: nothing outstanding.
 
+### Which clients this applies to
+
+All of them. The restriction APIs (`InChatMessagingLockdown`,
+`AreOutgoingAddonChatMessagesRestricted`), the chat-line APIs
+(`GetChatLineText`, `GetChatLineSenderName`, `GetChatLineSenderGUID`,
+`IsValidChatLine`, `IsChatLineCensored`, `UncensorChatLine`), the
+`issecretvalue` / `hasanysecretvalues` globals and `C_Secrets` are present on
+12.1.0, 5.5.4, 2.5.6 and 1.15.9 alike -- verified against the generated API
+documentation in Gethe/wow-ui-source at each of those tags. So none of this is
+behind a version check, and the test suite exercises the whole restricted-content
+path on every supported client rather than only on Retail.
+
+Three questions that look like one and are not, which is why `Compat` keeps them
+apart: `issecretvalue` existing says the client *can* withhold values;
+`C_Secrets.HasSecretRestrictions()` says the restricted state is switched on;
+`InChatMessagingLockdown()` says incoming chat in particular is being withheld;
+and `AreOutgoingAddonChatMessagesRestricted()` says an outgoing message would be
+refused. `Compat.HasSecretRestrictions()` returns nil rather than false where the
+client does not answer, because "I was not told" and "I was told no" are not the
+same answer. Nothing in the event path branches on it; it is there so a bug
+report can say which of the four was true.
+
 ## Feature audit
 
 | WIM module | Ours | Verdict |

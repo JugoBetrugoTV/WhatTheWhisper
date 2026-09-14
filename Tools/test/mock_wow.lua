@@ -1163,6 +1163,24 @@ _G.hasanysecretvalues = function(...)
 	return false
 end
 
+-- Whether the client is applying secret restrictions at all.
+--
+-- A separate knob from M.chatLockdown, and separate again from whether
+-- C_Secrets exists. All four supported clients ship the namespace, so a test
+-- that reads the function's presence as "this is Retail" is reading the wrong
+-- thing: the API is always there, only the answer moves.
+--
+-- nil follows the lockdown, which is what the live client does in an arena.
+-- true or false is a fixture overriding it deliberately -- restrictions on with
+-- chat still flowing is a real state, and an addon that holds whispers on that
+-- signal holds them for nothing.
+M.secretRestrictions = nil
+_G.C_Secrets = {}
+_G.C_Secrets.HasSecretRestrictions = function()
+	if M.secretRestrictions ~= nil then return M.secretRestrictions == true end
+	return M.chatLockdown == true
+end
+
 -- Chat withheld from addons: true in an arena or a rated battleground. Driven by
 -- the test through M.chatLockdown.
 --
@@ -1455,7 +1473,14 @@ _G.C_BattleNet = {
 		M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "C_BattleNet" }
 		return true
 	end,
-	GetFriendAccountInfo = function() return nil end,
+	GetFriendAccountInfo = function(index)
+		local friend = M.bnFriends and M.bnFriends[index]
+		if not friend then return nil end
+		return { bnetAccountID = friend.id, battleTag = friend.tag,
+			accountName = friend.name,
+			gameAccountInfo = { isOnline = friend.online ~= false,
+				characterName = friend.character } }
+	end,
 	GetAccountInfoByID = function(id)
 		local info = M.bnet and M.bnet[id]
 		if not info then return nil end
@@ -1463,8 +1488,24 @@ _G.C_BattleNet = {
 			gameAccountInfo = { isOnline = true, characterName = info.character } }
 	end,
 }
-_G.BNGetNumFriends = function() return 0 end
--- The old global, which answers nothing at all: on a client that has only this,
+
+-- One friends list, read through whichever door the client has. A fixture that
+-- had to be set up twice would let the two paths drift, and the legacy one is
+-- the path that only gets walked when the modern namespace is gone -- so it is
+-- exactly the one that would rot unnoticed.
+-- { { id = 7001, tag = "Kumpel#1111", name = "Kumpel", character = "Main" } }
+M.bnFriends = {}
+_G.BNGetNumFriends = function() return #(M.bnFriends or {}) end
+-- The old global's positional shape, holes and all. Its signature moved several
+-- times across the clients that have it, which is why Compat reads it by shape
+-- rather than by position -- and why the shape here has the gaps in it.
+_G.BNGetFriendInfo = function(index)
+	local friend = M.bnFriends and M.bnFriends[index]
+	if not friend then return nil end
+	return friend.id, friend.name, friend.tag, true, friend.character,
+		nil, "WoW", friend.online ~= false
+end
+-- The old send, which answers nothing at all: on a client that has only this,
 -- a call that came back without throwing is the only signal there is.
 _G.BNSendWhisper = function(id, text)
 	M.sentBN = M.sentBN or {}

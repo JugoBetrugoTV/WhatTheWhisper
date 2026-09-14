@@ -166,10 +166,18 @@ local function release(entry)
 	-- The time it was sent, not the time we caught up. A thread that reorders
 	-- itself after an arena is worse than one that was briefly behind.
 	args.timestamp = entry.at
-	if dispatch then
-		ns.Guard("Deferred." .. entry.event, dispatch, entry.event, args, identity)
-	end
-	return true
+	if not dispatch then return false end
+
+	-- Admissible is not stored. The handler can still fail on its way to the
+	-- commit -- and dequeueing on "it was allowed to try" would throw the
+	-- message away on the strength of an attempt. So the answer that matters is
+	-- the one the model gives: did the message actually land.
+	--
+	-- Anything the handler does *after* the commit -- a toast, a sound, the
+	-- window scrolling -- is guarded inside the handler and cannot report
+	-- failure here, because retrying past a commit is how one message becomes
+	-- two.
+	return dispatch(entry.event, args, identity) == true
 end
 
 -- Everything that can be released now. Returns how many were.

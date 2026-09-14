@@ -93,6 +93,20 @@ local function threadOf(name)
 	return CM.Get(ns.Compat.NormalizeName(name))
 end
 
+-- How many messages are in a thread, counting a thread that does not exist as
+-- none. A broken addon is exactly the case where the thread is missing, and an
+-- assertion that indexes nil turns the rest of a block into a stack trace.
+local function stored(name)
+	local conv = CM.Get(ns.Compat.NormalizeName(name))
+	return #(conv and conv.messages or {})
+end
+
+local function textOf(name, index)
+	local conv = CM.Get(ns.Compat.NormalizeName(name))
+	local msg = conv and conv.messages[index]
+	return msg and msg[3] or nil
+end
+
 local function texts(conv)
 	local out = {}
 	for i = 1, #(conv and conv.messages or {}) do
@@ -1088,6 +1102,123 @@ do
 	eq("and it is still the real thing after a reload",
 		CM.MessageText(after.messages[#after.messages]), "jetzt sichtbar")
 	noErrors("nothing raised")
+end
+
+--------------------------------------------------------------------------------
+-- Released is not "the handler did not throw"
+--------------------------------------------------------------------------------
+
+-- A held message leaves the queue when it has been stored. Not when it was
+-- allowed to try, and not when the handler happened to return without raising.
+--
+-- The two failures are opposite and both fatal. Dequeue on "it was allowed to
+-- try" and a handler that dies on its way to AddMessage throws the message away
+-- along with the queue entry that was its only remaining copy. Keep the entry
+-- after the message was stored and the next sweep stores it again -- one
+-- whisper, two bubbles, and the player cannot tell which one was real.
+--
+-- So the question the queue asks is the one the model answers: is it in there.
+--
+-- The sweeps here are driven by hand rather than by leaving the arena, because
+-- leaving runs a dozen of them and the point of this block is what one sweep
+-- does. Spending the retry budget would prove the entry was dropped as
+-- unrecoverable, which is a different thing from what is being tested.
+do
+	reset()
+	local realAdd = CM.AddMessage
+	local function sweep() return ns.Deferred.Flush() end
+
+	local l = lineID()
+	M.chatLines[l] = { text = "kommt spaeter", sender = "Spaeter", guid = "G-S1" }
+	enterArena()
+	fire("CHAT_MSG_WHISPER", whisperArgs("kommt spaeter", "Spaeter", "G-S1", l,
+		{ text = true, sender = true }))
+	eq("held while the client is withholding", ns.Deferred.Count(), 1)
+	M.chatLockdown = false
+
+	-- The handler dies on its way to the commit.
+	local attempts = 0
+	CM.AddMessage = function()
+		attempts = attempts + 1
+		error("the commit failed")
+	end
+	eq("the sweep released nothing", sweep(), 0)
+	CM.AddMessage = realAdd
+	eq("the handler was reached", attempts, 1)
+	eq("a commit that raised does not release the message", ns.Deferred.Count(), 1)
+	eq("and stored nothing", stored("Spaeter"), 0)
+	check("the failure was reported rather than swallowed", #softErrors > 0)
+	softErrors = {}
+
+	-- Refusing quietly is the same answer. A handler that returns without
+	-- storing has stored nothing, whether it said so by raising or by returning.
+	CM.AddMessage = function() return nil end
+	eq("the sweep released nothing again", sweep(), 0)
+	CM.AddMessage = realAdd
+	eq("a commit that refused does not release it either", ns.Deferred.Count(), 1)
+	eq("and still stored nothing", stored("Spaeter"), 0)
+	noErrors("a refusal is not an error")
+
+	-- And when it finally works, it lands once and leaves.
+	eq("the sweep that worked released it", sweep(), 1)
+	eq("so nothing is left held", ns.Deferred.Count(), 0)
+	eq("stored exactly once", stored("Spaeter"), 1)
+	eq("with the text the client gave back", textOf("Spaeter", 1), "kommt spaeter")
+
+	-- And the sweeps that follow find nothing to deliver a second time.
+	eq("a later sweep has nothing to do", sweep(), 0)
+	eq("still exactly once", stored("Spaeter"), 1)
+	noErrors("nothing raised")
+end
+
+-- The other half. Everything after the commit -- the toast, the sound, the
+-- window scrolling -- is not part of whether the message exists. A toast that
+-- throws must not make a stored message look unstored, because the queue's
+-- answer to "unstored" is to deliver it again.
+do
+	reset()
+	local realNotify = ns.Notifications.OnIncoming
+	local l = lineID()
+	M.chatLines[l] = { text = "nach dem commit", sender = "Toastfehler", guid = "G-TF" }
+	enterArena()
+	fire("CHAT_MSG_WHISPER", whisperArgs("nach dem commit", "Toastfehler", "G-TF", l,
+		{ text = true, sender = true }))
+	eq("held", ns.Deferred.Count(), 1)
+	M.chatLockdown = false
+
+	local notified = 0
+	ns.Notifications.OnIncoming = function()
+		notified = notified + 1
+		error("the toast failed")
+	end
+	eq("the sweep released it", ns.Deferred.Flush(), 1)
+	ns.Notifications.OnIncoming = realNotify
+
+	eq("the notification was reached", notified, 1)
+	eq("a toast that threw still releases the message", ns.Deferred.Count(), 0)
+	eq("and the message is stored exactly once", stored("Toastfehler"), 1)
+	check("the failure was reported rather than swallowed", #softErrors > 0)
+	softErrors = {}
+
+	-- The sweeps that follow must not find it again. This is the duplicate the
+	-- whole distinction exists to prevent.
+	leaveArena(60)
+	eq("no later sweep delivers it a second time", stored("Toastfehler"), 1)
+	eq("with nothing left held", ns.Deferred.Count(), 0)
+	noErrors("nothing raised afterwards")
+end
+
+-- The same question on the live path, where there is no queue to be wrong
+-- about: a toast that throws must not cost the message either.
+do
+	reset()
+	local realNotify = ns.Notifications.OnIncoming
+	ns.Notifications.OnIncoming = function() error("the toast failed") end
+	fire("CHAT_MSG_WHISPER", whisperArgs("direkt", "Direkt", "G-S3", lineID()))
+	ns.Notifications.OnIncoming = realNotify
+	eq("a live whisper is stored even when the toast throws", stored("Direkt"), 1)
+	check("and the failure was reported", #softErrors > 0)
+	softErrors = {}
 end
 
 --------------------------------------------------------------------------------

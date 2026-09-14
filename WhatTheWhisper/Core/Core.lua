@@ -221,6 +221,18 @@ function addon:PrintDiagnostics()
 	ns.Print(("errors=%d degraded=%s debug=%s"):format(
 		ns.Debug.ErrorCount(), tostring(ns.Debug.IsDegraded()), tostring(ns.Debug.IsEnabled())))
 
+	-- The three restriction questions, kept apart on purpose. `secrets` is
+	-- whether the client is applying restrictions at all (nil where it does not
+	-- answer, which is not the same as no), `chatlock` whether incoming chat is
+	-- being withheld from addons, `outgoing` whether an addon's own message
+	-- would be carried. A report that says only "in an arena" cannot tell these
+	-- apart, and they are what every restricted-content bug turns on.
+	ns.Print(("secrets=%s chatlock=%s outgoing=%s held=%d dropped=%d"):format(
+		tostring(Compat.HasSecretRestrictions()),
+		tostring(Compat.InChatMessagingLockdown()),
+		tostring(Compat.OutgoingChatRestricted()),
+		ns.Deferred.Count(), ns.Deferred.DroppedCount()))
+
 	-- Pools, busiest first. Only the ones that ever produced something: a list
 	-- of twenty zeroes hides the one number worth reading.
 	local pools = ns.Pool.Snapshot()

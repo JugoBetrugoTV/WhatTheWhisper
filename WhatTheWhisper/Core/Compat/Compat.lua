@@ -379,6 +379,31 @@ function Compat.InChatMessagingLockdown()
 	return ok and locked == true
 end
 
+-- Whether the client is applying secret restrictions right now.
+--
+-- A third question again, and the broadest one. `issecretvalue` existing says
+-- the client *can* withhold values; InChatMessagingLockdown says chat in
+-- particular is being withheld; this says the restricted state is switched on
+-- at all. All four supported clients ship C_Secrets, so the presence of the
+-- function is not a flavour test and must not be used as one -- it is the
+-- answer that varies, not the API.
+--
+-- Returns nil, not false, on a client that does not answer. "I was not told"
+-- and "I was told no" read the same in an `if`, and the difference is the whole
+-- point of asking: nothing here is allowed to turn into "Classic has no
+-- secrets". Nothing in the event path branches on this; it is what a bug report
+-- needs in order to say whether the player was under restrictions when the
+-- thing went wrong.
+function Compat.HasSecretRestrictions()
+	local secrets = _G.C_Secrets
+	if not secrets or type(secrets.HasSecretRestrictions) ~= "function" then
+		return nil
+	end
+	local ok, restricted = pcall(secrets.HasSecretRestrictions)
+	if not ok then return nil end
+	return restricted == true
+end
+
 -- Whether the client will carry a message an addon tries to send.
 --
 -- Not the same question as InChatMessagingLockdown, which is about what the
