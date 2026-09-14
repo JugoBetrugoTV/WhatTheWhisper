@@ -1370,6 +1370,28 @@ M.cvars = { whisperMode = "inline" }
 _G.GetCVar = function(name) return M.cvars[name] end
 _G.SetCVar = function(name, value) M.cvars[name] = value return true end
 
+-- Whether the client will carry an outgoing message from an addon. A different
+-- question from whether it will show the addon an incoming one, and driven
+-- separately so a test can have one without the other.
+M.outgoingRestricted = nil
+_G.C_ChatInfo.AreOutgoingAddonChatMessagesRestricted = function()
+	if M.outgoingRestricted ~= nil then return M.outgoingRestricted end
+	return M.chatLockdown == true
+end
+
+-- Whether the client still has anything to say about a line. A line the test
+-- never registered is one that has aged out of the client's store, which is the
+-- answer that lets an addon give up at once instead of waiting out a timeout.
+-- M.validLines marks a line the client still knows about but will not give the
+-- text for yet -- which is a different thing from a line that has aged out, and
+-- the difference is whether an addon should keep asking.
+M.invalidLines = {}
+M.validLines = {}
+_G.C_ChatInfo.IsValidChatLine = function(lineID)
+	if M.invalidLines[lineID] then return false end
+	return M.chatLines[lineID] ~= nil or M.validLines[lineID] == true
+end
+
 -- Blizzard's own chat filter, which hides a line's text until the player asks
 -- for it. M.censoredLines = { [lineID] = true }.
 M.censoredLines = {}

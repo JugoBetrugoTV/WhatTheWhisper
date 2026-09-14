@@ -109,12 +109,23 @@ end
 
 -- Whether this one has waited long enough to be called lost.
 --
+-- The client will say outright when a line has aged out of its store, and being
+-- told is much better than waiting out a timeout to find out: it means the
+-- message behind this one moves at once rather than in half a minute. The
+-- timeout stays for the client that does not answer, and for the line that is
+-- still valid but not yet readable.
+--
 -- Time and tries, both: a client that has stopped calling the timer would never
 -- reach the attempt count, and a timer running fast would never reach the clock.
 local function exhausted(entry)
-	if entry.attempts >= RECOVERY_ATTEMPTS then return true end
+	local valid = Compat.IsValidChatLine(entry.args[ARG_LINE_ID])
+	if valid == false then return true, "the client says that line is gone" end
+	if entry.attempts >= RECOVERY_ATTEMPTS then return true, "out of tries" end
 	local first = entry.firstTry
-	return first ~= nil and (Compat.GetServerTime() - first) >= RECOVERY_SECONDS
+	if first ~= nil and (Compat.GetServerTime() - first) >= RECOVERY_SECONDS then
+		return true, "out of time"
+	end
+	return false
 end
 
 -- One entry, if the client will now answer for it. Returns false when it will
@@ -162,17 +173,19 @@ function Deferred.Flush()
 		if release(entry) then
 			table.remove(held, 1)
 			released = released + 1
-		elseif exhausted(entry) then
+		else
+			local done, why = exhausted(entry)
+			if not done then
+				-- Still within its budget. Wait, and keep the order.
+				break
+			end
 			Debug.Log("events",
-				"%s on chat line %s never came back after %d tries; dropping it "
-				.. "and carrying on -- the chat frame still has it",
-				entry.event, tostring(entry.args[ARG_LINE_ID]), entry.attempts)
+				"%s on chat line %s is not coming back (%s, %d tries); dropping "
+				.. "it and carrying on -- the chat frame still has it",
+				entry.event, tostring(entry.args[ARG_LINE_ID]), why, entry.attempts)
 			table.remove(held, 1)
 			dropped = dropped + 1
 			lost = lost + 1
-		else
-			-- Still within its budget. Wait, and keep the order.
-			break
 		end
 	end
 	if released > 0 or lost > 0 then

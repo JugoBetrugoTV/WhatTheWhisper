@@ -45,7 +45,7 @@ end
 local function measure(msg, maxContentW)
 	local cached = metrics[msg]
 	if cached and cached.maxW == maxContentW and cached.stamp == metricsStamp
-		and cached.censored == (msg[ns.MSG_LINE] ~= nil) then
+		and cached.censored == (msg[ns.MSG_CENSORED] == true) then
 		return cached
 	end
 
@@ -77,7 +77,7 @@ local function measure(msg, maxContentW)
 		stamp = metricsStamp,
 		-- Part of the key: a message the player has just revealed is a different
 		-- length from the placeholder that stood in for it.
-		censored = msg[ns.MSG_LINE] ~= nil,
+		censored = msg[ns.MSG_CENSORED] == true,
 		contentW = contentW,
 		textH = textH,
 		bubbleW = contentW + ns.SZ.BUBBLE_PAD_X * 2,
@@ -800,8 +800,9 @@ function ML:OpenMessageMenu(bubble)
 	if not msg or not conv then return end
 	local links = ns.URLs.Extract(ns.ConversationManager.MessageText(msg))
 	local entries = {}
-	-- Offered only while the game is still hiding it, and only from this click.
-	if msg[ns.MSG_LINE] and ns.Compat.IsChatLineCensored(msg[ns.MSG_LINE]) then
+	-- Offered only while there is still a line to ask the client about: not after
+	-- a reload, and not once the line has aged out of the client's own store.
+	if ns.ConversationManager.CanReveal(msg) then
 		entries[#entries + 1] = { text = L["Show hidden message"], icon = "eye",
 			onClick = function()
 				if ns.ConversationManager.RevealMessage(conv, msg) then

@@ -12,6 +12,9 @@ local FLAVOR = (arg and arg[1]) or "retail"
 
 local PROFILES = {
 	retail = { build = { "12.1.0", "60000", "Sep 06 2026", 120100 }, project = 1 },
+	-- The same client with the deprecated globals already gone.
+	modern = { build = { "12.1.0", "60000", "Sep 06 2026", 120100 }, project = 1,
+		modernOnly = true },
 	mop    = { build = { "5.5.4", "60000", "Sep 06 2026", 50504 }, project = 19 },
 	tbc    = { build = { "2.5.6", "60000", "Sep 06 2026", 20506 }, project = 5,
 		legacy = true, noMasks = true, noClip = true },
@@ -35,6 +38,18 @@ local LOCALE_FONTS = {
 }
 for _, path in ipairs(LOCALE_FONTS[M.locale] or {}) do
 	M.fontFiles[path] = true
+end
+
+-- Retail, with nothing but the modern API. Blizzard has moved chat behind
+-- C_ChatInfo and Battle.net behind C_BattleNet, and the bare globals are on
+-- their way out -- so one profile removes them outright. An addon that still
+-- works here is an addon that will still work when they go.
+if profile.modernOnly then
+	_G.SendChatMessage = nil
+	_G.BNSendWhisper = nil
+	_G.BNGetNumFriends = nil
+	_G.BNGetFriendInfo = nil
+	_G.GetPlayerInfoByGUID = _G.GetPlayerInfoByGUID
 end
 
 if profile.project ~= 1 then

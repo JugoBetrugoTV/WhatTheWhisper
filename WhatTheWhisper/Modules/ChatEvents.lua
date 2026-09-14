@@ -132,15 +132,35 @@ local bnKeyCache = {}
 --
 -- Returns nil when neither works. That has to mean "do not know": a thread filed
 -- under the wrong person is worse than one that was never opened.
-local function bnIdentity(rawSenderID, accountName)
+-- The Battle.net account the admissibility check resolved for this event, so the
+-- handler files it under the same person the filter decided it could be filed
+-- under. Set only for the duration of one handler call.
+local admittedBNAccountID
+
+-- The account id behind a Battle.net whisper, or nil.
+--
+-- The id arrives beside the text and is sometimes the one thing withheld -- and
+-- a withheld value may not be tested for truth, used as a table key or turned
+-- into a string, so it is made readable or discarded before any of that. When it
+-- is gone the name is the way back: a Battle.net whisper only comes from
+-- somebody on your list, and the list has both.
+--
+-- nil has to mean "do not know". Everything upstream treats that as a message
+-- this addon cannot file, and leaves the player's copy in the chat frame.
+function ChatEvents.ResolveBNIdentity(rawSenderID, accountName)
 	local bnetAccountID = Compat.ReadableNumber(rawSenderID)
-	if not bnetAccountID then
-		bnetAccountID = Compat.ResolveBNAccountByName(accountName)
-		if bnetAccountID then
-			Debug.Log("events", "bnet id was withheld; recovered it from %s",
-				tostring(accountName))
-		end
+	if bnetAccountID then return bnetAccountID end
+	bnetAccountID = Compat.ResolveBNAccountByName(accountName)
+	if bnetAccountID then
+		Debug.Log("events", "bnet id was withheld; recovered it from %s",
+			tostring(accountName))
 	end
+	return bnetAccountID
+end
+
+local function bnIdentity(rawSenderID, accountName)
+	local bnetAccountID = admittedBNAccountID
+		or ChatEvents.ResolveBNIdentity(rawSenderID, accountName)
 	if not bnetAccountID then return nil end
 
 	local cached = bnKeyCache[bnetAccountID]
@@ -432,50 +452,115 @@ end
 -- Chat frame suppression
 --------------------------------------------------------------------------------
 
--- What each event cannot do without, by argument position.
+-- Can this event be consumed, and how?
 --
--- Every field of a chat event is one of three things, and the difference decides
--- what happens when the client withholds it:
+-- One answer, asked in two places that must never disagree: the chat filter,
+-- which decides whether to take the message out of the chat frame, and the
+-- dispatcher, which decides what to do with it. The invariant the whole design
+-- rests on is that a message is never both missing from here and hidden from
+-- there, and the only way to guarantee that is for the same function to decide.
+--
+--   "store"  the handler can take it now, so the chat frame need not keep it
+--   "hold"   it will be put aside and replayed, so the chat frame must keep it
+--            until it comes back -- that copy is the only one there is
+--   "pass"   it cannot be consumed at all, so the chat frame keeps it. Full stop
+--
+-- Every field of a chat event is one of three things:
 --
 --   REQUIRED   the message is not a message without it. Arg 1 is the text and
 --              arg 2 is the other person -- the sender on an incoming whisper,
---              the target on the server's echo of an outgoing one. Withheld, the
---              event is put aside until the client will answer for its line.
+--              the target on the server's echo of an outgoing one.
 --   OPTIONAL   fills something in. Arg 12 is the sender's GUID, which colours a
---              name by class; arg 13 is the Battle.net account id, which can be
---              looked up from the account name instead. Withheld, they are
---              dropped and the message is handled now: holding a whisper back
---              over the decoration trades the message for the trimmings.
+--              name by class. Withheld, it is dropped and the message handled
+--              now: holding a whisper back over the decoration would trade the
+--              message for the trimmings.
 --   UNUSED     everything else. Never read, so never a problem.
+--
+-- Battle.net is the case that does not fit that pattern. Arg 13 is the account
+-- id, and it is the only thing that says whose conversation this is. It is not
+-- required, because it can be recovered from the account name beside it -- but
+-- when neither works there is no honest answer, and "pass" is the only safe one.
 --
 -- CHAT_MSG_SYSTEM is absent entirely: those are read only to notice "no player
 -- named" and friends coming online, and one missed costs nothing.
-local ARG_TEXT, ARG_WHO = 1, 2
-local DEFERRABLE = {
-	-- required = text + sender; guid optional
-	CHAT_MSG_WHISPER = { ARG_TEXT, ARG_WHO },
-	-- required = text + target; guid optional
-	CHAT_MSG_WHISPER_INFORM = { ARG_TEXT, ARG_WHO },
-	-- required = text + sender; the account id is recoverable from the name, so
-	-- it is optional here and checked inside the handler instead
-	CHAT_MSG_BN_WHISPER = { ARG_TEXT, ARG_WHO },
-	CHAT_MSG_BN_WHISPER_INFORM = { ARG_TEXT, ARG_WHO },
-	CHAT_MSG_AFK = { ARG_TEXT, ARG_WHO },
-	CHAT_MSG_DND = { ARG_TEXT, ARG_WHO },
+local ARG_TEXT, ARG_WHO, ARG_LINE, ARG_BNET = 1, 2, 11, 13
+local REQUIRED = {
+	CHAT_MSG_WHISPER = true,
+	CHAT_MSG_WHISPER_INFORM = true,
+	CHAT_MSG_BN_WHISPER = true,
+	CHAT_MSG_BN_WHISPER_INFORM = true,
+	CHAT_MSG_AFK = true,
+	CHAT_MSG_DND = true,
+}
+local IS_BNET = {
+	CHAT_MSG_BN_WHISPER = true,
+	CHAT_MSG_BN_WHISPER_INFORM = true,
+}
+-- These two are only ever added to a conversation that already exists, so an
+-- away message from a stranger is one the addon will not store.
+local NEEDS_EXISTING = {
+	CHAT_MSG_AFK = true,
+	CHAT_MSG_DND = true,
 }
 
--- Whether this event is missing something it cannot do without. Asked of the raw
--- arguments, before anything has compared, tested, concatenated, indexed or
--- formatted any of them.
-local function requiredIsWithheld(event, ...)
-	local required = DEFERRABLE[event]
-	if not required then return false end
-	for i = 1, #required do
-		if Compat.IsSecretValue((select(required[i], ...))) then return true end
+local ADMIT_STORE, ADMIT_HOLD, ADMIT_PASS = "store", "hold", "pass"
+
+-- The filter and the dispatcher can be called in either order for the same
+-- message, and resolving a Battle.net account walks the friends list -- which
+-- can change between the two calls. Remembering the last answer keeps them from
+-- disagreeing about a message that is halfway through being handled.
+local lastAdmission = {}
+
+local function decide(event, ...)
+	-- No contract here means nothing to check: the system and roster events read
+	-- their own payload and decide for themselves. They are not in the chat
+	-- filter either, so this answer only ever reaches the dispatcher.
+	if not REQUIRED[event] then return ADMIT_STORE end
+
+	-- 1. Anything the client is withholding that we cannot do without. Asked
+	--    before a single one of them has been compared, tested or concatenated.
+	local line = Compat.ReadableNumber((select(ARG_LINE, ...)))
+	if Compat.IsSecretValue((select(ARG_TEXT, ...)))
+		or Compat.IsSecretValue((select(ARG_WHO, ...))) then
+		-- Recoverable only if there is a line id to ask the client about later.
+		return line and ADMIT_HOLD or ADMIT_PASS
 	end
-	return false
+
+	-- 2. Present, and actually usable. A nil sender, an empty one, or a number
+	--    where a name should be is not something this addon can file anywhere.
+	local text = Compat.ReadableText((select(ARG_TEXT, ...)))
+	if text == nil or text == "" then return ADMIT_PASS end
+	local who = Compat.ReadableText((select(ARG_WHO, ...)))
+	if who == nil or who == "" then return ADMIT_PASS end
+
+	-- 3. Battle.net: an identity, or nothing.
+	if IS_BNET[event] then
+		local accountID = ns.ChatEvents.ResolveBNIdentity((select(ARG_BNET, ...)), who)
+		if not accountID then return ADMIT_PASS end
+		return ADMIT_STORE, accountID
+	end
+
+	-- 4. An away message only ever joins a conversation that already exists.
+	if NEEDS_EXISTING[event] and not CM.Get(Compat.NormalizeName(who)) then
+		return ADMIT_PASS
+	end
+
+	return ADMIT_STORE
 end
 
+-- The answer, memoised per chat line so both callers see the same one.
+function ChatEvents.Admit(event, ...)
+	local line = Compat.ReadableNumber((select(ARG_LINE, ...)))
+	local key = line and (event .. ":" .. line) or nil
+	if key and lastAdmission.key == key then
+		return lastAdmission.mode, lastAdmission.detail
+	end
+	local mode, detail = decide(event, ...)
+	if key then
+		lastAdmission.key, lastAdmission.mode, lastAdmission.detail = key, mode, detail
+	end
+	return mode, detail
+end
 
 local function shouldHide()
 	local db = ns.db
@@ -488,13 +573,14 @@ local function shouldHide()
 end
 
 -- The client passes the frame and the event before the payload.
+--
+-- Only a message this addon will definitely have is taken out of the chat frame.
+-- Anything it is merely holding, and anything it cannot use at all, stays where
+-- the player can read it -- which for a held message is the only copy there is,
+-- and for an unusable one is the only copy there will ever be.
 local function suppressFilter(_, event, ...)
-	-- A message this addon could not read must stay in the chat frame: it is the
-	-- only copy the player has until the restriction lifts. Checked per message
-	-- rather than latched, so ordinary whispers a second later are still taken
-	-- out of the chat frame the way they were asked to be.
-	if requiredIsWithheld(event, ...) then return false end
-	return shouldHide()
+	if not shouldHide() then return false end
+	return ChatEvents.Admit(event, ...) == ADMIT_STORE
 end
 
 --------------------------------------------------------------------------------
@@ -529,15 +615,14 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	local handler = handlers[event] or rosterHandlers[event]
 	if not handler then return end
 
-	-- Asked before any handler has looked at anything, and asked only of the
-	-- fields this event cannot do without -- see DEFERRABLE above for which
-	-- those are and why the rest are not.
-	--
-	-- A withheld message is not dropped: it is put aside with its chat line id
-	-- and comes back the moment the client will answer for that line, which is
-	-- what makes a whisper sent to you in an arena end up in its thread instead
-	-- of only in the chat frame.
-	if requiredIsWithheld(event, ...) then
+	-- The same decision the chat filter made, from the same function, so the two
+	-- cannot disagree about whether this message is anyone's to keep.
+	local mode, identity = ChatEvents.Admit(event, ...)
+
+	if mode == ADMIT_HOLD then
+		-- Put aside with its chat line id, and back the moment the client will
+		-- answer for that line. This is what makes a whisper sent to you in an
+		-- arena end up in its thread instead of only in the chat frame.
 		unreadable = unreadable + 1
 		if ns.Deferred.Hold(event, ...) then
 			Debug.NoteWithheld()
@@ -547,7 +632,18 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		return
 	end
 
+	if mode ~= ADMIT_STORE then
+		-- Nothing to file it under. The chat frame was told to keep it, which is
+		-- the whole reason declining here is safe.
+		unreadable = unreadable + 1
+		Debug.Log("events", "%s cannot be filed anywhere; left in the chat frame",
+			event)
+		return
+	end
+
+	admittedBNAccountID = identity
 	ns.Guard(event, handler, ...)
+	admittedBNAccountID = nil
 end)
 
 -- How a message that was put aside gets back in. `args` is the original event's

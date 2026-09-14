@@ -379,6 +379,39 @@ function Compat.InChatMessagingLockdown()
 	return ok and locked == true
 end
 
+-- Whether the client will carry a message an addon tries to send.
+--
+-- Not the same question as InChatMessagingLockdown, which is about what the
+-- client will *tell* an addon. Being unable to read an arena opponent's whisper
+-- does not by itself mean you cannot answer it, so the specific API is asked
+-- first and the general one is only a fallback for a client without it.
+-- Looked up per call rather than captured at load: this one is asked once per
+-- message the player sends, so the table index costs nothing, and a client that
+-- gains or loses the function mid-session then gets the right answer instead of
+-- the one from login.
+function Compat.OutgoingChatRestricted()
+	local info = _G.C_ChatInfo
+	local specific = info and info.AreOutgoingAddonChatMessagesRestricted
+	if type(specific) == "function" then
+		local ok, restricted = pcall(specific)
+		if ok then return restricted == true end
+	end
+	return Compat.InChatMessagingLockdown()
+end
+
+-- Whether the client still has anything to say about a chat line. A line ages
+-- out of the client's store and never comes back; being told so is the
+-- difference between giving up at once and waiting out a timeout for nothing.
+-- Returns nil on a client that does not answer, which means "keep asking".
+function Compat.IsValidChatLine(lineID)
+	local info = _G.C_ChatInfo
+	if not info or type(info.IsValidChatLine) ~= "function" then return nil end
+	if type(lineID) ~= "number" then return false end
+	local ok, valid = pcall(info.IsValidChatLine, lineID)
+	if not ok then return nil end
+	return valid == true
+end
+
 -- Returns the value when it can be read, and nil when it cannot. nil is a normal
 -- answer here, not a fault: being in an arena is not an error.
 --
@@ -474,11 +507,18 @@ function Compat.SendWhisper(target, text)
 	return (sendChat(text, "WHISPER", nil, target))
 end
 
+-- A call that did not throw is not a message that was sent.
+--
+-- C_BattleNet.SendWhisper answers whether it actually went, so that answer is
+-- the one reported. The old global answers nothing at all, so there the call
+-- returning is the best there is -- and reading its silence as failure would
+-- mark every message on a Classic client as undelivered.
 function Compat.SendBNWhisper(bnetAccountID, text)
 	if type(bnetAccountID) ~= "number" or not text or text == "" then return false end
-	local bn = _G.C_BattleNet
-	if bn and type(bn.SendWhisper) == "function" then
-		return (pcall(bn.SendWhisper, bnetAccountID, text))
+	local battlenet = _G.C_BattleNet
+	if battlenet and type(battlenet.SendWhisper) == "function" then
+		local ok, sent = pcall(battlenet.SendWhisper, bnetAccountID, text)
+		return ok and sent ~= false
 	end
 	if type(_G.BNSendWhisper) == "function" then
 		return (pcall(_G.BNSendWhisper, bnetAccountID, text))
@@ -759,8 +799,30 @@ Compat.canWho       = (type(_G.C_FriendList) == "table" and _G.C_FriendList.Send
 -- Battle.net
 --------------------------------------------------------------------------------
 
-Compat.hasBattleNet = type(_G.BNGetNumFriends) == "function"
-	and type(_G.BNSendWhisper) == "function"
+-- Three separate questions, because they have three separate answers.
+--
+-- "Battle.net exists here" is not "the deprecated send alias exists": Retail has
+-- moved sending to C_BattleNet.SendWhisper and the old global is on its way out,
+-- so defining the whole feature in terms of it would switch Battle.net off on
+-- the one client where it matters most. The friend list and the send are asked
+-- about apart, and either modern or legacy satisfies each.
+local bn = _G.C_BattleNet
+
+-- There is a Battle.net at all: friends can be listed and accounts looked up.
+Compat.hasBattleNet = (type(bn) == "table" and
+		(type(bn.GetFriendAccountInfo) == "function"
+			or type(bn.GetAccountInfoByID) == "function"))
+	or type(_G.BNGetNumFriends) == "function"
+
+-- ...and a whisper can be sent to one.
+Compat.canSendBattleNet = (type(bn) == "table" and type(bn.SendWhisper) == "function")
+	or type(_G.BNSendWhisper) == "function"
+
+-- ...and the friends list can be walked, which is how a withheld account id is
+-- recovered from the name beside it.
+Compat.canResolveBattleNetFriends =
+	(type(bn) == "table" and type(bn.GetFriendAccountInfo) == "function")
+	or type(_G.BNGetFriendInfo) == "function"
 
 local function parseLegacyFriend(index)
 	-- BNGetFriendInfo's signature changed several times. Rather than depend on a
@@ -807,16 +869,34 @@ function Compat.GetBNFriendInfo(index)
 	return nil
 end
 
+-- A loop whose end depends on the client answering honestly is a loop that can
+-- fail to end.
+local MAX_BN_FRIENDS = 2000
+
 function Compat.GetNumBNFriends()
-	if not Compat.hasBattleNet then return 0 end
-	local ok, n = pcall(_G.BNGetNumFriends)
-	return (ok and n) or 0
+	if type(_G.BNGetNumFriends) == "function" then
+		local ok, n = pcall(_G.BNGetNumFriends)
+		if ok and type(n) == "number" then return n end
+	end
+	-- No count to ask for: walk the list until it stops answering. This is the
+	-- path a client that has dropped the old globals takes, and it is the reason
+	-- the count is not allowed to be what decides whether Battle.net exists.
+	local battlenet = _G.C_BattleNet
+	if type(battlenet) ~= "table"
+		or type(battlenet.GetFriendAccountInfo) ~= "function" then
+		return 0
+	end
+	for i = 1, MAX_BN_FRIENDS do
+		local ok, info = pcall(battlenet.GetFriendAccountInfo, i)
+		if not ok or not info then return i - 1 end
+	end
+	return MAX_BN_FRIENDS
 end
 
 -- Battle.net account IDs are only stable within a session; the BattleTag is the
 -- durable key, so conversations store the tag and resolve the ID on demand.
 function Compat.ResolveBNAccountID(battleTag)
-	if not battleTag or not Compat.hasBattleNet then return nil end
+	if not battleTag or not Compat.canResolveBattleNetFriends then return nil end
 	for i = 1, Compat.GetNumBNFriends() do
 		local id, tag = Compat.GetBNFriendInfo(i)
 		if tag and tag == battleTag then return id end

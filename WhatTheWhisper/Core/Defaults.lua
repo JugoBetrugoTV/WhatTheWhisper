@@ -180,10 +180,18 @@ ns.defaults = {
 -- the file size for a large history.
 
 ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_KIND, ns.MSG_STATUS = 1, 2, 3, 4, 5
--- The chat line a message arrived on, kept only while it is worth keeping: it is
--- what lets the player ask the game to show a line its own filter has hidden.
--- Absent on everything else, which is almost everything.
-ns.MSG_LINE = 6
+-- Two separate facts about a message the game's own chat filter has hidden, and
+-- they have to be separate because one outlives the session and the other does
+-- not.
+--
+--   MSG_CENSORED  durable. "This is hidden." Written to saved variables, read
+--                 back after a reload, and the only thing display depends on --
+--                 so a hidden message can never quietly turn back into the raw
+--                 placeholder because an id went stale.
+--   MSG_LINE      ephemeral. "This session still has a line we could ask about."
+--                 A chat line id means nothing after a reload, so it is dropped
+--                 when history is loaded and the reveal is simply not offered.
+ns.MSG_CENSORED, ns.MSG_LINE = 6, 7
 
 ns.RETENTION_SECONDS = {
 	["off"]      = 0,

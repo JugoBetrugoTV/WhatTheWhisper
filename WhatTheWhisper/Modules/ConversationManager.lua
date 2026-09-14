@@ -125,6 +125,13 @@ function CM.LoadPersisted()
 				conv.unread = 0
 				if conv.record then conv.record.u = nil end
 			end
+			-- A chat line id means nothing in a new session. The fact that a
+			-- message is hidden is kept; the way to ask about it is not, so the
+			-- reveal is simply not offered for anything from before the reload.
+			for i = 1, #rec.msgs do
+				local msg = rec.msgs[i]
+				if type(msg) == "table" then msg[ns.MSG_LINE] = nil end
+			end
 		end
 	end
 	orderDirty = true
@@ -175,23 +182,44 @@ end
 -- takes its place, so this checks rather than caches.
 function CM.MessageText(msg)
 	if not msg then return "" end
-	local line = msg[ns.MSG_LINE]
-	if line and Compat.IsChatLineCensored(line) then
+	-- The durable flag alone, never the chat line. An id that has gone stale
+	-- must not turn a hidden message back into the placeholder the client handed
+	-- over, which is what the player would then read as the message.
+	if msg[ns.MSG_CENSORED] then
 		return ns.L["Message hidden by the game's chat filter."]
 	end
 	return msg[MSG_TEXT] or ""
 end
 
+-- Whether there is still something to ask the client about. False after a
+-- reload, when the id is meaningless, and false once the line has aged out.
+function CM.CanReveal(msg)
+	if not msg or not msg[ns.MSG_CENSORED] then return false end
+	local line = msg[ns.MSG_LINE]
+	if type(line) ~= "number" then return false end
+	if Compat.IsValidChatLine(line) == false then return false end
+	return Compat.IsChatLineCensored(line)
+end
+
 -- The player asked to see one. Only ever from a click: revealing a line somebody
 -- chose to filter is their decision, not ours, and the client enforces that too.
--- Returns true when the text actually changed.
+--
+-- Returns true only when real text actually arrived. Asking and getting nothing
+-- back leaves the message hidden, because the alternative is showing the raw
+-- placeholder as though it were what they wrote.
 function CM.RevealMessage(conv, msg)
-	local line = msg and msg[ns.MSG_LINE]
-	if not line or not Compat.IsChatLineCensored(line) then return false end
+	if not CM.CanReveal(msg) then return false end
+	local line = msg[ns.MSG_LINE]
 	Compat.UncensorChatLine(line)
 	local text = Compat.GetChatLine(line)
-	if text and text ~= "" then msg[MSG_TEXT] = text end
+	if not text or text == "" then
+		ns.Debug.Log("events", "uncensoring chat line %d gave nothing back", line)
+		return false
+	end
+	msg[MSG_TEXT] = text
+	msg[ns.MSG_CENSORED] = nil
 	msg[ns.MSG_LINE] = nil
+	CM.InvalidatePreview(msg)
 	if conv then ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv) end
 	return true
 end
@@ -202,9 +230,12 @@ function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 
 	local msg = { timestamp or Compat.GetServerTime(), direction, text, kind or ns.MSG_WHISPER }
 	if status then msg[MSG_STATUS] = status end
-	-- Only for a line the game's own filter is hiding. Everything else has
-	-- nothing to ask about later, so it carries nothing.
-	if opts and opts.censoredLine then msg[ns.MSG_LINE] = opts.censoredLine end
+	-- Only for a line the game's own filter is hiding: that it is hidden, which
+	-- outlives the session, and which line to ask about, which does not.
+	if opts and opts.censoredLine then
+		msg[ns.MSG_CENSORED] = true
+		msg[ns.MSG_LINE] = opts.censoredLine
+	end
 
 	History.Append(conv, msg)
 
@@ -413,7 +444,7 @@ function CM.SendMessage(id, text)
 	-- battleground. Saying so is the whole of the fix: what somebody typed stays
 	-- in the box, because dropping it silently is the one outcome worse than not
 	-- being able to send it.
-	if Compat.InChatMessagingLockdown() then
+	if Compat.OutgoingChatRestricted() then
 		ns.Print(ns.L["Whispers cannot be sent from here. Use the game's own chat box."])
 		return false
 	end
@@ -518,12 +549,21 @@ end
 
 local previewCache = setmetatable({}, { __mode = "k" })
 
+-- Forgets one line of the sidebar. Called when a message's text changes under
+-- it, which happens exactly once in this addon's life: when the player reveals
+-- something the game was hiding.
+function CM.InvalidatePreview(msg)
+	if msg then previewCache[msg] = nil end
+end
+
 function CM.Preview(conv)
 	local msg = CM.LastMessage(conv)
 	if not msg then return nil end
 	local cached = previewCache[msg]
 	if cached then return cached, msg[MSG_DIR] end
-	local text = ns.Text.Strip(msg[MSG_TEXT] or "")
+	-- What the bubble says, not what is stored: a message the game is hiding
+	-- reads as hidden in the sidebar too, rather than as the placeholder.
+	local text = ns.Text.Strip(CM.MessageText(msg))
 	text = text:gsub("%s+", " ")
 	previewCache[msg] = text
 	return text, msg[MSG_DIR]

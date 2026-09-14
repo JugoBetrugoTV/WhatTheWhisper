@@ -10,7 +10,12 @@ local CM, Text = ns.ConversationManager, ns.Text
 local Search = {}
 ns.Search = Search
 
-local MSG_TEXT = ns.MSG_TEXT
+-- What a message reads as, which for one the game is hiding is the fact that it
+-- is hidden. Searching the placeholder the client handed over would find things
+-- the player cannot see, and show them a snippet of it as the answer.
+local function body(m)
+	return ns.ConversationManager.MessageText(m)
+end
 local BUDGET = 2500
 
 local activeToken = 0
@@ -95,12 +100,12 @@ function Search.Messages(query, scopeID, onProgress)
 			if mi == 0 then mi = n end            -- newest first
 			while mi >= 1 and budget > 0 do
 				local m = messages[mi]
-				if m and Text.Contains(m[MSG_TEXT], needle) then
+				if m and Text.Contains(body(m), needle) then
 					results[#results + 1] = {
 						conv = conv,
 						index = mi,
 						msg = m,
-						snippet = snippet(m[MSG_TEXT], needle),
+						snippet = snippet(body(m), needle),
 					}
 				end
 				mi = mi - 1

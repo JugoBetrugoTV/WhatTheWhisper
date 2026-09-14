@@ -71,6 +71,9 @@ lua5.1 Tools/test/commands.lua | tail -1
 echo "== search =="
 lua5.1 Tools/test/search.lua | tail -1
 
+echo "== modern API only =="
+lua5.1 Tools/test/modern.lua | tail -1
+
 echo "== restricted content =="
 lua5.1 Tools/test/arena.lua | tail -1
 
@@ -84,7 +87,7 @@ echo "== ui geometry and contrast =="
 lua5.1 Tools/test/ui.lua | tail -1
 
 echo "== mock client =="
-for flavor in retail mop tbc classic; do
+for flavor in retail modern mop tbc classic; do
 	printf '%-9s ' "$flavor"
 	lua5.1 Tools/test/run.lua "$flavor" 2>&1 | tail -1
 done
