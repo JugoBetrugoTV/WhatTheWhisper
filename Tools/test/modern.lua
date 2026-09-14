@@ -111,11 +111,22 @@ end
 -- bubble that says delivered about something nobody received.
 do
 	local realSend = _G.C_BattleNet.SendWhisper
-	_G.C_BattleNet.SendWhisper = function() return false end
+
+	-- Accepted: true, and a bubble waiting for the server's echo.
+	local bn = CM.Get("BN:Freund#1234")
+	eq("an accepted send is reported as sent",
+		Compat.SendBNWhisper(4711, "geht doch"), true)
+	local countBefore = #bn.messages
+	CM.SendMessage(bn.id, "und im fenster")
+	local okMsg = bn.messages[#bn.messages]
+	eq("with a message recorded", #bn.messages, countBefore + 1)
+	eq("as pending, waiting for the server", okMsg[ns.MSG_STATUS], ns.SEND_PENDING)
+
+	-- Refused: false, a failed bubble, and nothing that could later be upgraded.
+	M.refuseBN = true
 	eq("a refused send is reported as refused",
 		Compat.SendBNWhisper(4711, "geht nicht"), false)
 
-	local bn = CM.Get("BN:Freund#1234")
 	local before = #bn.messages
 	CM.SendMessage(bn.id, "geht auch nicht")
 	local msg = bn.messages[#bn.messages]
@@ -126,16 +137,35 @@ do
 	M.RunTimers(4)
 	M.RunFrames(6)
 	eq("and the sweep never upgrades it", msg[ns.MSG_STATUS], ns.SEND_FAILED)
+	M.refuseBN = false
 
-	_G.C_BattleNet.SendWhisper = realSend
-	eq("a send the client accepts is reported as sent",
-		Compat.SendBNWhisper(4711, "geht doch"), true)
-
-	-- An API that answers nil rather than true is answering "no opinion", which
-	-- is what the old global did, and must not read as failure.
+	-- nil is not modesty. C_BattleNet.SendWhisper is documented to return a
+	-- boolean; not answering is not answering, and reporting it as delivered
+	-- puts a tick beside a message nobody received.
 	_G.C_BattleNet.SendWhisper = function() return nil end
-	eq("silence is not refusal", Compat.SendBNWhisper(4711, "still"), true)
+	eq("an unanswered modern send is a failed send",
+		Compat.SendBNWhisper(4711, "still"), false)
+
+	-- ...and one that throws is a failure too, not an error the player sees.
+	_G.C_BattleNet.SendWhisper = function() error("kaputt") end
+	local ok, result = pcall(Compat.SendBNWhisper, 4711, "knall")
+	check("a send that throws does not escape as an error", ok)
+	eq("and is reported as failed", result, false)
 	_G.C_BattleNet.SendWhisper = realSend
+
+	-- The legacy global has the other contract: it answers nothing, so a call
+	-- that came back is the best signal there is. Merging the two would take the
+	-- weaker promise for both.
+	local modern = _G.C_BattleNet.SendWhisper
+	_G.C_BattleNet.SendWhisper = nil
+	_G.BNSendWhisper = function(id, text)
+		M.sentBN = M.sentBN or {}
+		M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "global" }
+	end
+	eq("the legacy global answering nothing still counts as sent",
+		Compat.SendBNWhisper(4711, "alt"), true)
+	_G.BNSendWhisper = nil
+	_G.C_BattleNet.SendWhisper = modern
 end
 
 --------------------------------------------------------------------------------

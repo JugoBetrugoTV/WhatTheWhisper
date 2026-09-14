@@ -548,6 +548,15 @@ local function decide(event, ...)
 	return ADMIT_STORE
 end
 
+-- The same decision, asked afresh. A held message is reconstructed piece by
+-- piece as the client gets round to answering, so each attempt is a different
+-- occasion with different arguments: the memo below exists to keep the filter
+-- and the live dispatcher agreeing about one event, and reusing it here would
+-- answer a question about the message as it arrived rather than as it is now.
+function ChatEvents.Reconsider(event, ...)
+	return decide(event, ...)
+end
+
 -- The answer, memoised per chat line so both callers see the same one.
 function ChatEvents.Admit(event, ...)
 	local line = Compat.ReadableNumber((select(ARG_LINE, ...)))
@@ -651,13 +660,14 @@ end)
 -- and `args.timestamp` is when it actually arrived rather than when we caught
 -- up -- a thread that reorders itself after an arena is worse than one that was
 -- briefly behind.
-local function replay(event, args)
+local function replay(event, args, identity)
 	local handler = handlers[event]
 	if not handler then return end
 	replayTimestamp = args.timestamp
 	replayCensoredLine = args.censored and args.lineID or false
+	admittedBNAccountID = identity
 	local ok = ns.Guard(event, handler, unpack(args, 1, 20))
-	replayTimestamp, replayCensoredLine = nil, nil
+	replayTimestamp, replayCensoredLine, admittedBNAccountID = nil, nil, nil
 	return ok
 end
 

@@ -507,18 +507,23 @@ function Compat.SendWhisper(target, text)
 	return (sendChat(text, "WHISPER", nil, target))
 end
 
--- A call that did not throw is not a message that was sent.
+-- A call that did not throw is not a message that was sent. Two APIs, two
+-- contracts, and merging them would take the weaker promise for both.
 --
--- C_BattleNet.SendWhisper answers whether it actually went, so that answer is
--- the one reported. The old global answers nothing at all, so there the call
--- returning is the best there is -- and reading its silence as failure would
--- mark every message on a Classic client as undelivered.
+-- C_BattleNet.SendWhisper returns a boolean saying whether it went. Only true is
+-- true: nil from it is not modesty, it is the function not having answered the
+-- question it is documented to answer, and reporting that as delivered puts a
+-- tick beside a message nobody received.
+--
+-- BNSendWhisper, the old global, returns nothing at all. There the call coming
+-- back without throwing is the best signal there is, and reading its silence as
+-- failure would mark every message on a client that only has it as undelivered.
 function Compat.SendBNWhisper(bnetAccountID, text)
 	if type(bnetAccountID) ~= "number" or not text or text == "" then return false end
 	local battlenet = _G.C_BattleNet
 	if battlenet and type(battlenet.SendWhisper) == "function" then
 		local ok, sent = pcall(battlenet.SendWhisper, bnetAccountID, text)
-		return ok and sent ~= false
+		return ok and sent == true
 	end
 	if type(_G.BNSendWhisper) == "function" then
 		return (pcall(_G.BNSendWhisper, bnetAccountID, text))
@@ -911,15 +916,28 @@ end
 -- only comes from somebody on your friends list, and that list has both. Returns
 -- nil when no friend matches, which has to mean "do not know" rather than a
 -- best guess -- a conversation filed under the wrong person is worse than none.
+-- The whole list is walked, not stopped at the first hit.
+--
+-- The account name is a display name, not an identifier -- the BattleTag with
+-- its discriminator is the durable one, and that is exactly what a withheld
+-- whisper does not come with. Two friends can present the same display name, and
+-- "first match wins" would quietly file the message under whichever of them the
+-- client happened to list first.
+--
+-- Nought matches means nil. One means that one. Two or more means nil as well,
+-- because a message in the wrong person's thread is worse than one left in the
+-- chat frame, and this is the whole rule the Battle.net path is built on.
 function Compat.ResolveBNAccountByName(accountName)
 	if type(accountName) ~= "string" or accountName == "" then return nil end
+	local found
 	for i = 1, Compat.GetNumBNFriends() do
 		local id, _, name = Compat.GetBNFriendInfo(i)
 		if name and name == accountName and type(id) == "number" then
-			return id
+			if found and found ~= id then return nil end
+			found = id
 		end
 	end
-	return nil
+	return found
 end
 
 function Compat.GetBNAccountInfoByID(bnetAccountID)

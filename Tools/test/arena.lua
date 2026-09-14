@@ -119,6 +119,7 @@ local function reset()
 	ns.Debug.ClearDegraded()
 	M.chatLockdown = false
 	M.chatLines = {}
+	M.refuseUncensor = nil
 	M.validLines = {}
 	M.invalidLines = {}
 	M.censoredLines = {}
@@ -317,6 +318,187 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Half an answer is not an answer
+--------------------------------------------------------------------------------
+
+-- The client answers for a line one field at a time: the text can turn up a tick
+-- before the sender does. Treating "the text arrived" as a successful recovery
+-- hands the handler a message with nobody to file it under -- the handler stores
+-- nothing, the entry is dequeued as done, and the missing half arrives a second
+-- later to an empty queue. The message is not swallowed, because the chat frame
+-- still has it, but the addon has lost it for good.
+--
+-- So a release is not "text exists". It is the reconstructed event passing the
+-- same admissibility contract a live one does.
+do
+	reset()
+	local partial, after = lineID(), lineID()
+	M.chatLines[after] = { text = "danach", sender = "Danach", guid = "G-D" }
+
+	enterArena()
+	local withheld = { text = true, sender = true }
+	fire("CHAT_MSG_WHISPER", whisperArgs("halb", "Halbfertig", "G-HF", partial, withheld))
+	fire("CHAT_MSG_WHISPER", whisperArgs("danach", "Danach", "G-D", after, withheld))
+	eq("two held", ns.Deferred.Count(), 2)
+
+	-- Out of the arena, and the client answers with the text only.
+	M.chatLines[partial] = { text = "halb" }
+	leaveArena(2)
+	eq("text without a sender is not a release", ns.Deferred.Count(), 2)
+	eq("no thread was opened for it", threadOf("Halbfertig"), nil)
+	eq("and it was not given up on either", ns.Deferred.DroppedCount(), 0)
+	eq("nor did the one behind it jump the queue", threadOf("Danach"), nil)
+
+	-- The rest of the answer turns up.
+	M.chatLines[partial] = { text = "halb", sender = "Halbfertig", guid = "G-HF" }
+	leaveArena(2)
+	eq("the completed message is released", ns.Deferred.Count(), 0)
+	eq("with nothing given up on", ns.Deferred.DroppedCount(), 0)
+	local conv = threadOf("Halbfertig")
+	check("into the right thread", conv ~= nil and #conv.messages == 1
+		and conv.messages[1][3] == "halb",
+		conv and table.concat(texts(conv), " | ") or "no thread")
+	check("and the one behind it followed", threadOf("Danach") ~= nil)
+	noErrors("nothing raised")
+
+	-- The other way round: the sender is known before the text.
+	reset()
+	local reversed = lineID()
+	M.chatLines[reversed] = { sender = "Zuerst", guid = "G-Z2" }
+	enterArena()
+	fire("CHAT_MSG_WHISPER", whisperArgs("später", "Zuerst", "G-Z2", reversed, withheld))
+	leaveArena(2)
+	eq("a sender without text is not a release either", ns.Deferred.Count(), 1)
+	M.chatLines[reversed] = { text = "später", sender = "Zuerst", guid = "G-Z2" }
+	leaveArena(2)
+	eq("and it lands once both halves are there", ns.Deferred.Count(), 0)
+	check("in its thread", threadOf("Zuerst") ~= nil)
+
+	-- ...and a half-answer that never completes is still given up on in the end,
+	-- rather than holding the queue open forever.
+	reset()
+	local never = lineID()
+	M.chatLines[never] = { text = "nie vollständig" }
+	enterArena()
+	fire("CHAT_MSG_WHISPER", whisperArgs("nie", "Nie", "G-N2", never, withheld))
+	leaveArena(2)
+	eq("still waiting", ns.Deferred.Count(), 1)
+	leaveArena(60)
+	eq("and eventually given up on", ns.Deferred.Count(), 0)
+	eq("counted as lost", ns.Deferred.DroppedCount(), 1)
+	eq("with no half-message invented", threadOf("Nie"), nil)
+	noErrors("nothing raised")
+end
+
+-- Battle.net: the identity can be temporarily unresolvable too, and a message
+-- must not be thrown away over a friends list that has not loaded yet.
+do
+	reset()
+	local l = lineID()
+	M.chatLines[l] = { text = "von drüben", sender = "Freund" }
+	local realFriends = M.bnet
+	local friendCount = 0
+	local savedGet = _G.C_BattleNet.GetFriendAccountInfo
+	_G.C_BattleNet.GetFriendAccountInfo = function(index)
+		if friendCount == 0 then return nil end
+		if index ~= 1 then return nil end
+		return { bnetAccountID = 4711, battleTag = "Freund#1234",
+			accountName = "Freund",
+			gameAccountInfo = { isOnline = true, characterName = "Alt" } }
+	end
+	local savedBNCount = _G.BNGetNumFriends
+	_G.BNGetNumFriends = function() return friendCount end
+
+	enterArena()
+	M.FireEvent("CHAT_MSG_BN_WHISPER", M.Secret(), M.Secret(), "Common", "",
+		"Freund", "", 0, 0, "", 0, l, "", M.Secret())
+	M.RunTimers(2)
+	eq("a fully withheld bnet whisper is held", ns.Deferred.Count(), 1)
+
+	-- Out of the arena, text and name recovered -- but the friends list is empty,
+	-- so there is still nobody to file it under.
+	leaveArena(2)
+	eq("an unresolvable identity is not a release", ns.Deferred.Count(), 1)
+	eq("and nothing was given up on", ns.Deferred.DroppedCount(), 0)
+
+	-- The list loads.
+	friendCount = 1
+	leaveArena(2)
+	eq("and it lands once the friend is known", ns.Deferred.Count(), 0)
+	local conv = CM.Get("BN:Freund#1234")
+	check("under the right account", conv ~= nil
+		and conv.messages[#conv.messages][3] == "von drüben",
+		conv and #conv.messages or "no thread")
+	noErrors("nothing raised")
+
+	_G.C_BattleNet.GetFriendAccountInfo = savedGet
+	_G.BNGetNumFriends = savedBNCount
+	M.bnet = realFriends
+end
+
+--------------------------------------------------------------------------------
+-- Two friends, one display name
+--------------------------------------------------------------------------------
+
+-- An account name is a display name, not an identifier. The BattleTag with its
+-- discriminator is the durable one, and that is exactly what a withheld whisper
+-- does not come with. Two friends can present the same name, and "first match
+-- wins" would file the message under whichever the client happened to list
+-- first -- which is the one thing this whole path exists to prevent.
+do
+	reset()
+	local savedGet = _G.C_BattleNet.GetFriendAccountInfo
+	local savedById = _G.C_BattleNet.GetAccountInfoByID
+	local savedCount = _G.BNGetNumFriends
+	local TWINS = {
+		[1] = { bnetAccountID = 1001, battleTag = "SameName#1111",
+			accountName = "SameName",
+			gameAccountInfo = { isOnline = true, characterName = "A" } },
+		[2] = { bnetAccountID = 1002, battleTag = "SameName#2222",
+			accountName = "SameName",
+			gameAccountInfo = { isOnline = true, characterName = "B" } },
+	}
+	_G.C_BattleNet.GetFriendAccountInfo = function(i) return TWINS[i] end
+	_G.C_BattleNet.GetAccountInfoByID = function(id)
+		for i = 1, 2 do
+			if TWINS[i].bnetAccountID == id then return TWINS[i] end
+		end
+		return nil
+	end
+	_G.BNGetNumFriends = function() return 2 end
+
+	eq("an ambiguous name resolves to nobody",
+		ns.Compat.ResolveBNAccountByName("SameName"), nil)
+
+	local before = CM.Count()
+	local ambiguous = bnArgs("wer von beiden", "SameName", 1001, lineID(), { id = true })
+	local suppressed = not M.ChatFrameWouldShow("CHAT_MSG_BN_WHISPER",
+		unpack(ambiguous, 1, 13))
+	M.FireEvent("CHAT_MSG_BN_WHISPER", unpack(ambiguous, 1, 13))
+	M.RunTimers(2)
+	eq("no thread is guessed at", CM.Count(), before)
+	eq("neither of them", CM.Get("BN:SameName#1111"), nil)
+	eq("nor the other", CM.Get("BN:SameName#2222"), nil)
+	eq("and the chat frame keeps its copy", suppressed, false)
+	noErrors("nothing raised")
+
+	-- With a readable id there is no ambiguity to resolve.
+	local clear = bnArgs("ich bin der zweite", "SameName", 1002, lineID())
+	M.FireEvent("CHAT_MSG_BN_WHISPER", unpack(clear, 1, 13))
+	M.RunTimers(2)
+	local conv = CM.Get("BN:SameName#2222")
+	check("a readable id goes to exactly that account", conv ~= nil
+		and conv.messages[#conv.messages][3] == "ich bin der zweite",
+		conv and #conv.messages or "no thread")
+	eq("and not to the other one", CM.Get("BN:SameName#1111"), nil)
+	noErrors("nothing raised")
+
+	_G.C_BattleNet.GetFriendAccountInfo = savedGet
+	_G.C_BattleNet.GetAccountInfoByID = savedById
+	_G.BNGetNumFriends = savedCount
+end
+
+--------------------------------------------------------------------------------
 -- Order, and who said what
 --------------------------------------------------------------------------------
 
@@ -388,7 +570,8 @@ do
 	eq("a withheld account id does not delay the message", ns.Deferred.Count(), before)
 	local conv = CM.Get("BN:Freund#1234")
 	check("and it lands on the right account", conv ~= nil
-		and #conv.messages == 1, conv and #conv.messages or "no thread")
+		and conv.messages[#conv.messages][3] == "hi",
+		conv and conv.messages[#conv.messages][3] or "no thread")
 	eq("under the right account id", conv and conv.bnetAccountID, 4711)
 	noErrors("a withheld account id raises nothing")
 
@@ -838,6 +1021,31 @@ do
 		ns.L["Message hidden by the game's chat filter."])
 	check("and still marked as such", msg[ns.MSG_CENSORED] == true)
 	eq("the placeholder is never shown", CM.MessageText(msg) == "***", false)
+
+	-- The client comes back from UncensorChatLine without complaint and leaves
+	-- the line censored anyway. It answers nothing about whether it worked, so
+	-- the only honest thing is to ask again -- and the text it hands over in that
+	-- state is the placeholder, which must never become the durable record.
+	reset()
+	local l3 = lineID()
+	M.chatLines[l3] = { text = "***", sender = "Bleibtzu", guid = "G-BZ" }
+	M.censoredLines[l3] = true
+	M.refuseUncensor = true
+	fire("CHAT_MSG_WHISPER", whisperArgs("***", "Bleibtzu", "G-BZ", l3))
+	local stubborn = threadOf("Bleibtzu")
+	local stubbornMsg = stubborn.messages[1]
+	check("the reveal is offered", CM.CanReveal(stubbornMsg))
+	check("but a refused uncensor is not a reveal",
+		not CM.RevealMessage(stubborn, stubbornMsg))
+	eq("the client was asked", #(M.uncensored or {}) > 0, true)
+	eq("and it is still hidden", CM.MessageText(stubbornMsg),
+		ns.L["Message hidden by the game's chat filter."])
+	check("still marked hidden", stubbornMsg[ns.MSG_CENSORED] == true)
+	check("and still knows which line to ask about",
+		stubbornMsg[ns.MSG_LINE] == l3)
+	check("the placeholder never became the message",
+		stubbornMsg[ns.MSG_TEXT] ~= nil and CM.MessageText(stubbornMsg) ~= "***")
+	M.refuseUncensor = nil
 
 	-- A line that has aged out is not offered at all.
 	reset()

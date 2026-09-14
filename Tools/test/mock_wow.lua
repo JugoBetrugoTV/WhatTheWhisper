@@ -1398,10 +1398,14 @@ M.censoredLines = {}
 _G.C_ChatInfo.IsChatLineCensored = function(lineID)
 	return M.censoredLines[lineID] == true
 end
+-- UncensorChatLine answers nothing about whether it worked, which is the point:
+-- M.refuseUncensor makes it come back normally and leave the line censored, the
+-- way a client that declines would.
 _G.C_ChatInfo.UncensorChatLine = function(lineID)
-	M.censoredLines[lineID] = nil
 	M.uncensored = M.uncensored or {}
 	M.uncensored[#M.uncensored + 1] = lineID
+	if M.refuseUncensor then return end
+	M.censoredLines[lineID] = nil
 end
 _G.C_ChatInfo.GetChatLineText = function(lineID) return chatLineField(lineID, "text") end
 _G.C_ChatInfo.GetChatLineSenderName = function(lineID) return chatLineField(lineID, "sender") end
@@ -1441,9 +1445,15 @@ _G.WhoFrame = CreateFrame("Frame", "WhoFrame", UIParent)
 WhoFrame:Hide()
 _G.C_PartyInfo = { InviteUnit = function() end }
 _G.C_BattleNet = {
+	-- The documented contract: success = C_BattleNet.SendWhisper(id, text), and
+	-- success is a boolean. A mock that answered nil would be teaching the addon
+	-- that silence means delivered, which is how a tick ends up beside a message
+	-- nobody received. M.refuseBN makes it say no.
 	SendWhisper = function(id, text)
+		if M.refuseBN then return false end
 		M.sentBN = M.sentBN or {}
 		M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "C_BattleNet" }
+		return true
 	end,
 	GetFriendAccountInfo = function() return nil end,
 	GetAccountInfoByID = function(id)
@@ -1454,6 +1464,8 @@ _G.C_BattleNet = {
 	end,
 }
 _G.BNGetNumFriends = function() return 0 end
+-- The old global, which answers nothing at all: on a client that has only this,
+-- a call that came back without throwing is the only signal there is.
 _G.BNSendWhisper = function(id, text)
 	M.sentBN = M.sentBN or {}
 	M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "global" }

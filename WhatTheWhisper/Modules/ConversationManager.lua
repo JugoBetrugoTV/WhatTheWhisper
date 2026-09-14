@@ -211,6 +211,17 @@ function CM.RevealMessage(conv, msg)
 	if not CM.CanReveal(msg) then return false end
 	local line = msg[ns.MSG_LINE]
 	Compat.UncensorChatLine(line)
+
+	-- UncensorChatLine says nothing about whether it worked, so the client is
+	-- asked again rather than taken on trust. A line the client still calls
+	-- censored has not been revealed, whatever text it hands over -- and that
+	-- text is the placeholder, which must never be promoted into the durable
+	-- record as though it were what somebody wrote.
+	if Compat.IsChatLineCensored(line) then
+		ns.Debug.Log("events", "chat line %d is still censored after asking", line)
+		return false
+	end
+
 	local text = Compat.GetChatLine(line)
 	if not text or text == "" then
 		ns.Debug.Log("events", "uncensoring chat line %d gave nothing back", line)

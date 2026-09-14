@@ -128,26 +128,46 @@ local function exhausted(entry)
 	return false
 end
 
--- One entry, if the client will now answer for it. Returns false when it will
--- not -- which may mean "not yet" or "not ever", and the caller decides which by
--- how long it has been asking.
+-- One entry, if the client will now answer for it well enough to use.
+--
+-- "Well enough" is the whole point, and it is not "the text turned up". The
+-- client answers for a line one field at a time: the text can arrive a tick
+-- before the sender does. Handing the handler a message with text and nobody to
+-- file it under means the handler stores nothing -- and if that counted as a
+-- release, the entry would be thrown away a second before the missing half
+-- arrived.
+--
+-- So the reconstructed event goes through the same admissibility contract a live
+-- one does. Only "store" is a release. Anything else is "not yet", and the
+-- caller decides whether there is still time to ask again.
+--
+-- Returns released, identity.
 local function release(entry)
 	entry.attempts = entry.attempts + 1
 	entry.firstTry = entry.firstTry or Compat.GetServerTime()
 
-	local text, sender, guid = Compat.GetChatLine(entry.args[ARG_LINE_ID])
-	if text == nil then return false end
 	local args = entry.args
-	args[ARG_TEXT] = text
-	args[ARG_SENDER] = sender or args[ARG_SENDER]
-	args[ARG_GUID] = guid or args[ARG_GUID]
-	args.lineID = args[ARG_LINE_ID]
-	args.censored = Compat.IsChatLineCensored(args[ARG_LINE_ID]) or nil
+	local lineID = args[ARG_LINE_ID]
+	local text, sender, guid = Compat.GetChatLine(lineID)
+
+	-- Filled in where the client has an answer, left alone where it does not, so
+	-- a field recovered on an earlier attempt is not lost on a later one.
+	if text ~= nil then args[ARG_TEXT] = text end
+	if sender ~= nil then args[ARG_SENDER] = sender end
+	if guid ~= nil then args[ARG_GUID] = guid end
+
+	local admit = ns.ChatEvents and ns.ChatEvents.Reconsider
+	if not admit then return false end
+	local mode, identity = admit(entry.event, unpack(args, 1, ARG_COUNT))
+	if mode ~= "store" then return false end
+
+	args.lineID = lineID
+	args.censored = Compat.IsChatLineCensored(lineID) or nil
 	-- The time it was sent, not the time we caught up. A thread that reorders
 	-- itself after an arena is worse than one that was briefly behind.
 	args.timestamp = entry.at
 	if dispatch then
-		ns.Guard("Deferred." .. entry.event, dispatch, entry.event, args)
+		ns.Guard("Deferred." .. entry.event, dispatch, entry.event, args, identity)
 	end
 	return true
 end
