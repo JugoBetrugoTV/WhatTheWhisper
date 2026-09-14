@@ -370,6 +370,116 @@ M.RunFrames(8)
 check("and the setting genuinely switches it off", ns.UI.IsShown() == false)
 
 --------------------------------------------------------------------------------
+-- A name you chose for somebody
+--------------------------------------------------------------------------------
+
+-- A nickname is what the window says, and nothing else. The whole point of the
+-- feature is people whose own name you cannot read at a glance, and a nickname
+-- that quietly became the recipient would be one that whispers the wrong person.
+do
+	local id = "XxlegolasxX-TarrenMill"
+	CM.GetOrCreate(id)
+	eq("no nickname to begin with", CM.GetAlias(id), nil)
+	-- Cross-realm, so the realm is part of the name -- which is exactly the kind
+	-- of name a nickname is for.
+	eq("and the thread is named after the character",
+		CM.DisplayName(CM.Get(id)), "XxlegolasxX-TarrenMill")
+
+	CM.SetAlias(id, "Max")
+	eq("a nickname is what the window says", CM.DisplayName(CM.Get(id)), "Max")
+	eq("with the real name underneath it", CM.RealNameIfAliased(CM.Get(id)), id)
+	eq("the conversation is still filed under the character", CM.Get(id).id, id)
+
+	M.sent = {}
+	CM.SendMessage(id, "geht raus")
+	eq("and a message still goes to the character",
+		M.sent[1] and M.sent[1].target, id)
+
+	-- Trimmed, and an empty one is no nickname rather than a blank name.
+	CM.SetAlias(id, "   ")
+	eq("a blank nickname is no nickname", CM.GetAlias(id), nil)
+	eq("so the character's name is back",
+		CM.DisplayName(CM.Get(id)), "XxlegolasxX-TarrenMill")
+	eq("and there is nothing to put underneath", CM.RealNameIfAliased(CM.Get(id)), nil)
+
+	CM.SetAlias(id, "  Max  ")
+	eq("surrounding space is not part of a name", CM.GetAlias(id), "Max")
+	CM.SetAlias(id, nil)
+	eq("removing it works", CM.GetAlias(id), nil)
+	M.sent = {}
+end
+
+--------------------------------------------------------------------------------
+-- The game's own reply, left alone
+--------------------------------------------------------------------------------
+
+-- /r has to keep working. It is the game's, driven by the game's own record of
+-- who last wrote to you, and an addon that took that over would break the one
+-- thing every player already knows how to do.
+do
+	local touched = {}
+	for _, name in ipairs({ "ChatEdit_ActivateChat", "ChatEdit_OnEscapePressed",
+		"ChatFrame_ReplyTell", "ChatFrame_ReplyTell2", "LAST_ACTIVE_CHAT_EDIT_BOX" }) do
+		touched[name] = _G[name]
+	end
+
+	whisper("wer bist du", "Muradin", "G-MURADIN")
+	M.sent = {}
+	CM.SendMessage("Muradin-Blackrock", "ich bin es")
+	M.RunFrames(4)
+
+	local unchanged = true
+	for name, before in pairs(touched) do
+		if _G[name] ~= before then unchanged = false end
+	end
+	check("nothing of the game's reply machinery is overwritten", unchanged)
+	eq("and the whisper went out as an ordinary whisper",
+		M.sent[1] and M.sent[1].kind, "WHISPER")
+	check("through the game's own send, which is what /r reads back",
+		M.sent[1] ~= nil)
+	M.sent = {}
+end
+
+--------------------------------------------------------------------------------
+-- Which door the message leaves by
+--------------------------------------------------------------------------------
+
+-- Retail moved chat behind C_ChatInfo and Battle.net behind C_BattleNet. Both
+-- bare globals still work today and are one deprecation away from not working,
+-- so the namespaced one is used wherever it exists -- and the old one is still
+-- there for the Classic flavours, which have nothing else.
+do
+	M.sent, M.sentBN = {}, {}
+	CM.SendMessage("Muradin-Blackrock", "durch welche tuer")
+	check("a whisper goes through the namespaced chat API",
+		M.sent[1] and M.sent[1].via == "C_ChatInfo",
+		M.sent[1] and M.sent[1].via or "nothing sent")
+
+	local bn = CM.GetOrCreate("BN:Jemand#1234", { name = "Jemand" })
+	bn.isBN = true
+	bn.bnetAccountID = 4242
+	CM.SendMessage(bn.id, "und bnet")
+	check("and a Battle.net whisper through the namespaced one",
+		M.sentBN[1] and M.sentBN[1].via == "C_BattleNet",
+		M.sentBN[1] and M.sentBN[1].via or "nothing sent")
+
+	-- A client that has only the old globals still sends.
+	local modernChat, modernBN = _G.C_ChatInfo.SendChatMessage, _G.C_BattleNet.SendWhisper
+	_G.C_ChatInfo.SendChatMessage, _G.C_BattleNet.SendWhisper = nil, nil
+	M.sent, M.sentBN = {}, {}
+	CM.SendMessage("Muradin-Blackrock", "auf dem alten weg")
+	check("an older client falls back to the global",
+		M.sent[1] and M.sent[1].via == "global",
+		M.sent[1] and M.sent[1].via or "nothing sent")
+	CM.SendMessage(bn.id, "auch bnet")
+	check("and so does Battle.net",
+		M.sentBN[1] and M.sentBN[1].via == "global",
+		M.sentBN[1] and M.sentBN[1].via or "nothing sent")
+	_G.C_ChatInfo.SendChatMessage, _G.C_BattleNet.SendWhisper = modernChat, modernBN
+	M.sent, M.sentBN = {}, {}
+end
+
+--------------------------------------------------------------------------------
 -- Sending where the client will not carry it
 --------------------------------------------------------------------------------
 

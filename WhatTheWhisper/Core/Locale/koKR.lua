@@ -355,6 +355,28 @@ ns.RegisterLocale("koKR", {
 		"이곳에서는 애드온이 아직 귓속말을 읽을 수 없습니다. 대화창에 있으며, 나가면 여기에 나타납니다.",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"여기서는 귓속말을 보낼 수 없습니다. 게임의 기본 대화창을 이용하세요.",
+	["Keep whispers in the chat frame"] =
+		"귓속말을 대화창에 두기",
+	["Show hidden message"] =
+		"가려진 메시지 보기",
+	["Save"] =
+		"저장",
+	["Shown instead of their name, here only"] =
+		"이름 대신 여기에서만 표시됩니다",
+	["Nickname"] =
+		"별명",
+	["Remove nickname"] =
+		"별명 없애기",
+	["Change nickname"] =
+		"별명 바꾸기",
+	["Add a nickname"] =
+		"별명 붙이기",
+	["Message hidden by the game's chat filter."] =
+		"게임의 대화 필터가 가린 메시지입니다.",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"게임이 귓속말마다 이 창과는 별개인 대화 탭을 하나씩 엽니다.",
+	["The game opens its own whisper windows"] =
+		"게임이 자체 귓속말 창을 엽니다",
 	["Debug logging on."] = "디버그 기록을 켰습니다.",
 	["Debug logging off."] = "디버그 기록을 껐습니다.",
 	["/wtw show / hide - open or close the messenger"] =

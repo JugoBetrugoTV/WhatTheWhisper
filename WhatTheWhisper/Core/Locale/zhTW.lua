@@ -345,6 +345,28 @@ ns.RegisterLocale("zhTW", {
 		"此處插件還讀不到密語。它們在聊天視窗裡，等你離開後會出現在這裡。",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"這裡無法傳送密語。請使用遊戲內建的聊天視窗。",
+	["Keep whispers in the chat frame"] =
+		"把密語留在聊天視窗裡",
+	["Show hidden message"] =
+		"顯示被隱藏的訊息",
+	["Save"] =
+		"儲存",
+	["Shown instead of their name, here only"] =
+		"在這裡代替他們的名字顯示，僅此而已",
+	["Nickname"] =
+		"暱稱",
+	["Remove nickname"] =
+		"移除暱稱",
+	["Change nickname"] =
+		"改暱稱",
+	["Add a nickname"] =
+		"取個暱稱",
+	["Message hidden by the game's chat filter."] =
+		"這則訊息被遊戲的聊天過濾器隱藏。",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"你的遊戲會為每則密語單開一個聊天分頁，就在這個視窗旁邊。",
+	["The game opens its own whisper windows"] =
+		"遊戲會自己開密語視窗",
 	["Debug logging on."] = "除錯紀錄已開啟。",
 	["Debug logging off."] = "除錯紀錄已關閉。",
 	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - 開啟或關閉訊息視窗",

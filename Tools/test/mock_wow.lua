@@ -1091,7 +1091,10 @@ _G.GetLocale = function() return M.locale or "enUS" end
 _G.GetRealmName = function() return "Blackrock" end
 _G.GetNormalizedRealmName = function() return "Blackrock" end
 _G.GetTime = function() return M.now end
-_G.GetServerTime = function() return 1788000000 end
+-- Server time advances with the mock clock, so code that waits for a deadline
+-- can be made to reach it: M.now = M.now + 40 is forty seconds later.
+M.serverEpoch = 1788000000
+_G.GetServerTime = function() return M.serverEpoch + math.floor(M.now) end
 _G.GetScreenHeight = function() return 1080 end
 _G.GetScreenWidth = function() return 1920 end
 _G.GetPhysicalScreenSize = function() return 1920, 1080 end
@@ -1189,7 +1192,7 @@ end
 _G.Ambiguate = function(name) return name end
 _G.SendChatMessage = function(text, kind, lang, target)
 	M.sent = M.sent or {}
-	M.sent[#M.sent + 1] = { text = text, kind = kind, target = target }
+	M.sent[#M.sent + 1] = { text = text, kind = kind, target = target, via = "global" }
 	assert(#text <= 255, "whisper longer than 255 bytes: " .. #text)
 end
 -- Real filter storage rather than a no-op: whether a whisper still reaches the
@@ -1293,7 +1296,9 @@ function M.ChatFrameWouldShow(event, ...)
 end
 _G.PlaySound = function() return true end
 _G.PlaySoundFile = function() return true end
-_G.FlashClientIcon = function() end
+-- Counted rather than ignored: an addon that flashes the taskbar for every
+-- message, or for none, is a thing a test should be able to see.
+_G.FlashClientIcon = function() M.flashes = (M.flashes or 0) + 1 end
 _G.SetItemRef = function() end
 _G.geterrorhandler = function() return function(msg) M.errors[#M.errors + 1] = tostring(msg) end end
 -- The real thing: appends to a global function without replacing it, and the
@@ -1348,7 +1353,34 @@ _G.AddonCompartmentFrame = {
 }
 
 _G.C_ChatInfo = _G.C_ChatInfo or {}
+-- Retail moved chat behind C_ChatInfo. Same function, new roof: an addon that
+-- reaches for the bare global on a client that has both still works today and is
+-- one deprecation away from not working, so the namespaced one is recorded
+-- separately and the suite can tell which door was used.
+_G.C_ChatInfo.SendChatMessage = function(text, kind, lang, target)
+	M.sent = M.sent or {}
+	M.sent[#M.sent + 1] = { text = text, kind = kind, target = target, via = "C_ChatInfo" }
+end
 _G.C_ChatInfo.InChatMessagingLockdown = function() return M.chatLockdown == true end
+
+-- Console variables the addon reads. whisperMode decides whether the game keeps
+-- whispers in the chat frame ("inline") or gives each one its own tab
+-- ("popout"), which changes what the player sees beside this addon's window.
+M.cvars = { whisperMode = "inline" }
+_G.GetCVar = function(name) return M.cvars[name] end
+_G.SetCVar = function(name, value) M.cvars[name] = value return true end
+
+-- Blizzard's own chat filter, which hides a line's text until the player asks
+-- for it. M.censoredLines = { [lineID] = true }.
+M.censoredLines = {}
+_G.C_ChatInfo.IsChatLineCensored = function(lineID)
+	return M.censoredLines[lineID] == true
+end
+_G.C_ChatInfo.UncensorChatLine = function(lineID)
+	M.censoredLines[lineID] = nil
+	M.uncensored = M.uncensored or {}
+	M.uncensored[#M.uncensored + 1] = lineID
+end
 _G.C_ChatInfo.GetChatLineText = function(lineID) return chatLineField(lineID, "text") end
 _G.C_ChatInfo.GetChatLineSenderName = function(lineID) return chatLineField(lineID, "sender") end
 _G.C_ChatInfo.GetChatLineSenderGUID = function(lineID) return chatLineField(lineID, "guid") end
@@ -1387,6 +1419,10 @@ _G.WhoFrame = CreateFrame("Frame", "WhoFrame", UIParent)
 WhoFrame:Hide()
 _G.C_PartyInfo = { InviteUnit = function() end }
 _G.C_BattleNet = {
+	SendWhisper = function(id, text)
+		M.sentBN = M.sentBN or {}
+		M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "C_BattleNet" }
+	end,
 	GetFriendAccountInfo = function() return nil end,
 	GetAccountInfoByID = function(id)
 		local info = M.bnet and M.bnet[id]
@@ -1398,7 +1434,7 @@ _G.C_BattleNet = {
 _G.BNGetNumFriends = function() return 0 end
 _G.BNSendWhisper = function(id, text)
 	M.sentBN = M.sentBN or {}
-	M.sentBN[#M.sentBN + 1] = { id = id, text = text }
+	M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "global" }
 end
 _G.C_GuildInfo = { GuildRoster = function() end }
 _G.GetNumGuildMembers = function() return #(M.guildRoster or {}) end

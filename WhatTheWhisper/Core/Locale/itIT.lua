@@ -356,6 +356,28 @@ ns.RegisterLocale("itIT", {
 		"Qui gli addon non possono ancora leggere i sussurri. Sono nella finestra di chat e compariranno qui quando esci.",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"Da qui non si possono inviare sussurri. Usa la chat del gioco.",
+	["Keep whispers in the chat frame"] =
+		"Tieni i sussurri nella finestra di chat",
+	["Show hidden message"] =
+		"Mostra il messaggio nascosto",
+	["Save"] =
+		"Salva",
+	["Shown instead of their name, here only"] =
+		"Mostrato al posto del loro nome, solo qui",
+	["Nickname"] =
+		"Soprannome",
+	["Remove nickname"] =
+		"Togli il soprannome",
+	["Change nickname"] =
+		"Cambia il soprannome",
+	["Add a nickname"] =
+		"Dai un soprannome",
+	["Message hidden by the game's chat filter."] =
+		"Messaggio nascosto dal filtro chat del gioco.",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"Il tuo gioco dà a ogni sussurro una scheda di chat tutta sua, accanto a questa finestra.",
+	["The game opens its own whisper windows"] =
+		"Il gioco apre finestre di sussurro tutte sue",
 	["Debug logging on."] = "Registro di debug attivo.",
 	["Debug logging off."] = "Registro di debug disattivato.",
 	["/wtw show / hide - open or close the messenger"] =

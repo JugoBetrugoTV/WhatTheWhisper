@@ -122,15 +122,38 @@ end
 -- open a second thread for the same person.
 local bnKeyCache = {}
 
-local function bnConversationID(bnSenderID, accountName)
-	local cached = bnKeyCache[bnSenderID]
-	if cached then return cached.id, cached.name or accountName, cached.tag end
-	local battleTag, name = Compat.GetBNAccountInfoByID(bnSenderID)
+-- Who a Battle.net whisper is with, from whatever the client was willing to say.
+--
+-- The account id arrives beside the text and is sometimes the one thing withheld
+-- -- and a withheld value may not be tested for truth, used as a table key, or
+-- turned into a string, so it is made readable or discarded before any of that.
+-- When it is gone the name is the way back: a Battle.net whisper only comes from
+-- somebody on your list, and the list has both.
+--
+-- Returns nil when neither works. That has to mean "do not know": a thread filed
+-- under the wrong person is worse than one that was never opened.
+local function bnIdentity(rawSenderID, accountName)
+	local bnetAccountID = Compat.ReadableNumber(rawSenderID)
+	if not bnetAccountID then
+		bnetAccountID = Compat.ResolveBNAccountByName(accountName)
+		if bnetAccountID then
+			Debug.Log("events", "bnet id was withheld; recovered it from %s",
+				tostring(accountName))
+		end
+	end
+	if not bnetAccountID then return nil end
+
+	local cached = bnKeyCache[bnetAccountID]
+	if cached then
+		return cached.id, cached.name or accountName, cached.tag, bnetAccountID
+	end
+	local battleTag, name = Compat.GetBNAccountInfoByID(bnetAccountID)
 	local id = battleTag and ("BN:" .. battleTag)
-		or ("BN:" .. tostring(accountName or bnSenderID))
+		or (accountName and accountName ~= "" and ("BN:" .. accountName))
+		or ("BN:" .. tostring(bnetAccountID))
 	local entry = { id = id, name = name or accountName, tag = battleTag }
-	if battleTag then bnKeyCache[bnSenderID] = entry end
-	return entry.id, entry.name, entry.tag
+	if battleTag then bnKeyCache[bnetAccountID] = entry end
+	return entry.id, entry.name, entry.tag, bnetAccountID
 end
 
 --------------------------------------------------------------------------------
@@ -153,6 +176,9 @@ local unreadable = 0
 -- Set only while a held message is being put back, so the handlers below store
 -- it with the time it was sent instead of the time it was recovered.
 local replayTimestamp
+-- ...and whether the game was hiding that line when it came back. `false` means
+-- "asked, and it was not"; nil means "not a replay".
+local replayCensoredLine
 
 function ChatEvents.UnreadableCount()
 	return unreadable
@@ -170,6 +196,21 @@ end
 -- cannot store it, and we must not also be the reason it is missing from the
 -- chat frame -- so the addon stops suppressing whispers, exactly as it does when
 -- it has been erroring, and says so once.
+-- The game's own chat filter can hide a line and hand the addon a placeholder.
+-- That is moderation, not a restriction on addons, and the most an addon may do
+-- is say so and let the player ask. Returns the line to ask about, or nil when
+-- there is nothing hidden -- which is almost always.
+--
+-- On a replayed message the answer was worked out when it was released; asking
+-- again could give a different one, because the player may have revealed it in
+-- the chat frame in the meantime.
+local function censoredLineOf(lineID)
+	if replayCensoredLine ~= nil then return replayCensoredLine or nil end
+	local line = Compat.ReadableNumber(lineID)
+	if line and Compat.IsChatLineCensored(line) then return line end
+	return nil
+end
+
 local function readableWhisper(value)
 	local readable = Compat.ReadableText(value)
 	if readable ~= nil then return readable end
@@ -178,9 +219,10 @@ local function readableWhisper(value)
 	return nil
 end
 
-local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
+local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 	text, sender, guid = readableWhisper(text), readableOrNil(sender), readableOrNil(guid)
 	if text == nil or sender == nil or sender == "" then return end
+	local censoredLine = censoredLineOf(lineID)
 	local id = Compat.NormalizeName(sender)
 	PlayerInfo.Observe(id, guid)
 	local info = PlayerInfo.Get(id)
@@ -201,7 +243,8 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, _, guid)
 	-- drawn for anybody.
 	PlayerInfo.NoteActivity(id)
 
-	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp)
+	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp, nil,
+		censoredLine and { censoredLine = censoredLine } or nil)
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
 end
@@ -231,12 +274,19 @@ end
 
 local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
 	text, accountName = readableWhisper(text), readableOrNil(accountName)
-	if text == nil or not bnSenderID then return end
-	local id, name, tag = bnConversationID(bnSenderID, accountName)
+	if text == nil then return end
+	local id, name, tag, accountID = bnIdentity(bnSenderID, accountName)
+	if not id then
+		-- Readable text, unknowable account. Counted and left where it is rather
+		-- than filed under a guess; the chat frame still has it.
+		unreadable = unreadable + 1
+		Debug.Log("events", "a bnet whisper arrived with no usable identity")
+		return
+	end
 	local conv = CM.GetOrCreate(id, {
-		name = name or accountName, battleTag = tag, bnetAccountID = bnSenderID,
+		name = name or accountName, battleTag = tag, bnetAccountID = accountID,
 	})
-	conv.bnetAccountID = bnSenderID
+	conv.bnetAccountID = accountID
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET, replayTimestamp)
 	Debug.Log("events", "bnet whisper in on %s", id)
 	ns.Notifications.OnIncoming(conv, msg, isMention(text))
@@ -244,8 +294,13 @@ end
 
 local function onBNWhisperInform(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSenderID)
 	text, accountName = readableWhisper(text), readableOrNil(accountName)
-	if text == nil or not bnSenderID then return end
-	local id = select(1, bnConversationID(bnSenderID, accountName))
+	if text == nil then return end
+	local id = select(1, bnIdentity(bnSenderID, accountName))
+	if not id then
+		unreadable = unreadable + 1
+		Debug.Log("events", "a bnet echo arrived with no usable identity")
+		return
+	end
 	if resolvePending(id, text) then
 		Debug.Log("dedupe", "bnet inform matched a pending message on %s", id)
 		return
@@ -377,6 +432,51 @@ end
 -- Chat frame suppression
 --------------------------------------------------------------------------------
 
+-- What each event cannot do without, by argument position.
+--
+-- Every field of a chat event is one of three things, and the difference decides
+-- what happens when the client withholds it:
+--
+--   REQUIRED   the message is not a message without it. Arg 1 is the text and
+--              arg 2 is the other person -- the sender on an incoming whisper,
+--              the target on the server's echo of an outgoing one. Withheld, the
+--              event is put aside until the client will answer for its line.
+--   OPTIONAL   fills something in. Arg 12 is the sender's GUID, which colours a
+--              name by class; arg 13 is the Battle.net account id, which can be
+--              looked up from the account name instead. Withheld, they are
+--              dropped and the message is handled now: holding a whisper back
+--              over the decoration trades the message for the trimmings.
+--   UNUSED     everything else. Never read, so never a problem.
+--
+-- CHAT_MSG_SYSTEM is absent entirely: those are read only to notice "no player
+-- named" and friends coming online, and one missed costs nothing.
+local ARG_TEXT, ARG_WHO = 1, 2
+local DEFERRABLE = {
+	-- required = text + sender; guid optional
+	CHAT_MSG_WHISPER = { ARG_TEXT, ARG_WHO },
+	-- required = text + target; guid optional
+	CHAT_MSG_WHISPER_INFORM = { ARG_TEXT, ARG_WHO },
+	-- required = text + sender; the account id is recoverable from the name, so
+	-- it is optional here and checked inside the handler instead
+	CHAT_MSG_BN_WHISPER = { ARG_TEXT, ARG_WHO },
+	CHAT_MSG_BN_WHISPER_INFORM = { ARG_TEXT, ARG_WHO },
+	CHAT_MSG_AFK = { ARG_TEXT, ARG_WHO },
+	CHAT_MSG_DND = { ARG_TEXT, ARG_WHO },
+}
+
+-- Whether this event is missing something it cannot do without. Asked of the raw
+-- arguments, before anything has compared, tested, concatenated, indexed or
+-- formatted any of them.
+local function requiredIsWithheld(event, ...)
+	local required = DEFERRABLE[event]
+	if not required then return false end
+	for i = 1, #required do
+		if Compat.IsSecretValue((select(required[i], ...))) then return true end
+	end
+	return false
+end
+
+
 local function shouldHide()
 	local db = ns.db
 	if not db or not db.profile then return false end
@@ -388,32 +488,18 @@ local function shouldHide()
 end
 
 -- The client passes the frame and the event before the payload.
-local function suppressFilter(_, _, ...)
+local function suppressFilter(_, event, ...)
 	-- A message this addon could not read must stay in the chat frame: it is the
 	-- only copy the player has until the restriction lifts. Checked per message
 	-- rather than latched, so ordinary whispers a second later are still taken
 	-- out of the chat frame the way they were asked to be.
-	if Compat.HasAnySecretValues((select(1, ...)), (select(2, ...))) then
-		return false
-	end
+	if requiredIsWithheld(event, ...) then return false end
 	return shouldHide()
 end
 
 --------------------------------------------------------------------------------
 -- Event plumbing
 --------------------------------------------------------------------------------
-
--- Events whose payload the client can be asked for again later, by chat line
--- id. CHAT_MSG_SYSTEM is deliberately absent: those are read only to notice
--- "no player named" and friends coming online, and one missed costs nothing.
-local DEFERRABLE = {
-	CHAT_MSG_WHISPER = true,
-	CHAT_MSG_WHISPER_INFORM = true,
-	CHAT_MSG_BN_WHISPER = true,
-	CHAT_MSG_BN_WHISPER_INFORM = true,
-	CHAT_MSG_AFK = true,
-	CHAT_MSG_DND = true,
-}
 
 local handlers = {
 	CHAT_MSG_WHISPER = onWhisper,
@@ -443,17 +529,15 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	local handler = handlers[event] or rosterHandlers[event]
 	if not handler then return end
 
-	-- Asked before any handler has looked at anything, and asked only of the two
-	-- arguments a message cannot do without: the text and who sent it. The GUID
-	-- beside them is sometimes withheld on its own, and holding a whole whisper
-	-- back over a field that only fills in a class colour would be trading the
-	-- message for the decoration.
+	-- Asked before any handler has looked at anything, and asked only of the
+	-- fields this event cannot do without -- see DEFERRABLE above for which
+	-- those are and why the rest are not.
 	--
 	-- A withheld message is not dropped: it is put aside with its chat line id
 	-- and comes back the moment the client will answer for that line, which is
 	-- what makes a whisper sent to you in an arena end up in its thread instead
 	-- of only in the chat frame.
-	if DEFERRABLE[event] and Compat.HasAnySecretValues((select(1, ...)), (select(2, ...))) then
+	if requiredIsWithheld(event, ...) then
 		unreadable = unreadable + 1
 		if ns.Deferred.Hold(event, ...) then
 			Debug.NoteWithheld()
@@ -475,8 +559,9 @@ local function replay(event, args)
 	local handler = handlers[event]
 	if not handler then return end
 	replayTimestamp = args.timestamp
+	replayCensoredLine = args.censored and args.lineID or false
 	local ok = ns.Guard(event, handler, unpack(args, 1, 20))
-	replayTimestamp = nil
+	replayTimestamp, replayCensoredLine = nil, nil
 	return ok
 end
 

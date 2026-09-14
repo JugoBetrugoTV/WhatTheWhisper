@@ -398,6 +398,15 @@ function Compat.ReadableText(value)
 	return value
 end
 
+-- The same question for a value that is meant to be a number. A Battle.net
+-- account id arrives beside the text and can be withheld on its own; testing it
+-- for truth, or using it as a table key, is a read like any other.
+function Compat.ReadableNumber(value)
+	if value == nil then return nil end
+	if Compat.IsSecretValue(value) then return nil end
+	return type(value) == "number" and value or nil
+end
+
 -- The message the client would not hand over live.
 --
 -- A chat line's ID is never secret. Keeping it is what makes a withheld message
@@ -442,17 +451,39 @@ local function knownNumber(value)
 	return value
 end
 
+-- Sending, through whichever door this client leaves open.
+--
+-- Retail moved chat behind C_ChatInfo and Battle.net behind C_BattleNet; the
+-- bare globals are still there on the Classic flavours and still there on Retail
+-- as of 12.1, but a function that is being moved is a function to stop reaching
+-- for directly. Same arguments either way -- the namespaced versions are the
+-- same functions under a new roof -- so this is a lookup, not two code paths.
+local function sendChat(...)
+	local info = _G.C_ChatInfo
+	if info and type(info.SendChatMessage) == "function" then
+		return pcall(info.SendChatMessage, ...)
+	end
+	if type(_G.SendChatMessage) == "function" then
+		return pcall(_G.SendChatMessage, ...)
+	end
+	return false
+end
+
 function Compat.SendWhisper(target, text)
 	if not target or not text or text == "" then return false end
-	local ok = pcall(SendChatMessage, text, "WHISPER", nil, target)
-	return ok
+	return (sendChat(text, "WHISPER", nil, target))
 end
 
 function Compat.SendBNWhisper(bnetAccountID, text)
-	if not bnetAccountID or not text or text == "" then return false end
-	if type(_G.BNSendWhisper) ~= "function" then return false end
-	local ok = pcall(_G.BNSendWhisper, bnetAccountID, text)
-	return ok
+	if type(bnetAccountID) ~= "number" or not text or text == "" then return false end
+	local bn = _G.C_BattleNet
+	if bn and type(bn.SendWhisper) == "function" then
+		return (pcall(bn.SendWhisper, bnetAccountID, text))
+	end
+	if type(_G.BNSendWhisper) == "function" then
+		return (pcall(_G.BNSendWhisper, bnetAccountID, text))
+	end
+	return false
 end
 
 Compat.hasChatFilters = type(_G.ChatFrame_AddMessageEventFilter) == "function"
@@ -793,6 +824,24 @@ function Compat.ResolveBNAccountID(battleTag)
 	return nil
 end
 
+-- The account id behind a Battle.net display name.
+--
+-- The id arrives beside a whisper and is sometimes the one thing the client
+-- withholds. It cannot be guessed, but it can be looked up: a Battle.net whisper
+-- only comes from somebody on your friends list, and that list has both. Returns
+-- nil when no friend matches, which has to mean "do not know" rather than a
+-- best guess -- a conversation filed under the wrong person is worse than none.
+function Compat.ResolveBNAccountByName(accountName)
+	if type(accountName) ~= "string" or accountName == "" then return nil end
+	for i = 1, Compat.GetNumBNFriends() do
+		local id, _, name = Compat.GetBNFriendInfo(i)
+		if name and name == accountName and type(id) == "number" then
+			return id
+		end
+	end
+	return nil
+end
+
 function Compat.GetBNAccountInfoByID(bnetAccountID)
 	if not bnetAccountID or not Compat.hasBattleNet then return nil end
 	if type(_G.C_BattleNet) == "table" and _G.C_BattleNet.GetAccountInfoByID then
@@ -965,6 +1014,51 @@ local ALWAYS_DRAWN = { latin = true, cyrillic = true }
 function Compat.CanDrawScript(script)
 	if not script or ALWAYS_DRAWN[script] then return true end
 	return Compat.FontForScript(script) ~= nil
+end
+
+-- Blizzard's own chat filter can hide a line's text and hand the addon a
+-- placeholder. That is moderation, not a restriction on addons, and it is not
+-- ours to work around: the most an addon may do is show that something is there
+-- and let the player ask for it.
+function Compat.IsChatLineCensored(lineID)
+	local info = _G.C_ChatInfo
+	if not info or type(info.IsChatLineCensored) ~= "function" then return false end
+	if type(lineID) ~= "number" then return false end
+	local ok, censored = pcall(info.IsChatLineCensored, lineID)
+	return ok and censored == true
+end
+
+-- Only ever from a click. Blizzard's rule, and the right one: revealing a line
+-- somebody chose to filter is a decision for the person reading it.
+function Compat.UncensorChatLine(lineID)
+	local info = _G.C_ChatInfo
+	if not info or type(info.UncensorChatLine) ~= "function" then return false end
+	if type(lineID) ~= "number" then return false end
+	return (pcall(info.UncensorChatLine, lineID))
+end
+
+-- How the game itself presents whispers: "inline" keeps them in the chat frame,
+-- "popout" gives each one its own chat tab. Both are handled, but the second
+-- means the game opens a window of its own beside this addon's, which is a thing
+-- the player should get to decide about knowingly.
+function Compat.GetWhisperMode()
+	if type(_G.GetCVar) ~= "function" then return nil end
+	local ok, mode = pcall(_G.GetCVar, "whisperMode")
+	if not ok then return nil end
+	return Compat.ReadableText(mode)
+end
+
+function Compat.SetWhisperMode(mode)
+	if type(_G.SetCVar) ~= "function" then return false end
+	return (pcall(_G.SetCVar, "whisperMode", mode))
+end
+
+-- The taskbar flash the game does for a whisper when its window is in the
+-- background. Ours goes through the same call so a player who has it switched
+-- off in the game keeps it switched off here.
+function Compat.FlashClientIcon()
+	if type(_G.FlashClientIcon) ~= "function" then return false end
+	return (pcall(_G.FlashClientIcon))
 end
 
 -- The addon compartment: the list behind the button beside the minimap that

@@ -325,6 +325,28 @@ ns.RegisterLocale("deDE", {
 		"Flüsternachrichten können hier von Addons noch nicht gelesen werden. Sie stehen im Chatfenster und erscheinen hier, sobald du gehst.",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"Von hier aus können keine Flüsternachrichten gesendet werden. Nutze das normale Chatfenster.",
+	["Keep whispers in the chat frame"] =
+		"Flüstern im Chatfenster lassen",
+	["Show hidden message"] =
+		"Ausgeblendete Nachricht anzeigen",
+	["Save"] =
+		"Speichern",
+	["Shown instead of their name, here only"] =
+		"Wird hier statt ihres Namens angezeigt, sonst nirgends",
+	["Nickname"] =
+		"Spitzname",
+	["Remove nickname"] =
+		"Spitznamen entfernen",
+	["Change nickname"] =
+		"Spitznamen ändern",
+	["Add a nickname"] =
+		"Spitznamen vergeben",
+	["Message hidden by the game's chat filter."] =
+		"Nachricht vom Chatfilter des Spiels ausgeblendet.",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"Dein Spiel gibt jedem Flüstern eine eigene Chat-Registerkarte, neben diesem Fenster.",
+	["The game opens its own whisper windows"] =
+		"Das Spiel öffnet eigene Flüsterfenster",
 	["Debug logging on."] = "Debug-Ausgaben an.",
 	["Debug logging off."] = "Debug-Ausgaben aus.",
 	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - Messenger öffnen oder schließen",

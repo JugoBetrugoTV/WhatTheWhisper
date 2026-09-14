@@ -193,6 +193,29 @@ end
 -- Schema
 --------------------------------------------------------------------------------
 
+-- The game has its own idea about whispers: "inline" leaves them in the chat
+-- frame, "popout" gives each one a chat tab of its own. Both work here -- the
+-- addon's suppression runs on every chat frame, popped out or not -- but in
+-- popout mode the game opens a window beside this one for the same conversation,
+-- which is not a thing to change behind the player's back.
+--
+-- So the row appears only when there is something to say, and it asks.
+local function whisperModeRow()
+	local mode = Compat.GetWhisperMode()
+	if not mode or mode == "inline" then return nil end
+	return {
+		type = "button",
+		label = L["The game opens its own whisper windows"],
+		caption = L["Your game gives every whisper its own chat tab, beside this window."],
+		buttonText = L["Keep whispers in the chat frame"],
+		onClick = function()
+			if Compat.SetWhisperMode("inline") then
+				ns.SettingsUI.Rebuild()
+			end
+		end,
+	}
+end
+
 local function toggle(path, label, caption, invert)
 	return { type = "toggle", path = path, label = label, caption = caption, invert = invert }
 end
@@ -246,6 +269,10 @@ function Options.BuildSchema()
 							{ value = "cross", label = L["Automatic"] },
 							{ value = "always", label = L["Always"] },
 						}),
+						-- Last on purpose: it is there only some of the time, and
+						-- a nil in the middle of a table constructor is a list
+						-- that ends early.
+						whisperModeRow(),
 					},
 				},
 			},

@@ -353,6 +353,28 @@ ns.RegisterLocale("frFR", {
 		"Les chuchotements ne sont pas encore lisibles par les addons ici. Ils sont dans la fenêtre de discussion et apparaîtront ici à votre sortie.",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"Impossible d'envoyer des chuchotements d'ici. Utilisez la fenêtre de discussion du jeu.",
+	["Keep whispers in the chat frame"] =
+		"Garder les chuchotements dans la fenêtre de discussion",
+	["Show hidden message"] =
+		"Afficher le message masqué",
+	["Save"] =
+		"Enregistrer",
+	["Shown instead of their name, here only"] =
+		"Affiché à la place de leur nom, ici seulement",
+	["Nickname"] =
+		"Surnom",
+	["Remove nickname"] =
+		"Retirer le surnom",
+	["Change nickname"] =
+		"Changer le surnom",
+	["Add a nickname"] =
+		"Donner un surnom",
+	["Message hidden by the game's chat filter."] =
+		"Message masqué par le filtre de discussion du jeu.",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"Votre jeu donne à chaque chuchotement son propre onglet de discussion, à côté de cette fenêtre.",
+	["The game opens its own whisper windows"] =
+		"Le jeu ouvre ses propres fenêtres de chuchotement",
 	["Debug logging on."] = "Journalisation activée.",
 	["Debug logging off."] = "Journalisation désactivée.",
 	["/wtw show / hide - open or close the messenger"] =

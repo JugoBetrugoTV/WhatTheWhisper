@@ -50,8 +50,8 @@ function Notifications.OnIncoming(conv, msg, isMention)
 
 	-- Taskbar flash when the game does not have focus. FlashClientIcon is a
 	-- no-op in-game, so this costs nothing when the player is at the keyboard.
-	if settings().flashClient and not conv.muted and type(_G.FlashClientIcon) == "function" then
-		pcall(_G.FlashClientIcon)
+	if settings().flashClient and not conv.muted then
+		ns.Compat.FlashClientIcon()
 	end
 
 	-- Window behaviour.

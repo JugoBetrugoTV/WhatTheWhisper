@@ -134,6 +134,10 @@ ns.defaults = {
 
 		-- Per-conversation popout geometry, keyed by conversation id.
 		popouts = {},
+		-- A local nickname per conversation, keyed by the conversation's own id.
+		-- Display only: the id is still the id, and a message still goes to the
+		-- character it was always going to.
+		aliases = {},
 	},
 
 	-- Account wide, deliberately outside the profile: a first-run hint that
@@ -176,6 +180,10 @@ ns.defaults = {
 -- the file size for a large history.
 
 ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_KIND, ns.MSG_STATUS = 1, 2, 3, 4, 5
+-- The chat line a message arrived on, kept only while it is worth keeping: it is
+-- what lets the player ask the game to show a line its own filter has hidden.
+-- Absent on everything else, which is almost everything.
+ns.MSG_LINE = 6
 
 ns.RETENTION_SECONDS = {
 	["off"]      = 0,

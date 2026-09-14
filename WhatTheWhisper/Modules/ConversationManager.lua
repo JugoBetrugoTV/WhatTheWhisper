@@ -164,12 +164,47 @@ end
 -- Messages
 --------------------------------------------------------------------------------
 
+-- What a message reads as, which is not always what was stored.
+--
+-- The game's own chat filter can hide a line. The addon has the placeholder the
+-- client handed over, not the words, and it is not the addon's business to work
+-- around somebody else's moderation -- so the message says plainly that it is
+-- hidden, and offers the player the one thing the client allows: asking for it.
+--
+-- Once the player has asked, the client answers for that line and the real text
+-- takes its place, so this checks rather than caches.
+function CM.MessageText(msg)
+	if not msg then return "" end
+	local line = msg[ns.MSG_LINE]
+	if line and Compat.IsChatLineCensored(line) then
+		return ns.L["Message hidden by the game's chat filter."]
+	end
+	return msg[MSG_TEXT] or ""
+end
+
+-- The player asked to see one. Only ever from a click: revealing a line somebody
+-- chose to filter is their decision, not ours, and the client enforces that too.
+-- Returns true when the text actually changed.
+function CM.RevealMessage(conv, msg)
+	local line = msg and msg[ns.MSG_LINE]
+	if not line or not Compat.IsChatLineCensored(line) then return false end
+	Compat.UncensorChatLine(line)
+	local text = Compat.GetChatLine(line)
+	if text and text ~= "" then msg[MSG_TEXT] = text end
+	msg[ns.MSG_LINE] = nil
+	if conv then ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv) end
+	return true
+end
+
 function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 	local conv = CM.GetOrCreate(id, opts)
 	if not conv then return nil end
 
 	local msg = { timestamp or Compat.GetServerTime(), direction, text, kind or ns.MSG_WHISPER }
 	if status then msg[MSG_STATUS] = status end
+	-- Only for a line the game's own filter is hiding. Everything else has
+	-- nothing to ask about later, so it carries nothing.
+	if opts and opts.censoredLine then msg[ns.MSG_LINE] = opts.censoredLine end
 
 	History.Append(conv, msg)
 
@@ -430,8 +465,42 @@ end
 -- Honours messages.showRealm: never, only for cross-realm players, or always.
 -- Computed on render rather than stored, so changing the setting takes effect
 -- everywhere at once instead of only for new conversations.
+-- A name the player chose for somebody, or nil.
+--
+-- Display only, and deliberately so: XxlegolasxX-TarrenMill is who the message
+-- goes to whatever it says on the thread, and a nickname that quietly changed
+-- the recipient would be a nickname that sent a whisper to the wrong person.
+function CM.GetAlias(id)
+	local db = ns.db
+	local aliases = db and db.profile and db.profile.aliases
+	local alias = aliases and aliases[id]
+	if type(alias) == "string" and alias ~= "" then return alias end
+	return nil
+end
+
+function CM.SetAlias(id, alias)
+	local db = ns.db
+	if not db or not db.profile or not id then return end
+	alias = alias and ns.Text.Trim(alias) or nil
+	if alias == "" then alias = nil end
+	if db.profile.aliases[id] == alias then return end
+	db.profile.aliases[id] = alias
+	local conv = CM.Get(id)
+	if conv then ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv) end
+end
+
+-- Who they actually are, for the line under the nickname. nil when there is no
+-- nickname, because then the name above it already says it.
+function CM.RealNameIfAliased(conv)
+	if not conv or not CM.GetAlias(conv.id) then return nil end
+	if conv.isBN then return conv.battleTag or conv.name end
+	return conv.id
+end
+
 function CM.DisplayName(conv)
 	if not conv then return "" end
+	local alias = CM.GetAlias(conv.id)
+	if alias then return alias end
 	if conv.isBN then return conv.name or conv.id end
 	local base = Compat.ShortName(conv.id)
 	local mode = (ns.db and ns.db.profile.messages.showRealm) or "cross"

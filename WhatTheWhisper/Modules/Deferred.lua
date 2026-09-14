@@ -34,9 +34,20 @@ local MAX_HELD = 200
 -- nobody is watching the clock for.
 local POLL_SECONDS = 1
 
+-- How long a line gets to become readable once the client is willing to talk
+-- again, and how many tries that is worth. The client's chat line store is a
+-- ring buffer: a line that scrolled out of it is never coming back, and waiting
+-- for it forever would mean every message behind it waits forever too.
+--
+-- Generous, because the alternative to waiting is losing the message, and the
+-- normal case answers on the first try.
+local RECOVERY_SECONDS = 30
+local RECOVERY_ATTEMPTS = 40
+
 local held = {}
 local dispatch
 local ticker
+local dropped = 0
 
 --------------------------------------------------------------------------------
 -- Holding
@@ -82,6 +93,10 @@ function Deferred.Hold(event, ...)
 		event = event,
 		args = args,
 		at = Compat.GetServerTime(),
+		attempts = 0,
+		-- Set on the first try, not here: the clock that matters starts when
+		-- the client is willing to answer, and an arena can last ten minutes.
+		firstTry = nil,
 	}
 	Debug.Log("events", "%s held until chat comes back (%d waiting)", event, #held)
 	Deferred.Start()
@@ -92,15 +107,31 @@ end
 -- Releasing
 --------------------------------------------------------------------------------
 
+-- Whether this one has waited long enough to be called lost.
+--
+-- Time and tries, both: a client that has stopped calling the timer would never
+-- reach the attempt count, and a timer running fast would never reach the clock.
+local function exhausted(entry)
+	if entry.attempts >= RECOVERY_ATTEMPTS then return true end
+	local first = entry.firstTry
+	return first ~= nil and (Compat.GetServerTime() - first) >= RECOVERY_SECONDS
+end
+
 -- One entry, if the client will now answer for it. Returns false when it will
--- not, which is how the caller knows to stop trying for the moment.
+-- not -- which may mean "not yet" or "not ever", and the caller decides which by
+-- how long it has been asking.
 local function release(entry)
+	entry.attempts = entry.attempts + 1
+	entry.firstTry = entry.firstTry or Compat.GetServerTime()
+
 	local text, sender, guid = Compat.GetChatLine(entry.args[ARG_LINE_ID])
-	if not text then return false end
+	if text == nil then return false end
 	local args = entry.args
 	args[ARG_TEXT] = text
 	args[ARG_SENDER] = sender or args[ARG_SENDER]
 	args[ARG_GUID] = guid or args[ARG_GUID]
+	args.lineID = args[ARG_LINE_ID]
+	args.censored = Compat.IsChatLineCensored(args[ARG_LINE_ID]) or nil
 	-- The time it was sent, not the time we caught up. A thread that reorders
 	-- itself after an arena is worse than one that was briefly behind.
 	args.timestamp = entry.at
@@ -111,22 +142,50 @@ local function release(entry)
 end
 
 -- Everything that can be released now. Returns how many were.
+--
+-- The queue is drained from the front and stays in order, because a thread that
+-- reshuffles itself after an arena is worse than one that was briefly behind.
+-- But the front is not allowed to hold the rest hostage: the client's chat line
+-- store is a ring buffer, a line that has scrolled out of it is never coming
+-- back, and one such line at the head would otherwise mean every message behind
+-- it is lost too. So the head waits, and then it is dropped -- only it -- and
+-- the next one gets its turn.
+--
+-- Dropping is safe precisely because the addon never suppressed these from the
+-- chat frame: the player's copy is still there.
 function Deferred.Flush()
 	if #held == 0 then return 0 end
 	if Compat.InChatMessagingLockdown() then return 0 end
-	local released = 0
+	local released, lost = 0, 0
 	while #held > 0 do
 		local entry = held[1]
-		if not release(entry) then break end
-		table.remove(held, 1)
-		released = released + 1
+		if release(entry) then
+			table.remove(held, 1)
+			released = released + 1
+		elseif exhausted(entry) then
+			Debug.Log("events",
+				"%s on chat line %s never came back after %d tries; dropping it "
+				.. "and carrying on -- the chat frame still has it",
+				entry.event, tostring(entry.args[ARG_LINE_ID]), entry.attempts)
+			table.remove(held, 1)
+			dropped = dropped + 1
+			lost = lost + 1
+		else
+			-- Still within its budget. Wait, and keep the order.
+			break
+		end
 	end
-	if released > 0 then
-		Debug.Log("events", "released %d held message(s), %d still waiting",
-			released, #held)
+	if released > 0 or lost > 0 then
+		Debug.Log("events", "released %d, gave up on %d, %d still waiting",
+			released, lost, #held)
 	end
 	if #held == 0 then Deferred.Stop() end
 	return released
+end
+
+-- How many were given up on this session. Read by the diagnostics command.
+function Deferred.DroppedCount()
+	return dropped
 end
 
 -- A poll rather than an event, because there is no event for "the client has
@@ -153,5 +212,6 @@ end
 -- a clean slate; the messages are dropped, not shown.
 function Deferred.Clear()
 	held = {}
+	dropped = 0
 	Deferred.Stop()
 end

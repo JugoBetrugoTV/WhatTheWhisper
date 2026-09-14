@@ -583,17 +583,24 @@ function SettingsUI.SetFilter(value)
 	SettingsUI.Refresh()
 end
 
--- The player changed the language. The schema is not just re-rendered but
--- rebuilt: every label and caption in it was resolved when the window opened,
--- so refreshing alone would lay out the same English strings again.
+-- Build the schema again, not just render it again. Every label, caption and
+-- option in it was resolved when the window opened, so a plain refresh lays out
+-- the same answers -- which is wrong after a language change, and wrong after a
+-- setting that decides whether a row exists at all.
+function SettingsUI.Rebuild()
+	if not frame or not frame:IsShown() then return end
+	schema = Options.BuildSchema()
+	renderNav()
+	SettingsUI.Refresh()
+end
+
+-- The player changed the language. Everything above, plus the window's own
+-- chrome, which was written once when it was built.
 function SettingsUI.Relocalize()
 	if not frame then return end
 	frame.header.title:SetText(L["Settings"])
 	frame.nav.search.input:SetPlaceholder(L["Search settings"])
-	if not frame:IsShown() then return end
-	schema = Options.BuildSchema()
-	renderNav()
-	SettingsUI.Refresh()
+	SettingsUI.Rebuild()
 end
 
 function SettingsUI.Show()

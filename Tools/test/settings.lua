@@ -469,6 +469,48 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- The game's own whisper windows
+--------------------------------------------------------------------------------
+
+-- "popout" tells the game to give every whisper a chat tab of its own, beside
+-- this addon's window. Everything here works in both modes -- suppression runs
+-- on every chat frame, popped out or not -- so this is a thing to mention, not
+-- a thing to change behind the player's back.
+do
+	M.cvars.whisperMode = "inline"
+	local function hasRow()
+		local found = false
+		local schema = ns.Options.BuildSchema()
+		for c = 1, #schema do
+			for k = 1, #schema[c].cards do
+				local rows = schema[c].cards[k].rows
+				for r = 1, #rows do
+					if rows[r].buttonText == ns.L["Keep whispers in the chat frame"] then
+						found = rows[r]
+					end
+				end
+			end
+		end
+		return found
+	end
+
+	check("inline needs no explaining", hasRow() == false)
+
+	M.cvars.whisperMode = "popout"
+	local row = hasRow()
+	check("popout says so", row ~= false and row ~= nil)
+	if row then
+		check("and offers to change it", type(row.onClick) == "function")
+		-- Nothing is changed until the player says so.
+		eq("the setting is untouched until asked", M.cvars.whisperMode, "popout")
+		ns.Guard("test.whisperMode", row.onClick)
+		eq("and changed when asked", M.cvars.whisperMode, "inline")
+		check("after which the row is gone", hasRow() == false)
+	end
+	M.cvars.whisperMode = "inline"
+end
+
+--------------------------------------------------------------------------------
 -- Profile reset
 --------------------------------------------------------------------------------
 

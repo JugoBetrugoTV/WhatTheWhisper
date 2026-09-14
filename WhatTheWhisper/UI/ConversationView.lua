@@ -310,6 +310,14 @@ function V:RefreshHeader()
 	if conv.muted then
 		status = status and (status .. " \194\183 " .. L["Muted"]) or L["Muted"]
 	end
+	-- A nickname replaces the name above, so the line below has to say who that
+	-- actually is. It comes first, because it is what the rest of the line is
+	-- about: a window that only ever said "Max" would be a window you could
+	-- whisper the wrong Max from.
+	local realName = ns.ConversationManager.RealNameIfAliased(conv)
+	if realName then
+		status = status and (realName .. " \194\183 " .. status) or realName
+	end
 	header.status:SetText(status or "")
 
 	-- The dot is the only thing on screen that says whether they are there, so

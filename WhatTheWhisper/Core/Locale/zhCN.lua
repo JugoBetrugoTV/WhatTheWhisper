@@ -345,6 +345,28 @@ ns.RegisterLocale("zhCN", {
 		"此处插件还读不到密语。它们在聊天框里，等你离开后会出现在这里。",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"这里无法发送密语。请使用游戏自带的聊天框。",
+	["Keep whispers in the chat frame"] =
+		"把密语留在聊天框里",
+	["Show hidden message"] =
+		"显示被隐藏的消息",
+	["Save"] =
+		"保存",
+	["Shown instead of their name, here only"] =
+		"在这里代替他们的名字显示，仅此而已",
+	["Nickname"] =
+		"昵称",
+	["Remove nickname"] =
+		"去掉昵称",
+	["Change nickname"] =
+		"改昵称",
+	["Add a nickname"] =
+		"起个昵称",
+	["Message hidden by the game's chat filter."] =
+		"该消息被游戏的聊天过滤器隐藏。",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"你的游戏会为每条密语单开一个聊天标签页，就在这个窗口旁边。",
+	["The game opens its own whisper windows"] =
+		"游戏会自己开密语窗口",
 	["Debug logging on."] = "调试日志已开启。",
 	["Debug logging off."] = "调试日志已关闭。",
 	["/wtw show / hide - open or close the messenger"] = "/wtw show / hide - 打开或关闭信使窗口",

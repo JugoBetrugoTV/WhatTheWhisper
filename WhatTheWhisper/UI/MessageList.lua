@@ -19,8 +19,8 @@ local L = ns.L
 local MessageList = {}
 ns.MessageList = MessageList
 
-local MSG_TS, MSG_DIR, MSG_TEXT, MSG_KIND, MSG_STATUS =
-	ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT, ns.MSG_KIND, ns.MSG_STATUS
+local MSG_TS, MSG_DIR, MSG_KIND, MSG_STATUS =
+	ns.MSG_TS, ns.MSG_DIR, ns.MSG_KIND, ns.MSG_STATUS
 
 local max, min, floor, abs = math.max, math.min, math.floor, math.abs
 
@@ -44,11 +44,12 @@ end
 
 local function measure(msg, maxContentW)
 	local cached = metrics[msg]
-	if cached and cached.maxW == maxContentW and cached.stamp == metricsStamp then
+	if cached and cached.maxW == maxContentW and cached.stamp == metricsStamp
+		and cached.censored == (msg[ns.MSG_LINE] ~= nil) then
 		return cached
 	end
 
-	local raw = msg[MSG_TEXT] or ""
+	local raw = ns.ConversationManager.MessageText(msg)
 	local processed = ns.URLs.Process(raw)
 	processed = ns.Emoticons.Process(processed, Theme.FontSize("BODY"))
 
@@ -74,6 +75,9 @@ local function measure(msg, maxContentW)
 		text = processed,
 		maxW = maxContentW,
 		stamp = metricsStamp,
+		-- Part of the key: a message the player has just revealed is a different
+		-- length from the placeholder that stood in for it.
+		censored = msg[ns.MSG_LINE] ~= nil,
 		contentW = contentW,
 		textH = textH,
 		bubbleW = contentW + ns.SZ.BUBBLE_PAD_X * 2,
@@ -794,8 +798,20 @@ function ML:OpenMessageMenu(bubble)
 	local msg = bubble.msg
 	local conv = self.conv
 	if not msg or not conv then return end
-	local links = ns.URLs.Extract(msg[MSG_TEXT])
-	local entries = {
+	local links = ns.URLs.Extract(ns.ConversationManager.MessageText(msg))
+	local entries = {}
+	-- Offered only while the game is still hiding it, and only from this click.
+	if msg[ns.MSG_LINE] and ns.Compat.IsChatLineCensored(msg[ns.MSG_LINE]) then
+		entries[#entries + 1] = { text = L["Show hidden message"], icon = "eye",
+			onClick = function()
+				if ns.ConversationManager.RevealMessage(conv, msg) then
+					ns.MessageList.InvalidateMetrics()
+					ns.UI.RefreshAll()
+				end
+			end }
+		entries[#entries + 1] = { separator = true }
+	end
+	local more = {
 		{ text = L["Copy message"], icon = "copy", onClick = function()
 			ns.Dialogs.ShowCopy(ns.Export.PlainMessage(msg), L["Copy message"])
 		end },
@@ -803,6 +819,7 @@ function ML:OpenMessageMenu(bubble)
 			ns.Dialogs.ShowExport(conv)
 		end },
 	}
+	for i = 1, #more do entries[#entries + 1] = more[i] end
 	if links then
 		entries[#entries + 1] = { separator = true }
 		for i = 1, min(#links, 4) do

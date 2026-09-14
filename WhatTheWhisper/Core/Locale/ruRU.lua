@@ -356,6 +356,28 @@ ns.RegisterLocale("ruRU", {
 		"Здесь аддоны пока не могут прочитать шёпот. Он в окне чата и появится здесь, когда вы выйдете.",
 	["Whispers cannot be sent from here. Use the game's own chat box."] =
 		"Отсюда шёпот отправить нельзя. Воспользуйтесь обычной строкой чата.",
+	["Keep whispers in the chat frame"] =
+		"Оставить шёпот в окне чата",
+	["Show hidden message"] =
+		"Показать скрытое сообщение",
+	["Save"] =
+		"Сохранить",
+	["Shown instead of their name, here only"] =
+		"Показывается вместо имени, только здесь",
+	["Nickname"] =
+		"Прозвище",
+	["Remove nickname"] =
+		"Убрать прозвище",
+	["Change nickname"] =
+		"Изменить прозвище",
+	["Add a nickname"] =
+		"Задать прозвище",
+	["Message hidden by the game's chat filter."] =
+		"Сообщение скрыто чат-фильтром игры.",
+	["Your game gives every whisper its own chat tab, beside this window."] =
+		"Ваша игра даёт каждому шёпоту отдельную вкладку чата, рядом с этим окном.",
+	["The game opens its own whisper windows"] =
+		"Игра открывает собственные окна для шёпота",
 	["Debug logging on."] = "Отладочный журнал включён.",
 	["Debug logging off."] = "Отладочный журнал выключен.",
 	["/wtw show / hide - open or close the messenger"] =

@@ -230,9 +230,19 @@ if os.path.exists(os.path.join(ADDON, "Bindings.xml")):
 # from being bypassed by the next person who needs a unit's name is to make
 # bypassing it fail here.
 GUARDED_CALLS = ("UnitName", "UnitFullName", "GetUnitName")
+# Client namespaces and globals that only Compat may reach for. Some of these
+# are being moved by Blizzard (chat behind C_ChatInfo, Battle.net behind
+# C_BattleNet); some exist on one flavour and not another. Either way the rest of
+# the addon asks Compat, so there is one place to change when the client does.
+GUARDED_GLOBALS = (
+    "C_ChatInfo", "C_BattleNet", "C_FriendList", "SendChatMessage",
+    "BNSendWhisper", "FlashClientIcon", "GetCVar", "SetCVar",
+    "GetPlayerInfoByGUID", "AddonCompartmentFrame",
+)
 # Compat is where the probe lives, so it is the one place allowed to call them.
 GUARD_HOME = "Core/Compat/"
 guarded_pattern = re.compile(r'(?<![\w.])(' + "|".join(GUARDED_CALLS) + r')\s*\(')
+global_pattern = re.compile(r'_G\.(' + "|".join(GUARDED_GLOBALS) + r')\b')
 bypasses = 0
 for rel in declared:
     if rel.startswith(GUARD_HOME):
@@ -243,8 +253,13 @@ for rel in declared:
         err("%s:%d calls %s directly; use Compat.UnitFullName, which asks the "
             "client whether the name may be read before reading it"
             % (rel, line, match.group(1)))
+    for match in global_pattern.finditer(body):
+        line = body[:match.start()].count("\n") + 1
+        err("%s:%d reaches for %s directly; the client moves these around and "
+            "not every flavour has them, so they belong behind Compat"
+            % (rel, line, match.group(1)))
     bypasses += 1
-notes.append("%d files checked for unprobed reads of a player's name" % bypasses)
+notes.append("%d files checked for client calls that belong behind Compat" % bypasses)
 
 print("\n".join("  " + n for n in notes))
 if errors:

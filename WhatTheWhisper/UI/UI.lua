@@ -249,6 +249,20 @@ function UI.BuildConversationMenu(conv)
 
 	entries[#entries + 1] = { separator = true }
 
+	-- A name you chose for somebody, for the ones whose own name you cannot read
+	-- at a glance. It changes what the window says and nothing else: the whisper
+	-- still goes to the character it was always going to.
+	local alias = CM.GetAlias(conv.id)
+	entries[#entries + 1] = {
+		text = alias and L["Change nickname"] or L["Add a nickname"],
+		icon = "person",
+		onClick = function() UI.PromptAlias(conv.id) end,
+	}
+	if alias then
+		entries[#entries + 1] = { text = L["Remove nickname"], icon = "close",
+			onClick = function() CM.SetAlias(conv.id, nil) end }
+	end
+
 	entries[#entries + 1] = { text = L["Copy name"], icon = "copy", onClick = function()
 		ns.Dialogs.ShowCopy(conv.id, L["Copy name"])
 	end }
@@ -350,6 +364,22 @@ local NAME_COMPLAINT = {
 	realm  = "That realm name is not valid.",
 	battletag = "A BattleTag looks like Name#1234.",
 }
+
+-- Display only, and the dialog says so: the line under the field is the name the
+-- message still goes to.
+function UI.PromptAlias(id)
+	local conv = CM.Get(id)
+	if not conv then return end
+	ns.Dialogs.Prompt(
+		L["Nickname"],
+		CM.RealNameIfAliased(conv) or CM.DisplayName(conv),
+		L["Shown instead of their name, here only"],
+		L["Save"],
+		function(value)
+			CM.SetAlias(id, value)
+			return true
+		end)
+end
 
 function UI.PromptNewConversation()
 	ns.Dialogs.Prompt(L["New conversation"], L["Whisper a player"],

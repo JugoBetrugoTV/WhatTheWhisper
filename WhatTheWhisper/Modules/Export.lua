@@ -11,7 +11,14 @@ local L = ns.L
 local Export = {}
 ns.Export = Export
 
-local MSG_TS, MSG_DIR, MSG_TEXT = ns.MSG_TS, ns.MSG_DIR, ns.MSG_TEXT
+local MSG_TS, MSG_DIR = ns.MSG_TS, ns.MSG_DIR
+
+-- What the message reads as, which for a line the game's own filter is hiding is
+-- the fact that it is hidden. Exporting the placeholder the client handed over
+-- would be exporting something the player never saw.
+local function body(m)
+	return ns.ConversationManager.MessageText(m)
+end
 local concat, format, gsub = table.concat, string.format, string.gsub
 
 Export.FORMATS = {
@@ -54,7 +61,7 @@ writers.text = function(conv, messages)
 			out[#out + 1] = format("--- %s ---", Format.DayLabel(m[MSG_TS]))
 		end
 		out[#out + 1] = format("[%s] %s: %s",
-			Format.Clock(m[MSG_TS]), senderName(conv, m[MSG_DIR]), clean(m[MSG_TEXT]))
+			Format.Clock(m[MSG_TS]), senderName(conv, m[MSG_DIR]), clean(body(m)))
 	end
 	return concat(out, "\n")
 end
@@ -74,7 +81,7 @@ writers.markdown = function(conv, messages)
 		end
 		out[#out + 1] = format("**%s** `%s`  ",
 			senderName(conv, m[MSG_DIR]), Format.Clock(m[MSG_TS]))
-		out[#out + 1] = clean(m[MSG_TEXT])
+		out[#out + 1] = clean(body(m))
 		out[#out + 1] = ""
 	end
 	return concat(out, "\n")
@@ -87,7 +94,7 @@ writers.bbcode = function(conv, messages)
 	for i = 1, #messages do
 		local m = messages[i]
 		out[#out + 1] = format("[b][%s] %s:[/b] %s",
-			Format.Clock(m[MSG_TS]), senderName(conv, m[MSG_DIR]), clean(m[MSG_TEXT]))
+			Format.Clock(m[MSG_TS]), senderName(conv, m[MSG_DIR]), clean(body(m)))
 	end
 	out[#out + 1] = "[/quote]"
 	return concat(out, "\n")
@@ -97,11 +104,11 @@ writers.csv = function(conv, messages)
 	local out = { "timestamp,time,direction,sender,message" }
 	for i = 1, #messages do
 		local m = messages[i]
-		local body = gsub(clean(m[MSG_TEXT]), '"', '""')
+		local cell = gsub(clean(body(m)), '"', '""')
 		out[#out + 1] = format('%d,"%s",%s,"%s","%s"',
 			m[MSG_TS], Format.ExportStamp(m[MSG_TS]),
 			m[MSG_DIR] == ns.DIR_OUT and "out" or "in",
-			gsub(senderName(conv, m[MSG_DIR]), '"', '""'), body)
+			gsub(senderName(conv, m[MSG_DIR]), '"', '""'), cell)
 	end
 	return concat(out, "\n")
 end
@@ -132,16 +139,16 @@ end
 function Export.Message(conv, msg, formatID)
 	if not msg then return "" end
 	if formatID == "bbcode" then
-		return format("[b]%s[/b] %s", senderName(conv, msg[MSG_DIR]), clean(msg[MSG_TEXT]))
+		return format("[b]%s[/b] %s", senderName(conv, msg[MSG_DIR]), clean(body(msg)))
 	elseif formatID == "markdown" then
-		return format("**%s** %s", senderName(conv, msg[MSG_DIR]), clean(msg[MSG_TEXT]))
+		return format("**%s** %s", senderName(conv, msg[MSG_DIR]), clean(body(msg)))
 	end
 	return format("[%s] %s: %s",
-		Format.Clock(msg[MSG_TS]), senderName(conv, msg[MSG_DIR]), clean(msg[MSG_TEXT]))
+		Format.Clock(msg[MSG_TS]), senderName(conv, msg[MSG_DIR]), clean(body(msg)))
 end
 
 function Export.PlainMessage(msg)
-	return clean(msg and msg[MSG_TEXT])
+	return clean(body(msg))
 end
 
 --------------------------------------------------------------------------------
