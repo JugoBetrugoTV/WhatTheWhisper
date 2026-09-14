@@ -4,7 +4,7 @@ local _, ns = ...
 ns.Skins.Register("classic", {
 	name = "Classic",
 	description = "Warm dark parchment with gold, in a modern layout.",
-	metrics = { sortIndex = 60, bubbleRadius = 8, borderScale = 1.4,
+	metrics = { sortIndex = 60, bubbleRadius = 10, borderScale = 1.4,
 		classColorBlend = 0.32 },
 	colors = {
 		bg0            = "#17120C",

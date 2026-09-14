@@ -18,7 +18,7 @@ local DOT = 6
 -- The close button on a tab, and the vertical inset of the divider between two
 -- of them. The close size was written once here and once inside the width
 -- arithmetic that reserves room for it, with nothing tying the two together.
-local CLOSE_SIZE = 18
+local CLOSE_SIZE = ns.SZ.ICON_MARK + ns.S.XS / 2
 local SEPARATOR_INSET = ns.S.SM
 
 --------------------------------------------------------------------------------
@@ -37,11 +37,11 @@ local function createTab(strip)
 	-- was invisible. An accent bar along the top edge says it whatever the
 	-- palette does, the way every editor with tabs does.
 	tab.marker = CreateFrame("Frame", nil, tab)
-	tab.marker:SetHeight(ns.SZ.ACCENT_BAR_W)
+	tab.marker:SetHeight(ns.SZ.TAB_MARKER_H)
 	tab.marker:SetPoint("TOPLEFT", tab, "TOPLEFT", ns.R.MD, 0)
 	tab.marker:SetPoint("TOPRIGHT", tab, "TOPRIGHT", -ns.R.MD, 0)
 	tab.marker.surface = W.Surface(tab.marker, {
-		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
+		color = "accent", radius = ns.SZ.TAB_MARKER_H / 2, layer = "ARTWORK",
 	})
 	tab.marker:Hide()
 
@@ -51,7 +51,7 @@ local function createTab(strip)
 	tab.dot:SetPoint("LEFT", tab, "LEFT", ns.S.MD, 0)
 	tab.dot:Hide()
 
-	tab.label = W.Text(tab, "SMALL", "textSecondary")
+	tab.label = W.Text(tab, "BODY", "textSecondary")
 	tab.label:SetPoint("LEFT", tab, "LEFT", ns.S.MD, 0)
 
 	tab.close = ns.Button.Icon(tab, {
@@ -155,7 +155,7 @@ function Tabs.New(parent)
 	strip.rendered = {}
 
 	strip.overflow = ns.Button.Icon(strip, {
-		icon = "dots", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
+		icon = "more", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function(self) strip:OpenOverflow(self) end,
 	})
 	strip.overflow:SetPoint("RIGHT", strip, "RIGHT", -ns.S.XS, 0)

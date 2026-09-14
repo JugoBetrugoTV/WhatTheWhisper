@@ -29,12 +29,16 @@ ns.S = {
 -- Corner radii
 --------------------------------------------------------------------------------
 
+-- Softer than a panel, harder than a pill. The whole set moved up a step for
+-- the messenger look: at 8px a surface reads as a box with the corners taken
+-- off, and at 14 it reads as a surface. Nothing here is decorative -- the radius
+-- is most of what separates "an application" from "a frame with a border".
 ns.R = {
-	SM   = 4,
-	MD   = 8,
-	LG   = 12,
-	XL   = 16,
-	PILL = 999, -- clamped to half the shorter side by Draw.RoundedRect
+	SM   = 6,    -- badges, inline chips, the search field's inner marks
+	MD   = 10,   -- rows, cards, menu items
+	LG   = 14,   -- panels, windows, popouts
+	XL   = 20,   -- sheets and dialogs
+	PILL = 999,  -- clamped to half the shorter side by Draw.RoundedRect
 }
 
 --------------------------------------------------------------------------------
@@ -47,55 +51,74 @@ ns.R = {
 ns.MIN_HIT = 20
 
 ns.SZ = {
-	WINDOW_W          = 940,
-	WINDOW_H          = 580,
-	WINDOW_MIN_W      = 660,
-	WINDOW_MIN_H      = 420,
+	-- Wider and calmer. A desktop messenger is a two-column application, and at
+	-- 940 the thread column was narrow enough that most messages wrapped -- which
+	-- is the single thing that made this read as a game panel rather than as one.
+	WINDOW_W          = 1040,
+	WINDOW_H          = 640,
+	WINDOW_MIN_W      = 700,
+	WINDOW_MIN_H      = 440,
 	WINDOW_MAX_W      = 1800,
 	WINDOW_MAX_H      = 1200,
 
-	TITLEBAR_H        = 36,
+	TITLEBAR_H        = 34,
 
-	SIDEBAR_W         = 288,
-	SIDEBAR_MIN_W     = 220,
-	SIDEBAR_MAX_W     = 420,
-	SIDEBAR_COMPACT_AT= 232,
-	SIDEBAR_RAIL_W    = 68,
-	SIDEBAR_HEADER_H  = 52,
+	-- Roughly 30% of the default width, which is where every desktop messenger
+	-- lands: enough for a name, a preview and a time without any of them
+	-- truncating on an ordinary conversation.
+	SIDEBAR_W         = 320,
+	SIDEBAR_MIN_W     = 240,
+	SIDEBAR_MAX_W     = 440,
+	SIDEBAR_COMPACT_AT= 248,
+	SIDEBAR_RAIL_W    = 76,
+	SIDEBAR_HEADER_H  = 60,
+	-- The search pill. A hair shorter than the composer's field, because it is a
+	-- filter rather than something you write in.
+	SEARCH_H          = 36,
 
-	ROW_H             = 64,
-	ROW_H_COMPACT     = 52,
+	-- A 48px avatar with 12px above and below it. The row height is that sum
+	-- rather than a number chosen first and filled afterwards.
+	ROW_H             = 72,
+	ROW_H_COMPACT     = 58,
 
-	HEADER_H          = 56,
+	HEADER_H          = 64,
 	TAB_H             = 36,
 	TAB_MIN_W         = 96,
 	TAB_MAX_W         = 168,
 
-	COMPOSER_MIN_H    = 60,
-	COMPOSER_MAX_H    = 140,
-	COMPOSER_FIELD_H  = 36,
+	COMPOSER_MIN_H    = 64,
+	COMPOSER_MAX_H    = 152,
+	-- The rounded field itself. 40 is a comfortable single line at BODY with
+	-- 12px of padding above and below the text.
+	COMPOSER_FIELD_H  = 40,
 
-	AVATAR_LG         = 40,
-	AVATAR_MD         = 32,
-	AVATAR_SM         = 24,
-	AVATAR_XS         = 18,
+	AVATAR_LG         = 48,
+	AVATAR_MD         = 40,
+	AVATAR_SM         = 28,
+	AVATAR_XS         = 20,
 
-	BADGE_H           = 18,
-	-- The delivery mark beside an outgoing bubble. The smallest glyph the UI
-	-- draws, so the icon set's stroke weight is chosen to survive it.
+	BADGE_H           = 20,
+	-- The delivery mark tucked into the corner of an outgoing bubble. The
+	-- smallest glyph the UI draws, so the icon set's stroke weight is chosen to
+	-- survive it. Double-check marks are wider than they are tall.
 	STATUS_ICON       = 14,
-	STATUS_DOT        = 8,
+	STATUS_ICON_W     = 18,
+	STATUS_DOT        = 7,
 
-	-- Glyphs used to be drawn small enough to be tasteful and small enough to
-	-- squint at. Two steps up now, and the buttons keep their footprint through
-	-- both: what grows is the mark inside, not the space it sits in, so nothing
-	-- around it moves and everything in it is easier to read.
-	ICON_BTN          = 30,
-	-- The tighter icon button used in title bars and search bars, where a full
-	-- size one would crowd the row it sits in.
-	ICON_BTN_SM       = 26,
-	ICON_GLYPH        = 20,
-	ICON_GLYPH_SM     = 17,
+	-- An icon button is a hit target with a mark floating in the middle of it.
+	-- The two sizes are independent on purpose: the target is what the mouse
+	-- needs and the glyph is what the eye needs, and they are not the same
+	-- number. 32/18 is the macOS toolbar proportion -- a generous target with a
+	-- mark that does not fill it, which is what keeps a row of them quiet.
+	ICON_BTN          = 32,
+	-- The tighter button used in title bars and search bars, where a full size
+	-- one would crowd the row it sits in.
+	ICON_BTN_SM       = 28,
+	-- The mark inside the composer's send button, which is the one glyph in the
+	-- addon that is meant to be noticed.
+	ICON_GLYPH_LG     = 20,
+	ICON_GLYPH        = 18,
+	ICON_GLYPH_SM     = 16,
 	-- Only for glyphs inside something already small, like a tab's close mark.
 	ICON_GLYPH_XS     = 13,
 	-- The pin and mute marks beside a name in the sidebar, and the resize grip.
@@ -104,7 +127,7 @@ ns.SZ = {
 	ICON_MARK         = 15,
 	-- The logo, wherever it is drawn as a mark rather than as art.
 	ICON_LOGO         = 18,
-	SEND_BTN          = 32,
+	SEND_BTN          = 36,
 
 	SCROLLBAR_W       = 4,
 	SCROLLBAR_HIT     = 10,
@@ -112,41 +135,68 @@ ns.SZ = {
 	-- proportional and awkward in a thread of a few hundred messages.
 	SCROLLBAR_MIN_THUMB = 32,
 
-	LIST_PAD_X        = 20,
-	LIST_PAD_Y        = 16,
+	LIST_PAD_X        = 24,
+	LIST_PAD_Y        = 20,
 
-	BUBBLE_MAX_PCT    = 0.66,
-	BUBBLE_MAX_ABS    = 560,
-	BUBBLE_PAD_X      = 11,
-	BUBBLE_PAD_Y      = 7,
-	BUBBLE_TAIL_R     = 4,
+	BUBBLE_MAX_PCT    = 0.68,
+	BUBBLE_MAX_ABS    = 620,
+	BUBBLE_PAD_X      = 12,
+	BUBBLE_PAD_Y      = 8,
+	BUBBLE_TAIL_R     = 5,
+	-- The gap between the last word and the time tucked in beside it, and the
+	-- gap between the time and the delivery mark after it.
+	BUBBLE_META_GAP   = 8,
+	BUBBLE_META_TIGHT = 3,
 
-	MSG_GAP_TIGHT     = 2,
-	MSG_GAP_GROUP     = 12,
-	MSG_GAP_DATE      = 20,
+	MSG_GAP_TIGHT     = 3,
+	MSG_GAP_GROUP     = 14,
+	MSG_GAP_DATE      = 24,
 
-	MENU_ITEM_H       = 28,
-	MENU_MIN_W        = 168,
+	MENU_ITEM_H       = 32,
+	MENU_MIN_W        = 184,
 	MENU_ICON         = 16,
 
-	TOAST_W           = 320,
-	TOAST_H           = 62,
+	-- A notification, not a dialog. Wide enough for a name and one line of
+	-- message, and no taller than that needs.
+	TOAST_W           = 332,
+	TOAST_H           = 68,
 
-	SETTINGS_W        = 860,
-	SETTINGS_H        = 600,
-	SETTINGS_NAV_W    = 200,
-	SETTINGS_ROW_H    = 32,
-	SETTINGS_MAX_CONTENT = 560,
+	SETTINGS_W        = 900,
+	SETTINGS_H        = 640,
+	SETTINGS_NAV_W    = 216,
+	-- A settings row is a label, an optional description under it, and a control
+	-- on the right. 44 is the iOS row height, and it is the right one here for
+	-- the same reason: it is what a comfortable tap or click target looks like
+	-- when the thing being clicked is the whole row.
+	SETTINGS_ROW_H    = 44,
+	-- The category list on the left is a list of destinations, not of controls,
+	-- so its rows are tighter than the settings rows they lead to.
+	SETTINGS_NAV_ROW_H = 36,
+	SETTINGS_GROUP_GAP = 28,
+	SETTINGS_MAX_CONTENT = 600,
 
 	-- Empty states: a large, faded glyph over two centred lines. Shared so that
 	-- "no conversation selected" and "no settings match" are the same thing
 	-- twice rather than two designs that happen to look similar.
 	EMPTY_ICON        = 44,
+	-- The same idea at panel scale, for an empty sidebar or an empty thread,
+	-- where the full-size mark would be the loudest thing on screen.
+	EMPTY_ICON_SM     = 36,
 	EMPTY_TEXT_W      = 340,
 
-	TOGGLE_W          = 36,
-	TOGGLE_H          = 20,
-	TOGGLE_KNOB       = 16,
+	-- A switch, not a checkbox wearing a pill. The proportions are the ones the
+	-- shape is recognised by: a track a little under twice as wide as it is
+	-- tall, and a knob that fills it but for a 2px rim.
+	TOGGLE_W          = 44,
+	TOGGLE_H          = 26,
+	TOGGLE_KNOB       = 22,
+
+	-- A segmented control: a track with one raised thumb sliding between equal
+	-- segments. SEGMENT_RIM is the gap between the thumb and the track's edge,
+	-- and it is what makes the thumb read as sitting *in* the track.
+	SEGMENT_H         = 28,
+	SEGMENT_RIM       = 2,
+	SEGMENT_MIN_W     = 56,
 
 	SLIDER_TRACK      = 4,
 	SLIDER_THUMB      = 14,
@@ -154,11 +204,13 @@ ns.SZ = {
 	SLIDER_VALUE_W    = 42,
 	SLIDER_VALUE_GAP  = 4,
 
-	POPOUT_W          = 380,
-	POPOUT_H          = 460,
-	POPOUT_MIN_W      = 280,
-	POPOUT_MIN_H      = 240,
-	POPOUT_HEADER_H   = 48,
+	-- A detached thread is a small messenger window, so it is shaped like one:
+	-- taller than it is wide, with room for a dozen messages above the composer.
+	POPOUT_W          = 400,
+	POPOUT_H          = 520,
+	POPOUT_MIN_W      = 300,
+	POPOUT_MIN_H      = 260,
+	POPOUT_HEADER_H   = 52,
 
 	-- The sidebar splitter is a grab handle, not a gutter: it is centred on the
 	-- boundary and only the hairline is drawn, so the panels stay flush.
@@ -168,11 +220,11 @@ ns.SZ = {
 	-- 5mm target at scale 1.0, and the glyph inside it does not change size.
 	RESIZE_GRIP       = 20,
 
-	-- The selected-row marker: a pill down the left edge of a sidebar or
-	-- settings row, inset by its own width so it reads as a marker rather than
-	-- as the panel border bleeding colour.
-	ACCENT_BAR_W      = 3,
-	ACCENT_BAR_INSET  = 3,
+	-- The bar along the top edge of the active tab. The only place left that
+	-- marks a selection with a drawn bar rather than with the surface under it:
+	-- tabs sit edge to edge on a strip their own colour, so there is no surface
+	-- change available to carry it.
+	TAB_MARKER_H      = 3,
 
 	-- The toast's remaining-time hairline, riding inside the bottom radius.
 	TOAST_PROGRESS_H  = 2,
@@ -185,15 +237,24 @@ ns.SZ = {
 -- Type scale
 --------------------------------------------------------------------------------
 
+-- Five sizes, and every one of them has exactly one job. The gaps between them
+-- are what the hierarchy is made of: 11/13/15/17/20 is a clear step at each
+-- level, where the old 11/12/14/16/18 asked the eye to tell 11 from 12.
+--
+-- Nothing is smaller than 11. A timestamp that has to be squinted at is not
+-- quiet, it is unreadable, and those are different things.
 ns.T = {
-	MICRO   = 11,
-	SMALL   = 12,
-	BODY    = 14,
-	TITLE   = 16,
-	DISPLAY = 18,
+	MICRO   = 11,   -- timestamps, delivery state, counters
+	SMALL   = 13,   -- message previews, secondary rows, descriptions
+	BODY    = 15,   -- message text, conversation names, settings labels
+	TITLE   = 17,   -- the name in a conversation header
+	DISPLAY = 20,   -- empty states, section titles
 }
 
-ns.LINE_SPACING = 3
+-- Message text is read in paragraphs, so it is set looser than a label: 15px
+-- with 5px of leading is about a 1.33 line height, which is where long messages
+-- stop feeling cramped.
+ns.LINE_SPACING = 5
 
 --------------------------------------------------------------------------------
 -- Motion

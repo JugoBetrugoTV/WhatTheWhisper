@@ -149,6 +149,10 @@ function Button.Icon(parent, opts)
 		btn.icon.__wtwIcon = name
 	end
 
+	-- A round hover wash under a round-ish glyph, unless the caller has a reason
+	-- to want otherwise. A square highlight behind a toolbar icon is the shape
+	-- every native toolbar stopped using a decade ago.
+	if opts.radius == nil then opts.radius = ns.R.PILL end
 	return finish(btn, opts)
 end
 
@@ -204,14 +208,17 @@ function Button.Send(parent, opts)
 	btn.active = false
 
 	btn.surface = W.Surface(btn, { radius = size / 2, layer = "BACKGROUND" })
-	btn.icon = W.Icon(btn, "arrow_up", math.floor(size * 0.56), "onAccent")
+	btn.icon = W.Icon(btn, "send", ns.SZ.ICON_GLYPH_LG, "onAccent")
 	btn.icon:SetPoint("CENTER")
 
 	local function paint(state, instant)
 		local fill, fg
 		if not btn.active then
-			fill = Theme.Get("hover")
-			fg = Theme.Get("textDisabled")
+			-- Inert, but still visibly a button. The old resting state was the
+			-- hover tint -- a 5% white wash -- under a disabled-grey glyph,
+			-- which on a dark composer was very nearly nothing at all.
+			fill = Theme.Get("trackBg")
+			fg = Theme.Get("textMuted")
 		elseif state == "pressed" then
 			fill, fg = Theme.Get("accentActive"), Theme.Get("onAccent")
 		elseif state == "hover" then
@@ -236,6 +243,12 @@ function Button.Send(parent, opts)
 		if btn.active == (active and true or false) then return end
 		btn.active = active and true or false
 		paint(btn.__wtwState or "rest", false)
+		-- Lighting up is worth a beat of motion: it is the moment the composer
+		-- tells you it has something to send. Coming back down is not, so the
+		-- pop only plays on the way in.
+		if btn.active and Theme.AnimationsEnabled() then
+			Anim.Pop(btn, Theme.Duration("FAST"))
+		end
 	end
 
 	function btn:ApplyTheme()

@@ -216,14 +216,14 @@ function UI.BuildConversationMenu(conv)
 	local entries = {}
 	local isBN = conv.isBN
 
-	entries[#entries + 1] = { text = L["Whisper"], icon = "message", onClick = function()
+	entries[#entries + 1] = { text = L["Whisper"], icon = "chat", onClick = function()
 		UI.Show()
 		CM.Select(conv.id)
 		Anim.After(0.05, function() main().view:Focus() end)
 	end }
 
 	if not isBN and Compat.canInvite then
-		entries[#entries + 1] = { text = L["Invite to group"], icon = "person_plus",
+		entries[#entries + 1] = { text = L["Invite to group"], icon = "invite",
 			onClick = function() Compat.InviteUnit(conv.id) end }
 	end
 
@@ -274,17 +274,17 @@ function UI.BuildConversationMenu(conv)
 
 	entries[#entries + 1] = {
 		text = conv.muted and L["Unmute conversation"] or L["Mute conversation"],
-		icon = conv.muted and "volume" or "volume_off",
+		icon = conv.muted and "bell" or "mute",
 		onClick = function() CM.SetMuted(conv.id, not conv.muted) end,
 	}
 	entries[#entries + 1] = {
 		text = conv.pinned and L["Unpin conversation"] or L["Pin conversation"],
-		icon = conv.pinned and "pin_filled" or "pin",
+		icon = conv.pinned and "pin" or "unpin",
 		onClick = function() CM.SetPinned(conv.id, not conv.pinned) end,
 	}
 	entries[#entries + 1] = {
 		text = conv.unread > 0 and L["Mark as read"] or L["Mark as unread"],
-		icon = "check",
+		icon = "sent",
 		onClick = function()
 			if conv.unread > 0 then CM.MarkRead(conv.id) else CM.MarkUnread(conv.id) end
 		end,

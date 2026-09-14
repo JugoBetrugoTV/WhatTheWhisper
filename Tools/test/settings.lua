@@ -265,9 +265,23 @@ M.RunFrames(2)
 eq("sidebar mode shows the sidebar", window.sidebar:IsShown(), true)
 eq("sidebar mode hides the tab strip", window.tabs:IsShown(), false)
 
-ns.Options.Set("layout.sidebarWidth", 240)
+-- Written against the tokens rather than against a number, because the width
+-- that is "comfortably wide" moves when the sidebar's proportions do -- and a
+-- literal here silently became a width inside the snap zone once before.
+local WIDE = ns.SZ.SIDEBAR_COMPACT_AT + ns.S.HUGE
+ns.Options.Set("layout.sidebarWidth", WIDE)
 M.RunFrames(2)
-eq("sidebar width is applied", window.sidebar:GetWidth(), 240)
+eq("sidebar width is applied", window.sidebar:GetWidth(), WIDE)
+
+-- Between the rail and the point where text fits, there is no width worth
+-- having: a squashed name column is worse than an honest avatar rail. So the
+-- drag snaps through that band rather than letting anyone stop inside it.
+ns.Options.Set("layout.sidebarWidth", ns.SZ.SIDEBAR_COMPACT_AT - ns.S.SM)
+M.RunFrames(2)
+eq("a width inside the dead band snaps out of it",
+	window.sidebar:GetWidth(), ns.SZ.SIDEBAR_COMPACT_AT)
+ns.Options.Set("layout.sidebarWidth", WIDE)
+M.RunFrames(2)
 ns.Options.Set("layout.sidebarWidth", ns.SZ.SIDEBAR_W)
 
 ns.Options.Set("history.retention", "off")

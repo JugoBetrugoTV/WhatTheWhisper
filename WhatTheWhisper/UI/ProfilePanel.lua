@@ -97,7 +97,9 @@ local function createRow(panel)
 	row.label:SetPoint("LEFT", row, "LEFT", 0, 0)
 	row.label:SetWidth(LABEL_W)
 	row.label:SetJustifyH("LEFT")
-	row.value = W.Text(row, "MICRO", "textSecondary")
+	-- The label is the quiet half of the pair and the value is the half
+	-- somebody opened the panel to read, so they are not the same size.
+	row.value = W.Text(row, "SMALL", "textSecondary")
 	row.value:ClearAllPoints()
 	row.value:SetPoint("LEFT", row, "LEFT", LABEL_W + ns.S.SM, 0)
 	row.value:SetPoint("RIGHT", row, "RIGHT", 0, 0)

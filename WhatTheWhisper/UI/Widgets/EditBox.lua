@@ -15,7 +15,10 @@ ns.Input = Input
 local max, min = math.max, math.min
 
 local PAD_X = ns.S.MD
-local PAD_Y = 7
+-- Half the difference between a 40px field and the line of text in it, near
+-- enough. Written as a step off the scale rather than as the number it works out
+-- to, so it moves with the scale if the scale moves.
+local PAD_Y = ns.S.SM + 2
 
 -- opts:
 --   multiline    grow vertically, Enter sends, Shift+Enter newlines
@@ -31,13 +34,17 @@ function Input.New(parent, opts)
 	container.maxHeight = opts.maxHeight or container.minHeight
 	container:SetHeight(container.minHeight)
 
+	-- No border unless one is asked for. A filled field on a darker panel is
+	-- already unmistakably a field, and an outline around it is the single
+	-- clearest tell that something was drawn with a game toolkit: every native
+	-- messenger's input is a shape, not a shape with a line around it.
 	container.surface = W.Surface(container, {
 		color = "inputBg",
-		border = "borderSubtle",
+		border = opts.border,
 		radius = opts.radius or ns.R.MD,
 	})
 
-	-- Focus glow sits outside the border so the ring reads without moving layout.
+	-- Focus glow sits outside the field so the ring reads without moving layout.
 	container.glow = Draw.NewRounded(container, "BACKGROUND", -2)
 	container.glow:SetInsets(-2, -2, -2, -2)
 	container.glow:SetRadius(Theme.Radius((opts.radius or ns.R.MD) + 2))
@@ -116,6 +123,22 @@ function Input.New(parent, opts)
 		return min(container.maxHeight, max(container.minHeight, h + PAD_Y * 2))
 	end
 
+	-- How tall this field is when it holds exactly one line.
+	--
+	-- Not minHeight: that is a floor, and at a larger font scale a single line
+	-- is taller than it. Anything lining something up with the field -- the
+	-- composer's two buttons -- has to ask for this rather than assume the
+	-- floor, or it is a pixel out at the default scale and further at every
+	-- other one.
+	--
+	-- Measured through measureHeight rather than beside it, so the answer is
+	-- produced by the same code that decides the field's real height. Two
+	-- measurements of the same thing disagree eventually, and the disagreement
+	-- is exactly one pixel of misalignment that nobody can find.
+	function container:SingleLineHeight()
+		return measureHeight("Ag")
+	end
+
 	local function applyHeight(text)
 		if not opts.multiline then return end
 		local h = measureHeight(text)
@@ -167,20 +190,25 @@ function Input.New(parent, opts)
 		if opts.onEscape then ns.Guard("Input.onEscape", opts.onEscape) end
 	end)
 
+	-- Focus is mostly the field getting lighter, and only faintly a ring around
+	-- it. The other way round -- a bright outline on an unchanged fill -- is how
+	-- a form control announces itself; this is how a messenger does it.
 	local function setFocusVisual(focused)
 		local duration = Theme.Duration("FAST")
+		local base = Theme.Get("inputBg")
 		if focused then
+			local lifted = ns.Color.Mix(base, Theme.Get("textPrimary"), 0.06)
+			W.FadeSurfaceToColor(container.surface, container,
+				lifted[1], lifted[2], lifted[3], base[4] or 1, duration)
 			local ring = Theme.Get("focusRing")
-			container.surface.rect:SetBorder(
-				Theme.Border(container) * 1.5, ring[1], ring[2], ring[3], 1)
 			container.glow:SetColor(ring[1], ring[2], ring[3], 0)
 			container.glow:Show()
-			Anim.To(container.glow, duration, 0, 0.22, function(v)
+			Anim.To(container.glow, duration, 0, 0.18, function(v)
 				container.glow:SetColor(ring[1], ring[2], ring[3], v)
 			end)
 		else
-			local b = Theme.Get("borderSubtle")
-			container.surface.rect:SetBorder(Theme.Border(container), b[1], b[2], b[3], b[4])
+			W.FadeSurfaceToColor(container.surface, container,
+				base[1], base[2], base[3], base[4] or 1, duration)
 			Anim.Stop(container.glow)
 			container.glow:Hide()
 		end

@@ -76,14 +76,23 @@ function Controls.Toggle(parent, opts)
 	t.knob = CreateFrame("Frame", nil, t)
 	t.knob:SetSize(ns.SZ.TOGGLE_KNOB, ns.SZ.TOGGLE_KNOB)
 	t.knob.surface = W.Surface(t.knob, {
-		color = "textSecondary", radius = ns.SZ.TOGGLE_KNOB / 2, layer = "ARTWORK",
+		color = "onAccent", radius = ns.SZ.TOGGLE_KNOB / 2, layer = "ARTWORK",
 	})
-	t.knob:SetPoint("LEFT", t, "LEFT", 2, 0)
+	-- The knob's rim inside the track, and the distance it travels. Two pixels
+	-- either side is what makes the shape read as a switch rather than as a pill
+	-- with a circle in it.
+	local RIM = 2
+	t.knob:SetPoint("LEFT", t, "LEFT", RIM, 0)
 
-	local travel = ns.SZ.TOGGLE_W - ns.SZ.TOGGLE_KNOB - 4
+	local travel = ns.SZ.TOGGLE_W - ns.SZ.TOGGLE_KNOB - RIM * 2
 
 	local function paint(instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
+		-- The knob stays light in both states and only the track changes, which
+		-- is what every switch on every platform does: the eye reads the
+		-- coloured half of the track, not the colour of the handle. Making the
+		-- knob change too gave the off state a grey handle on a grey track,
+		-- which is a switch you have to look for.
 		local trackRole = t.value and "accent" or "trackBg"
 		local knobRole = t.value and "onAccent" or "textSecondary"
 		if not t.__wtwEnabled then
@@ -98,10 +107,10 @@ function Controls.Toggle(parent, opts)
 		local currentPoint = select(4, t.knob:GetPoint(1)) or 0
 		if duration <= 0 then
 			Anim.Stop(t.knob)
-			t.knob:SetPoint("LEFT", t, "LEFT", 2 + target, 0)
+			t.knob:SetPoint("LEFT", t, "LEFT", RIM + target, 0)
 		else
-			Anim.To(t.knob, duration, currentPoint - 2, target, function(v)
-				t.knob:SetPoint("LEFT", t, "LEFT", 2 + v, 0)
+			Anim.To(t.knob, duration, currentPoint - RIM, target, function(v)
+				t.knob:SetPoint("LEFT", t, "LEFT", RIM + v, 0)
 			end)
 		end
 	end
@@ -316,13 +325,13 @@ function Controls.Dropdown(parent, opts)
 	if opts.width then d:SetWidth(opts.width) end
 	d.options = opts.options or {}
 
-	d.surface = W.Surface(d, { color = "inputBg", border = "borderSubtle", radius = ns.R.MD })
+	d.surface = W.Surface(d, { color = "inputBg", radius = ns.R.MD })
 	d.label = W.Text(d, "SMALL", "textPrimary")
 	d.label:SetPoint("LEFT", d, "LEFT", ns.S.MD, 0)
 	d.label:SetPoint("RIGHT", d, "RIGHT", -(ns.S.MD + ns.SZ.ICON_GLYPH_SM), 0)
 	-- Secondary, not muted: this one says the row opens, and a hint you have to
 	-- look for is not a hint.
-	d.chevron = W.Icon(d, "chevron_down", ns.SZ.ICON_GLYPH_SM, "textSecondary")
+	d.chevron = W.Icon(d, "down", ns.SZ.ICON_GLYPH_SM, "textSecondary")
 	d.chevron:SetPoint("RIGHT", d, "RIGHT", -ns.S.SM, 0)
 
 	W.MakeInteractive(d, function(state, instant)
@@ -356,7 +365,7 @@ function Controls.Dropdown(parent, opts)
 			entries[#entries + 1] = {
 				text = option.label,
 				font = option.font,
-				icon = option.value == d.value and "check" or nil,
+				icon = option.value == d.value and "sent" or nil,
 				onClick = function() d:SetValue(option.value, true) end,
 			}
 		end
@@ -395,19 +404,166 @@ function Controls.Dropdown(parent, opts)
 end
 
 --------------------------------------------------------------------------------
+-- Segmented control
+--------------------------------------------------------------------------------
+
+-- Two to four mutually exclusive options, all visible at once, with a thumb
+-- sliding between them.
+--
+-- It replaces a dropdown where the dropdown was hiding the answer behind a
+-- click: "Comfortable / Compact" is two words, and a menu that has to be opened
+-- to discover that costs more than it saves. Deliberately not used for long
+-- lists -- eleven languages in a row of segments is a row of unreadable
+-- slivers, and that is what the dropdown is still for.
+--
+-- opts: options { { value, label }, ... }, onChange(value)
+function Controls.Segmented(parent, opts)
+	opts = opts or {}
+	local options = opts.options or {}
+	local seg = CreateFrame("Frame", nil, parent)
+	seg:SetHeight(ns.SZ.SEGMENT_H)
+	seg.options = options
+	seg.segments = {}
+
+	seg.surface = W.Surface(seg, { color = "trackBg", radius = ns.R.PILL })
+
+	local RIM = ns.SZ.SEGMENT_RIM
+	seg.thumb = CreateFrame("Frame", nil, seg)
+	seg.thumb:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
+	seg.thumb.surface = W.Surface(seg.thumb, {
+		color = "bg3", radius = ns.R.PILL, layer = "ARTWORK",
+	})
+	seg.thumb:SetPoint("LEFT", seg, "LEFT", RIM, 0)
+
+	local function segmentWidth()
+		local width = seg:GetWidth() or (ns.SZ.SEGMENT_MIN_W * #options)
+		return (width - RIM * 2) / max(1, #options)
+	end
+
+	local function indexOf(value)
+		for i = 1, #options do
+			if options[i].value == value then return i end
+		end
+		return 1
+	end
+
+	local function paint(instant)
+		local duration = instant and 0 or Theme.Duration("FAST")
+		local index = indexOf(seg.value)
+		local width = segmentWidth()
+		seg.thumb:SetWidth(max(1, width))
+		local target = RIM + (index - 1) * width
+		local current = select(4, seg.thumb:GetPoint(1)) or target
+		if duration <= 0 then
+			Anim.Stop(seg.thumb)
+			seg.thumb:SetPoint("LEFT", seg, "LEFT", target, 0)
+		else
+			Anim.To(seg.thumb, duration, current, target, function(v)
+				seg.thumb:SetPoint("LEFT", seg, "LEFT", v, 0)
+			end)
+		end
+		for i = 1, #seg.segments do
+			local button = seg.segments[i]
+			if i <= #options then
+				button:SetWidth(max(1, width))
+				button:ClearAllPoints()
+				button:SetPoint("LEFT", seg, "LEFT", RIM + (i - 1) * width, 0)
+				W.SetTextRole(button.label,
+					(i == index and "textPrimary")
+					or (button.hovered and "textSecondary")
+					or "textMuted")
+			end
+		end
+	end
+
+	-- Segments are built on demand and kept: the control is pooled, so the same
+	-- frame shows three options in one settings row and two in the next. Growing
+	-- the list reuses what is there and adds to it; shrinking hides the excess
+	-- rather than destroying frames that will be wanted again in a moment.
+	function seg.SetOptions(_, list)
+		options = list or {}
+		seg.options = options
+		for i = 1, #options do
+			local button = seg.segments[i]
+			if not button then
+				button = CreateFrame("Frame", nil, seg)
+				button:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
+				button:EnableMouse(true)
+				button.label = W.Text(button, "SMALL", "textMuted")
+				button.label:SetPoint("CENTER")
+				button.label:SetJustifyH("CENTER")
+				button:SetScript("OnEnter", function(self)
+					self.hovered = true
+					paint(true)
+				end)
+				button:SetScript("OnLeave", function(self)
+					self.hovered = nil
+					paint(true)
+				end)
+				button:SetScript("OnMouseUp", function(self)
+					if not self:IsMouseOver() or not self.optionValue then return end
+					seg:SetValue(self.optionValue, true)
+				end)
+				seg.segments[i] = button
+			end
+			button.optionValue = options[i].value
+			button.label:SetText(options[i].label or "")
+			button:Show()
+		end
+		for i = #options + 1, #seg.segments do
+			seg.segments[i]:Hide()
+			seg.segments[i].optionValue = nil
+		end
+		paint(true)
+	end
+
+	function seg:SetValue(value, fireCallback)
+		local changed = seg.value ~= value
+		seg.value = value
+		paint(not changed)
+		if changed and fireCallback and opts.onChange then
+			ns.Guard("Segmented.onChange", opts.onChange, value)
+		end
+	end
+
+	function seg:GetValue() return seg.value end
+
+	function seg:ApplyTheme()
+		seg.surface:SetRadius(ns.R.PILL)
+		seg.surface:ApplyTheme()
+		seg.thumb.surface:SetRadius(ns.R.PILL)
+		seg.thumb.surface:ApplyTheme()
+		for i = 1, #seg.segments do W.RefreshText(seg.segments[i].label) end
+		paint(true)
+	end
+
+
+	seg:HookScript("OnSizeChanged", function() paint(true) end)
+	seg:SetOptions(options)
+	seg.value = options[1] and options[1].value
+	paint(true)
+	return seg
+end
+
+--------------------------------------------------------------------------------
 -- Search field
 --------------------------------------------------------------------------------
 
 -- opts: placeholder, onChange(text), height
+-- A pill with a magnifier in it and nothing else: no outline, no bevel, no
+-- button-shaped anything. The one control in the addon that everybody has seen a
+-- thousand times before, so it is the one where looking unfamiliar costs the
+-- most.
 function Controls.SearchBox(parent, opts)
 	opts = opts or {}
+	local height = opts.height or ns.SZ.SEARCH_H
 	local box = CreateFrame("Frame", nil, parent)
-	box:SetHeight(opts.height or 30)
+	box:SetHeight(height)
 
 	box.input = ns.Input.New(box, {
 		placeholder = opts.placeholder or L["Search conversations"],
-		minHeight = opts.height or 30,
-		radius = ns.R.MD,
+		minHeight = height,
+		radius = ns.R.PILL,
 		fontToken = "SMALL",
 		onChange = function(value)
 			box.clear:SetShown(value ~= "")
@@ -423,15 +579,18 @@ function Controls.SearchBox(parent, opts)
 	box.input:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
 	box.input:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
 
-	-- Shift the caret and placeholder right to make room for the glyph.
-	box.input.editBox:SetPoint("TOPLEFT", box.input, "TOPLEFT", ns.S.HUGE, 0)
-	box.input.placeholder:SetPoint("LEFT", box.input, "LEFT", ns.S.HUGE, 0)
+	-- Shift the caret and placeholder right to make room for the glyph: the
+	-- magnifier's own left margin, plus the glyph, plus a gap after it.
+	local TEXT_LEFT = ns.S.MD + ns.SZ.ICON_GLYPH_SM + ns.S.SM
+	box.input.editBox:SetPoint("TOPLEFT", box.input, "TOPLEFT", TEXT_LEFT, 0)
+	box.input.placeholder:SetPoint("LEFT", box.input, "LEFT", TEXT_LEFT, 0)
 
-	box.icon = W.Icon(box, "search", ns.SZ.ICON_GLYPH_SM, "textSecondary", "OVERLAY")
+	box.icon = W.Icon(box, "search", ns.SZ.ICON_GLYPH_SM, "textMuted", "OVERLAY")
 	box.icon:SetPoint("LEFT", box, "LEFT", ns.S.MD, 0)
 
 	box.clear = ns.Button.Icon(box, {
-		icon = "close", size = 22, glyph = ns.SZ.ICON_GLYPH_XS, radius = 11,
+		icon = "close", size = ns.SZ.ICON_BTN_SM - ns.S.XS,
+		glyph = ns.SZ.ICON_GLYPH_XS, radius = ns.R.PILL,
 		onClick = function()
 			box.input:SetText("")
 			box.clear:Hide()

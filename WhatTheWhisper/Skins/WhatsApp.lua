@@ -5,7 +5,7 @@ local _, ns = ...
 ns.Skins.Register("messenger", {
 	name = "Messenger",
 	description = "Warm charcoal canvas, green accent, deep teal outgoing bubbles.",
-	metrics = { sortIndex = 20, bubbleRadius = 14 },
+	metrics = { sortIndex = 20, bubbleRadius = 18 },
 	colors = {
 		bg0            = "#0B141A",
 		bg1            = "#111B21",
@@ -15,9 +15,12 @@ ns.Skins.Register("messenger", {
 		composerBg     = "#111B21",
 		inputBg        = "#2A3942",
 
-		hover          = { "#FFFFFF", 0.05 },
-		selected       = { "#FFFFFF", 0.09 },
-		pressed        = { "#FFFFFF", 0.14 },
+		hover          = { "#FFFFFF", 0.055 },
+		-- Selection is the only thing marking the open conversation now that the
+		-- marker bar is gone, so it has to clear the perceptibility floor on
+		-- every surface it is drawn over, not merely on the darkest one.
+		selected       = { "#FFFFFF", 0.12 },
+		pressed        = { "#FFFFFF", 0.17 },
 
 		borderSubtle   = { "#FFFFFF", 0.06 },
 		borderStrong   = { "#FFFFFF", 0.13 },

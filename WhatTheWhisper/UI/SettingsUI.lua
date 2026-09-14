@@ -15,19 +15,29 @@ ns.SettingsUI = SettingsUI
 
 local max, min = math.max, math.min
 
-local ROW_H = 34
-local ROW_GAP = ns.S.SM
+-- Rows inside a group touch, the way they do in a native settings pane, and are
+-- told apart by a hairline rather than by a gap. Gaps between rows inside a card
+-- make each row look like its own card, which is the box-inside-a-box problem
+-- one level further down.
+local ROW_H = ns.SZ.SETTINGS_ROW_H
+local ROW_GAP = 0
 local CARD_PAD = ns.S.LG
-local CARD_GAP = ns.S.XL
-local CONTROL_W = 190
+-- Vertical padding is smaller than horizontal: the first and last rows already
+-- carry their own height, so a full CARD_PAD above them would read as a gap the
+-- rows between them do not have.
+local CARD_PAD_Y = ns.S.XS
+local CARD_GAP = ns.SZ.SETTINGS_GROUP_GAP
+-- How much of a settings row the control on the right may take. Wide enough
+-- for four segments to be readable, which is the widest control here.
+local CONTROL_W = ns.SZ.SEGMENT_MIN_W * 3 + ns.S.XXL
 -- The section label sits above its card, the way settings panes in modern
 -- desktop apps do. Inside the card it competed with the first row's label,
 -- which reads as two headings for the same thing.
-local SECTION_H = 22
+local SECTION_H = ns.T.SMALL + ns.S.SM
 -- The settings search box, and the gap between navigation rows. Both were bare
 -- numbers written twice: the box height had to match the one passed to
 -- SearchBox, and nothing said so.
-local NAV_SEARCH_H = 28
+local NAV_SEARCH_H = ns.SZ.SEARCH_H - ns.S.XS
 local NAV_ROW_GAP = 2
 
 local frame, schema, activeCategory
@@ -36,24 +46,17 @@ local frame, schema, activeCategory
 -- Navigation
 --------------------------------------------------------------------------------
 
+-- A destination in the category list: a glyph, a label, and a quiet filled pill
+-- when it is the one you are looking at. No marker bar down the side -- the
+-- selected row is already a different surface, and the bar was the one thing in
+-- the settings pane that could only have come from a game addon.
 local function createNavRow(parent)
 	local row = CreateFrame("Frame", nil, parent)
-	row:SetHeight(ns.SZ.SETTINGS_ROW_H)
+	row:SetHeight(ns.SZ.SETTINGS_NAV_ROW_H)
 	row.surface = W.Surface(row, { radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 0, 0 } })
-	row.accent = CreateFrame("Frame", nil, row)
-	-- Same rule as the sidebar: the marker belongs inside the card, past the
-	-- inset the surface is drawn with, or it floats in the gutter beside it.
-	local accentX = ns.S.SM + ns.SZ.ACCENT_BAR_INSET
-	row.accent:SetWidth(ns.SZ.ACCENT_BAR_W)
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", accentX, -ns.S.SM)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", accentX, ns.S.SM)
-	row.accent.surface = W.Surface(row.accent, {
-		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
-	})
-	row.accent:Hide()
-	row.icon = W.Icon(row, "dot", ns.SZ.ICON_GLYPH, "textSecondary")
+	row.icon = W.Icon(row, "bullet", ns.SZ.ICON_GLYPH_SM, "textSecondary")
 	row.icon:SetPoint("LEFT", row, "LEFT", ns.S.LG, 0)
-	row.label = W.Text(row, "SMALL", "textSecondary")
+	row.label = W.Text(row, "BODY", "textSecondary")
 	row.label:SetPoint("LEFT", row.icon, "RIGHT", ns.S.MD, 0)
 	row.label:SetPoint("RIGHT", row, "RIGHT", -ns.S.MD, 0)
 
@@ -62,7 +65,6 @@ local function createNavRow(parent)
 		local role = (state == "selected" and "selected")
 			or ((state == "hover" or state == "pressed") and "hover") or nil
 		W.FadeSurfaceTo(row.surface, row, role, duration)
-		row.accent:SetShown(state == "selected")
 		W.SetTextRole(row.label, state == "selected" and "textPrimary" or "textSecondary")
 		W.SetIconRole(row.icon, state == "selected" and "accent" or "textMuted")
 	end)
@@ -81,12 +83,18 @@ end
 local function createRowFrame(parent)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetHeight(ROW_H)
-	row.label = W.Text(row, "SMALL", "textPrimary")
-	row.label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
-	row.caption = W.Text(row, "MICRO", "textMuted")
-	row.caption:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -2)
+	-- The label is the row's voice, so it is set at body size like everything
+	-- else a person reads rather than at the smaller size a control label used
+	-- to get. The description under it steps down one level, not two.
+	row.label = W.Text(row, "BODY", "textPrimary")
+	row.caption = W.Text(row, "SMALL", "textMuted")
 	row.caption:SetJustifyV("TOP")
 	row.caption:SetWordWrap(true)
+	-- Between this row and the next one in the same group. Indented to the
+	-- label, so the group reads as a column of rows rather than a table.
+	row.separator = W.Hairline(row, "horizontal", {
+		anchor = "BOTTOM", color = "borderSubtle",
+	})
 	return row
 end
 
@@ -94,6 +102,7 @@ local function resetRowFrame(_, row)
 	row:Hide()
 	row:ClearAllPoints()
 	row.spec = nil
+	row.separator:SetShown(false)
 	if row.control then
 		row.control:Hide()
 		row.control = nil
@@ -106,7 +115,9 @@ end
 
 local function createCard(parent)
 	local card = CreateFrame("Frame", nil, parent)
-	card.surface = W.Surface(card, { color = "bg3", border = "borderSubtle", radius = ns.R.LG })
+	-- A raised surface and nothing else. The outline round a card that is already
+	-- lighter than the panel behind it adds a line and no information.
+	card.surface = W.Surface(card, { color = "bg3", radius = ns.R.LG })
 	card.title = W.Text(card, "SMALL", "textMuted")
 	card.title:SetPoint("BOTTOMLEFT", card, "TOPLEFT", 2, ns.S.SM)
 	return card
@@ -157,6 +168,39 @@ local factories = {}
 function factories.toggle(parent)
 	local control
 	control = Controls.Toggle(parent, {
+		onChange = function(value)
+			if control and control.spec then
+				writeValue(control.spec, value)
+				SettingsUI.RefreshSoon()
+			end
+		end,
+	})
+	return control
+end
+
+-- A dropdown with few enough short options is built as a row of segments
+-- instead, so the choice is readable without opening anything. The rule lives
+-- here rather than in the schema because it is a presentation decision: the
+-- schema says "one of these values", and how many of them fit side by side is
+-- not something a settings author should have to think about.
+local SEGMENT_MAX_OPTIONS = 4
+local SEGMENT_MAX_LABEL = 14
+
+local function suitsSegments(spec)
+	local options = spec.options
+	if type(options) ~= "table" then return false end
+	if #options < 2 or #options > SEGMENT_MAX_OPTIONS then return false end
+	for i = 1, #options do
+		local label = options[i].label
+		if type(label) ~= "string" or #label > SEGMENT_MAX_LABEL then return false end
+	end
+	return true
+end
+
+function factories.segmented(parent)
+	local control
+	control = Controls.Segmented(parent, {
+		options = {},
 		onChange = function(value)
 			if control and control.spec then
 				writeValue(control.spec, value)
@@ -253,13 +297,24 @@ function factories.info(parent)
 end
 
 local function buildControl(spec, parent)
-	local factory = factories[spec.type]
+	-- One schema entry, two possible controls. `kind` is what is actually built;
+	-- `spec.type` stays what the schema said, because every other consumer of
+	-- the schema -- search, the audit, the row layout -- reasons about the
+	-- declared type and not about how it happened to be rendered.
+	local kind = spec.type
+	if kind == "dropdown" and suitsSegments(spec) then kind = "segmented" end
+
+	local factory = factories[kind]
 	if not factory then return nil end
-	local control = acquireControl(spec.type, parent, factory)
+	local control = acquireControl(kind, parent, factory)
 	control:SetParent(parent)
 	control.spec = spec
 
-	if spec.type == "toggle" then
+	if kind == "segmented" then
+		control:SetWidth(CONTROL_W)
+		control:SetOptions(spec.options)
+		control:SetValue(readValue(spec), false)
+	elseif spec.type == "toggle" then
 		control:SetValue(readValue(spec) and true or false, false)
 	elseif spec.type == "slider" then
 		-- Width first, then the range, then the value: every one of those is an
@@ -410,14 +465,14 @@ local function renderNav()
 		end
 		row.categoryID = category.id
 		row.label:SetText(category.label)
-		ns.Draw.SetIcon(row.icon, category.icon or "dot")
-		row.icon.__wtwIcon = category.icon or "dot"
+		ns.Draw.SetIcon(row.icon, category.icon or "bullet")
+		row.icon.__wtwIcon = category.icon or "bullet"
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, y)
 		row:SetPoint("TOPRIGHT", nav, "TOPRIGHT", 0, y)
 		row:SetSelectedState(category.id == activeCategory)
 		row:Show()
-		y = y - ns.SZ.SETTINGS_ROW_H - NAV_ROW_GAP
+		y = y - ns.SZ.SETTINGS_NAV_ROW_H - NAV_ROW_GAP
 	end
 end
 
@@ -482,7 +537,7 @@ function SettingsUI.Refresh()
 				and ((category.label or "") .. " \194\183 " .. (cardSpec.title or ""))
 				or (cardSpec.title or ""))
 
-			local rowY = CARD_PAD
+			local rowY = CARD_PAD_Y
 			for r = 1, #rows do
 				local spec = rows[r]
 				local row = frame.rowPool:Acquire()
@@ -497,7 +552,8 @@ function SettingsUI.Refresh()
 				row.label:SetWidth(max(60, labelWidth))
 				row.caption:SetWidth(max(60, labelWidth))
 				row.caption:SetText(spec.caption or "")
-				row.caption:SetShown((spec.caption or "") ~= "")
+				local hasCaption = (spec.caption or "") ~= ""
+				row.caption:SetShown(hasCaption)
 
 				local control = buildControl(spec, card)
 				row.control = control
@@ -507,16 +563,28 @@ function SettingsUI.Refresh()
 					control:Show()
 				end
 
-				local height = ROW_H
-				if (spec.caption or "") ~= "" then
-					height = max(height, 20 + (row.caption:GetStringHeight() or 12) + 6)
-				end
+				-- The label, or the label and its description, centred as one
+				-- block against the control beside it. Anchoring the label to the
+				-- row's top edge left a described row looking top-heavy next to
+				-- an undescribed one.
+				local labelH = row.label:GetStringHeight() or ns.T.BODY
+				local captionH = hasCaption and (row.caption:GetStringHeight() or ns.T.SMALL) or 0
+				local blockH = labelH + (hasCaption and (ns.S.XS / 2 + captionH) or 0)
+				local height = max(ROW_H, blockH + ns.S.MD * 2)
+				local top = (height - blockH) / 2
+
+				row.label:ClearAllPoints()
+				row.label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -top)
+				row.caption:ClearAllPoints()
+				row.caption:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -ns.S.XS / 2)
+
 				row:SetHeight(height)
+				row.separator:SetShown(r < #rows)
 				row:Show()
 				rowY = rowY + height + ROW_GAP
 			end
 
-			local cardHeight = rowY - ROW_GAP + CARD_PAD
+			local cardHeight = rowY - ROW_GAP + CARD_PAD_Y
 			card:SetHeight(cardHeight)
 			card.surface:Layout()
 			card:Show()
@@ -641,7 +709,6 @@ function SettingsUI.ApplyTheme()
 	for i = 1, #frame.nav.rows do
 		local row = frame.nav.rows[i]
 		row.surface:ApplyTheme()
-		row.accent.surface:ApplyTheme()
 		W.RefreshText(row.label)
 		W.RefreshIcon(row.icon)
 	end

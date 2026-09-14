@@ -29,7 +29,7 @@ local function build()
 	surface = W.Surface(frame, {
 		color = "bg3", border = "borderStrong", radius = ns.R.SM + 2, shadow = 10,
 	})
-	titleFS = W.Text(frame, "MICRO", "textPrimary")
+	titleFS = W.Text(frame, "SMALL", "textPrimary")
 	titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD_X, -PAD_Y)
 	titleFS:SetJustifyV("TOP")
 	subFS = W.Text(frame, "MICRO", "textMuted")

@@ -13,7 +13,9 @@ ns.ConversationView = ConversationView
 
 local V = {}
 
-local SEARCHBAR_H = 40
+-- The in-thread search strip: the search pill with the panel's own padding
+-- above and below it, rather than a height somebody settled on.
+local SEARCHBAR_H = ns.SZ.SEARCH_H + ns.S.SM * 2
 
 function ConversationView.New(parent, opts)
 	opts = opts or {}
@@ -28,12 +30,18 @@ function ConversationView.New(parent, opts)
 	header:SetHeight(opts.headerHeight or ns.SZ.HEADER_H)
 	header:SetPoint("TOPLEFT")
 	header:SetPoint("TOPRIGHT")
+	-- No rule under the header. It is already a different surface from the
+	-- thread below it, and one separation is enough: a shade change *and* a line
+	-- is how an interface ends up looking like it was assembled from parts.
 	header.surface = W.Surface(header, { color = "headerBg" })
-	header.divider = W.Hairline(header, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
 	v.header = header
 
-	header.avatar = ns.Avatar.New(header, ns.SZ.AVATAR_MD)
-	header.avatar:SetPoint("LEFT", header, "LEFT", ns.S.LG, 0)
+	-- A detached window is narrower and shorter, so its header takes the smaller
+	-- avatar rather than the same one squeezed into less room.
+	header.avatar = ns.Avatar.New(header,
+		opts.compactHeader and ns.SZ.AVATAR_SM or ns.SZ.AVATAR_MD)
+	header.avatar:SetPoint("LEFT", header, "LEFT",
+		opts.compactHeader and ns.S.MD or ns.S.LG, 0)
 	header.avatar:SetSurfaceRole("headerBg")
 
 	-- The name and the line under it are one block, with a fixed gap, centred
@@ -42,7 +50,10 @@ function ConversationView.New(parent, opts)
 	-- larger font scales the two lines walked into each other, and with no
 	-- status line at all the name sat high in a header it should be centred in.
 	header.name = W.Text(header, "TITLE", "textPrimary")
-	header.status = W.Text(header, "MICRO", "textMuted")
+	-- The realm, BattleTag or presence under the name. One step below the name
+	-- rather than three: at MICRO under a TITLE it read as a footnote to the
+	-- header instead of as the second line of it.
+	header.status = W.Text(header, "SMALL", "textMuted")
 	v:LayoutHeaderText(false)
 
 	-- Header actions live in an ordered list and are laid out right to left, so
@@ -55,7 +66,6 @@ function ConversationView.New(parent, opts)
 	bar:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
 	bar:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, 0)
 	bar.surface = W.Surface(bar, { color = "bg3" })
-	bar.divider = W.Hairline(bar, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
 	bar:Hide()
 	v.searchBar = bar
 
@@ -75,13 +85,13 @@ function ConversationView.New(parent, opts)
 	bar.close:SetPoint("RIGHT", bar, "RIGHT", -ns.S.SM, 0)
 
 	bar.next = ns.Button.Icon(bar, {
-		icon = "chevron_down", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
+		icon = "down", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() v:StepSearch(1) end,
 	})
 	bar.next:SetPoint("RIGHT", bar.close, "LEFT", -ns.S.XS, 0)
 
 	bar.prev = ns.Button.Icon(bar, {
-		icon = "chevron_up", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
+		icon = "up", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,
 		onClick = function() v:StepSearch(-1) end,
 	})
 	bar.prev:SetPoint("RIGHT", bar.next, "LEFT", 0, 0)
@@ -112,7 +122,7 @@ function ConversationView.New(parent, opts)
 	-------------------------------------------------------------- empty state
 	v.empty = CreateFrame("Frame", nil, v)
 	v.empty:SetAllPoints()
-	v.emptyIcon = W.Icon(v.empty, "message", ns.SZ.EMPTY_ICON, "textMuted")
+	v.emptyIcon = W.Icon(v.empty, "chat", ns.SZ.EMPTY_ICON, "textMuted")
 	v.emptyIcon:SetPoint("CENTER", v.empty, "CENTER", 0, 36)
 	v.emptyIcon:SetAlpha(0.22)
 	v.emptyTitle = W.Text(v.empty, "DISPLAY", "textSecondary")
@@ -136,7 +146,7 @@ function ConversationView.New(parent, opts)
 		end)
 		v.header.popout = v.header.actions[#v.header.actions].button
 	end
-	v:AddHeaderButton("dots", "Settings", function(button)
+	v:AddHeaderButton("more", "Settings", function(button)
 		v:OpenConversationMenu(button)
 	end)
 	v.header.more = v.header.actions[#v.header.actions].button
@@ -154,10 +164,11 @@ end
 -- language while this button exists, and a button that kept only the resolved
 -- text would have no way back to the table it came from.
 function V:AddHeaderButton(icon, tooltipKey, onClick)
+	local compact = self.opts.compactHeader
 	local button = ns.Button.Icon(self.header, {
 		icon = icon, tooltip = L[tooltipKey],
-		size = self.opts.compactHeader and 26 or ns.SZ.ICON_BTN,
-		glyph = self.opts.compactHeader and 13 or ns.SZ.ICON_GLYPH,
+		size = compact and ns.SZ.ICON_BTN_SM or ns.SZ.ICON_BTN,
+		glyph = compact and ns.SZ.ICON_GLYPH_SM or ns.SZ.ICON_GLYPH,
 		onClick = function(self2) ns.Guard("HeaderButton", onClick, self2) end,
 	})
 	self.header.actions[#self.header.actions + 1] =
@@ -179,7 +190,8 @@ function V:RelayoutHeaderActions()
 		end
 		previous = button
 	end
-	self.headerActionWidth = #actions * (ns.SZ.ICON_BTN + ns.S.XS) + ns.S.MD
+	local size = self.opts.compactHeader and ns.SZ.ICON_BTN_SM or ns.SZ.ICON_BTN
+	self.headerActionWidth = #actions * (size + ns.S.XS) + ns.S.MD
 end
 
 --------------------------------------------------------------------------------
@@ -515,7 +527,6 @@ end
 function V:ApplyTheme()
 	self.surface:ApplyTheme()
 	self.header.surface:ApplyTheme()
-	self.header.divider:ApplyTheme()
 	self.header.avatar:ApplyTheme()
 	W.RefreshText(self.header.name)
 	W.RefreshText(self.header.status)
@@ -524,7 +535,6 @@ function V:ApplyTheme()
 	end
 
 	self.searchBar.surface:ApplyTheme()
-	self.searchBar.divider:ApplyTheme()
 	self.searchBar.box:ApplyTheme()
 	self.searchBar.close:ApplyTheme()
 	self.searchBar.next:ApplyTheme()

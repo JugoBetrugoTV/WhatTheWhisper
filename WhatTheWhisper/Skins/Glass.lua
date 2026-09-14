@@ -6,7 +6,7 @@ ns.Skins.Register("glass", {
 	description = "Translucent surfaces, stronger hairlines, soft depth.",
 	metrics = {
 		sortIndex = 50,
-		bubbleRadius = 14,
+		bubbleRadius = 18,
 		shadow = 1.4,
 		surfaceAlpha = 0.78,
 	},

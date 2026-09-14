@@ -43,9 +43,10 @@
 	<Script file="Core\Migrations.lua"/>
 	<Script file="Core\Options.lua"/>
 
-	<!-- Generated art coordinates -->
+	<!-- Generated art coordinates, and the semantic layer over them -->
 	<Script file="UI\IconAtlas.lua"/>
 	<Script file="UI\EmojiAtlas.lua"/>
+	<Script file="UI\Icons.lua"/>
 
 	<!-- Skins and the resolved theme -->
 	<Script file="Skins\Skins.lua"/>

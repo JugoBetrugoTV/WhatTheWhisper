@@ -46,6 +46,9 @@ python3 Tools/test/check_locales.py | tail -1
 echo "== structure =="
 python3 Tools/test/check_structure.py | tail -1
 
+echo "== icon manifest =="
+python3 Tools/gen_icon_manifest.py --check
+
 echo "== embedded libraries =="
 python3 Tools/test/check_libs.py | tail -1
 
@@ -64,6 +67,8 @@ suite "settings"              Tools/test/settings.lua
 suite "commands and debug"    Tools/test/commands.lua
 suite "search"                Tools/test/search.lua
 suite "modern API only"       Tools/test/modern.lua
+suite "icons: drop-in"        Tools/test/icons.lua
+suite "icons: blind client"   Tools/test/icons.lua blind
 suite "restricted content"    Tools/test/arena.lua
 suite "presence and profile"  Tools/test/presence.lua
 suite "minimap button"        Tools/test/minimap.lua

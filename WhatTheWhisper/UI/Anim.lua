@@ -284,14 +284,12 @@ function Anim.PopIn(frame, duration, fromScale)
 	ag:Play()
 end
 
--- One-shot attention pulse for unread badges. Fancy level only.
--- A brief scale bump, used on the unread dot of a tab.
+-- A brief scale bump.
 --
 -- The target is often a Texture rather than a Frame, and SetScale belongs to
 -- Frame: a texture is scaled by the animation itself and has nothing to reset.
 -- Calling it unconditionally threw every time a tab blinked.
-function Anim.Pulse(frame, strength)
-	if not frame or not Theme.IsFancy() then return end
+local function bump(frame, strength, duration)
 	local canSetScale = type(frame.SetScale) == "function"
 	local ag = frame.__wtwPulse
 	if not ag then
@@ -311,6 +309,10 @@ function Anim.Pulse(frame, strength)
 			if canSetScale then frame:SetScale(1) end
 		end)
 	end
+	if duration then
+		frame.__wtwPulseUp:SetDuration(duration * 0.45)
+		frame.__wtwPulseDown:SetDuration(duration * 0.55)
+	end
 	local s = 1 + (strength or 0.18)
 	if HAS_SCALE_TO then
 		frame.__wtwPulseUp:SetScaleFrom(1, 1)
@@ -323,6 +325,22 @@ function Anim.Pulse(frame, strength)
 	end
 	ag:Stop()
 	ag:Play()
+end
+
+-- One-shot attention pulse for unread badges. Fancy level only: it is
+-- decoration, and somebody who turned the decoration down meant it.
+function Anim.Pulse(frame, strength)
+	if not frame or not Theme.IsFancy() then return end
+	bump(frame, strength)
+end
+
+-- The same bump, smaller and faster, for a control confirming a state change --
+-- the send button lighting up as the first character is typed. Not decoration:
+-- it is the feedback that says the thing is armed, so it plays at every
+-- animation level except off.
+function Anim.Pop(frame, duration)
+	if not frame or not Theme.AnimationsEnabled() then return end
+	bump(frame, 0.09, duration or 0.14)
 end
 
 -- A slow repeating breath, for something that is waiting rather than something

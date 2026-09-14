@@ -218,6 +218,14 @@ function addon:PrintDiagnostics()
 		messages, conversations, ns.Format.Bytes(bytes)))
 	ns.Print(("pixel=%.3f font=%s skin=%s"):format(
 		ns.Pixel.Size(UIParent), tostring(ns.Theme.fontPath), tostring(ns.Theme.skinID)))
+
+	-- "My new icons are not showing up" deserves an answer that is a number.
+	-- `probe` says whether this client will admit to a file being missing at
+	-- all: where it will not, drop-ins are off, because the alternative is a
+	-- blank square wherever a file has not been produced yet.
+	local customIcons, totalIcons, iconProbe = ns.Icons.CustomCount()
+	ns.Print(("icons: %d/%d custom, probe=%s"):format(
+		customIcons, totalIcons, tostring(iconProbe)))
 	ns.Print(("errors=%d degraded=%s debug=%s"):format(
 		ns.Debug.ErrorCount(), tostring(ns.Debug.IsDegraded()), tostring(ns.Debug.IsEnabled())))
 

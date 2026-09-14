@@ -13,9 +13,9 @@ local Picker = {}
 ns.EmojiPicker = Picker
 
 local COLS = 8
-local CELL = 30
+local CELL = ns.SZ.ICON_BTN
 local PAD = ns.S.MD
-local TABS_H = 30
+local TABS_H = ns.SZ.ICON_BTN
 
 local frame, catcher, cellPool, tabButtons
 local currentCategory = "smileys"
@@ -75,7 +75,7 @@ local function build()
 	frame:EnableMouse(true)
 	frame:Hide()
 	frame.surface = W.Surface(frame, {
-		color = "bg3", border = "borderStrong", radius = ns.R.LG, shadow = 16,
+		color = "bg3", border = "borderSubtle", radius = ns.R.LG, shadow = 18,
 	})
 
 	frame:SetWidth(COLS * CELL + PAD * 2)

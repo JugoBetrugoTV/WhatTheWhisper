@@ -67,6 +67,10 @@ whisper("kurz", "Jaina", "G-JAINA")
 whisper("https://example.com/a/very/long/path/that/keeps/going and some words after it",
 	"Jaina", "G-JAINA")
 whisper("Übergrößenträger Straße ünnötig", "Thrall", guid)
+-- A third thread, so the sidebar has a row that is neither the selected one nor
+-- the last one: the hairline between rows is only drawn there, and with two
+-- conversations every check of it skipped.
+whisper("kommst du?", "Sylvanas", "G-SYLV")
 
 ns.UI.Show()
 local thrall = ns.Compat.NormalizeName("Thrall")
@@ -293,14 +297,18 @@ for i = 1, math.min(#rows, 3) do
 			math.abs(nameBase - timeBase) <= 1.0,
 			("name baseline %.2f, timestamp baseline %.2f"):format(nameBase, timeBase))
 	end
-	-- The selected marker belongs inside the row's card, not in the gutter
-	-- beside it, or it reads as the window border rather than as this row.
-	if row.accent then
-		local cardLeft = select(1, rect(row)) + ns.S.SM
-		local accentLeft = select(1, rect(row.accent))
-		check("row " .. i .. ": the selected marker sits inside the card",
-			accentLeft >= cardLeft - 0.51,
-			("marker at %.2f, card edge at %.2f"):format(accentLeft, cardLeft))
+	-- The hairline between rows starts where the text does, not at the panel
+	-- edge: a rule running the full width reads as a table, an indented one
+	-- reads as a list. And it is never drawn under the row you are on, where it
+	-- would cut across the selection wash.
+	if row.separator and row.avatar then
+		local ruleLeft = select(1, rect(row.separator.tex))
+		local textLeft = select(1, rect(row.avatar)) + select(3, rect(row.avatar)) + ns.S.MD
+		if row.separator.tex:IsShown() then
+			check("row " .. i .. ": the separator starts on the text column",
+				math.abs(ruleLeft - textLeft) <= 1.01,
+				("rule at %.2f, text at %.2f"):format(ruleLeft, textLeft))
+		end
 	end
 	-- Left edges of the stacked text must agree exactly; a one pixel step
 	-- between a name and the preview under it is visible as a ragged column.
@@ -308,6 +316,21 @@ for i = 1, math.min(#rows, 3) do
 		check("row " .. i .. ": the name and preview share a left edge",
 			math.abs(select(1, rect(row.name)) - select(1, rect(row.preview))) < EPS)
 	end
+end
+
+-- ...and at least one of them is actually drawn. With no card around a row and
+-- no marker beside it, the hairline between rows is the only thing giving the
+-- list structure, and "shown when resting" is a condition two separate places
+-- used to evaluate -- one of them wrongly, so it was never drawn at all and
+-- every per-row check above skipped silently.
+if #rows >= 3 then
+	local drawn = 0
+	for i = 1, #rows do
+		local separator = rows[i].separator
+		if separator and separator.tex:IsShown() then drawn = drawn + 1 end
+	end
+	check("the conversation list draws separators between its rows", drawn > 0,
+		("%d rows, no separator drawn on any of them"):format(#rows))
 end
 
 -- Every row in the list must use the same margins: one row indented differently
@@ -385,10 +408,15 @@ for i = 1, #bubbles do
 	check("a bubble pads its text on the left by the named amount",
 		math.abs((tl - bl) - ns.SZ.BUBBLE_PAD_X) < EPS,
 		("%.2f, want %d"):format(tl - bl, ns.SZ.BUBBLE_PAD_X))
+	-- On the right the text is inset by the same padding plus whatever the time
+	-- and the delivery mark reserved beside it, so the floor is the padding and
+	-- anything more is the meta row. Text running closer than the padding would
+	-- be text touching the bubble's edge; text running *under* the meta row is
+	-- what reserving the space exists to prevent, and is caught below.
 	local rightPad = (bl + bw) - select(5, rect(b.text))
-	check("a bubble pads its text on the right by the same amount",
-		math.abs(rightPad - ns.SZ.BUBBLE_PAD_X) < 1.01,
-		("%.2f vs %.2f on the left"):format(rightPad, tl - bl))
+	check("a bubble never lets its text reach the right edge",
+		rightPad >= ns.SZ.BUBBLE_PAD_X - 1.01,
+		("%.2f, want at least %d"):format(rightPad, ns.SZ.BUBBLE_PAD_X))
 	check("a bubble is never wider than the cap",
 		bw <= ns.SZ.BUBBLE_MAX_ABS + EPS, ("%.1f"):format(bw))
 
@@ -441,47 +469,182 @@ if composer.send and #outgoing > 0 then
 			select(5, rect(composer.send)), select(5, rect(outgoing[1]))))
 end
 
--- Delivery ticks sit against their bubble at one consistent distance. A mark
--- floating at a different gap on each message reads as debris rather than as
--- status.
-local gaps = {}
-for i = 1, #outgoing do
-	local b = outgoing[i]
-	if b.status and M.EffectivelyShown(b.status, window) then
-		gaps[#gaps + 1] = {
-			gap = select(1, rect(b)) - select(5, rect(b.status)),
-			bottom = select(2, rect(b.status)) - select(2, rect(b)),
-		}
+-- ...and both of them are centred on the line of the field between them, not on
+-- the constant the field was once assumed to be. A button one pixel off the
+-- field it sits beside is the kind of thing nobody can name and everybody sees.
+do
+	local function middle(f)
+		local _, b, _, h = rect(f)
+		return b + h / 2
 	end
-end
-if #gaps > 1 then
-	local sameGap, sameBottom = true, true
-	for i = 2, #gaps do
-		if math.abs(gaps[i].gap - gaps[1].gap) > EPS then sameGap = false end
-		if math.abs(gaps[i].bottom - gaps[1].bottom) > EPS then sameBottom = false end
+	local fieldMiddle = middle(composer.input)
+	for _, pair in ipairs({ { composer.emoji, "emoji" }, { composer.send, "send" } }) do
+		local button = pair[1]
+		if button and M.EffectivelyShown(button, window) then
+			check(("the %s button is centred on the composer's field"):format(pair[2]),
+				-- Half a pixel is the most an odd height difference can force; a whole
+				-- one means somebody centred on a number rather than on the field.
+				math.abs(middle(button) - fieldMiddle) <= 0.51,
+				("%.2f vs %.2f"):format(middle(button), fieldMiddle))
+		end
 	end
-	check("every delivery tick sits the same distance from its bubble", sameGap,
-		("%.2f vs %.2f"):format(gaps[#gaps].gap, gaps[1].gap))
-	check("and at the same height within it", sameBottom,
-		("%.2f vs %.2f"):format(gaps[#gaps].bottom, gaps[1].bottom))
-	check("the tick is close enough to read as attached",
-		gaps[1].gap >= 0 and gaps[1].gap <= ns.S.MD,
-		("%.2f away"):format(gaps[1].gap))
 end
 
--- Group headers carry a time and nothing else, on the side their group sits on.
-local headers = {}
-for header in view.list.headerPool:EnumerateActive() do
-	if M.EffectivelyShown(header, window) then headers[#headers + 1] = header end
+-- The meta row: a time, and on an outgoing message a delivery mark after it,
+-- tucked into the bottom right corner of the bubble itself. This is what makes a
+-- thread read as a messenger rather than as a log, so it is worth measuring
+-- rather than eyeballing.
+--
+-- Three things have to hold. It is inside the bubble. It does not overlap the
+-- message text. And it is in the same place on every bubble -- a mark that sits
+-- at a different inset on each message reads as debris.
+-- rect() is (left, bottom, width, height, right, top): WoW's y grows upward, so
+-- "bottom" is the low edge and "top" the high one.
+local metas = {}
+for i = 1, #bubbles do
+	local b = bubbles[i]
+	local bl, bb, _, _, br, btop = rect(b)
+	local mark = b.status and M.EffectivelyShown(b.status, window) and b.status
+	local stamp = b.stamp and M.EffectivelyShown(b.stamp, window) and b.stamp
+
+	if mark then
+		local ml, mb, _, _, mr, mtop = rect(mark)
+		check("the delivery mark is inside its bubble",
+			ml >= bl - EPS and mr <= br + EPS and mb >= bb - EPS and mtop <= btop + EPS,
+			("mark x %.1f..%.1f y %.1f..%.1f in bubble x %.1f..%.1f y %.1f..%.1f")
+				:format(ml, mr, mb, mtop, bl, br, bb, btop))
+		metas[#metas + 1] = { right = br - mr, bottom = mb - bb }
+	end
+
+	if stamp and mark then
+		check("the time sits before the delivery mark, not on top of it",
+			select(5, rect(stamp)) <= select(1, rect(mark)) + EPS,
+			("time ends %.1f, mark starts %.1f"):format(
+				select(5, rect(stamp)), select(1, rect(mark))))
+	end
+
+	-- The whole reason `measure` reserves room for the meta row: without it the
+	-- last words of a message would run underneath the time. Clear means either
+	-- beside it, or entirely above it.
+	if stamp and b.text then
+		local textRight, textBottom = select(5, rect(b.text)), select(2, rect(b.text))
+		local stampLeft, stampTop = select(1, rect(stamp)), select(6, rect(stamp))
+		check("the message text never runs under its own timestamp",
+			textRight <= stampLeft + EPS or textBottom >= stampTop - EPS,
+			("text right %.1f bottom %.1f, stamp left %.1f top %.1f"):format(
+				textRight, textBottom, stampLeft, stampTop))
+	end
 end
-check("the thread rendered group headers", #headers > 0)
-for i = 1, #headers do
-	local header = headers[i]
-	check("a group header carries no repeated sender name",
-		header.name == nil,
-		"the name font string is back; a 1:1 thread should not repeat it")
-	check("a group header does show a time",
-		header.time ~= nil and (header.time._text or "") ~= "")
+
+check("outgoing messages carry a delivery mark", #metas > 0)
+if #metas > 1 then
+	local sameRight, sameBottom = true, true
+	for i = 2, #metas do
+		if math.abs(metas[i].right - metas[1].right) > EPS then sameRight = false end
+		if math.abs(metas[i].bottom - metas[1].bottom) > EPS then sameBottom = false end
+	end
+	check("every delivery mark sits at the same inset from the right",
+		sameRight, ("%.2f vs %.2f"):format(metas[#metas].right, metas[1].right))
+	check("and at the same height from the bottom",
+		sameBottom, ("%.2f vs %.2f"):format(metas[#metas].bottom, metas[1].bottom))
+	check("the mark is inset by the bubble's own padding",
+		math.abs(metas[1].right - ns.SZ.BUBBLE_PAD_X) < 1.01,
+		("%.2f, want %d"):format(metas[1].right, ns.SZ.BUBBLE_PAD_X))
+end
+
+--------------------------------------------------------------------------------
+-- The rhythm: one spacing scale, one type scale, one set of control sizes
+--------------------------------------------------------------------------------
+
+-- The three audits below are the difference between "each screen looks fine on
+-- its own" and "this is one application". They do not measure whether something
+-- is pretty; they measure whether it agrees with everything beside it, which is
+-- the part that stops being true one careless commit at a time.
+
+-- Every icon button in the window is one of the two sizes the design has. A
+-- third size, invented at one call site, is invisible in isolation and obvious
+-- in a row.
+do
+	local nodes = auditable(window)
+	local sizes, offenders = {}, {}
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.icon and node._kind == "Frame" and M.EffectivelyShown(node, window) then
+			local _, _, w, h = rect(node)
+			-- Square, mouse-enabled and holding a glyph: an icon button.
+			if node._mouseEnabled and math.abs(w - h) < 1.01 and w >= 16 then
+				local rounded = math.floor(w + 0.5)
+				sizes[rounded] = (sizes[rounded] or 0) + 1
+				if rounded ~= ns.SZ.ICON_BTN and rounded ~= ns.SZ.ICON_BTN_SM
+					and rounded ~= ns.SZ.SEND_BTN then
+					offenders[#offenders + 1] = describe(node)
+						.. (" is %dpx"):format(rounded)
+				end
+			end
+		end
+	end
+	local found = 0
+	for _ in pairs(sizes) do found = found + 1 end
+	check("icon buttons come in the sizes the design has", #offenders == 0,
+		offenders[1])
+	check("and there are some to check", found > 0)
+end
+
+-- Every font string uses one of the five sizes in the type scale. A label set at
+-- a size between two of them reads as a mistake even when nobody can say which
+-- two.
+do
+	local allowed, names = {}, {}
+	for _, token in ipairs({ "MICRO", "SMALL", "BODY", "TITLE", "DISPLAY" }) do
+		allowed[ns.Theme.FontSize(token)] = true
+		names[#names + 1] = ("%s=%d"):format(token, ns.Theme.FontSize(token))
+	end
+	local offenders, inspected = {}, 0
+	local nodes = M.Descendants(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= ""
+			and M.EffectivelyShown(node, window) then
+			-- What the engine will actually draw with, which is not always what
+			-- the font object says: a direct SetFont on the string overrides it,
+			-- and that is exactly the way a stray size gets in.
+			local size = select(2, node:GetFont())
+			if size then
+				inspected = inspected + 1
+				if not allowed[math.floor(size + 0.5)] then
+					offenders[#offenders + 1] = describe(node) .. (" at %s"):format(size)
+				end
+			end
+		end
+	end
+	check("every visible label is set at a size from the type scale",
+		#offenders == 0, (offenders[1] or "") .. " (scale: " .. table.concat(names, " ") .. ")")
+	check("and there were labels to check", inspected > 10, tostring(inspected))
+end
+
+-- The window is one column system, not three. The sidebar's text, the thread
+-- header's text and the message column all start at their panel's own margin,
+-- and those margins are the same number.
+do
+	local sidebar = window.sidebar
+	local header = view.header
+	local sidebarPad = select(1, rect(sidebar.rowPool.free[1] or sidebar))
+	local firstRow
+	for row in sidebar.rowPool:EnumerateActive() do
+		if M.EffectivelyShown(row, window) then firstRow = firstRow or row end
+	end
+	if firstRow and M.EffectivelyShown(firstRow.avatar, window) then
+		sidebarPad = select(1, rect(firstRow.avatar)) - select(1, rect(firstRow))
+		check("the sidebar row's avatar sits on the panel margin",
+			math.abs(sidebarPad - ns.S.LG) < 1.01,
+			("%.2f, want %d"):format(sidebarPad, ns.S.LG))
+	end
+	if M.EffectivelyShown(header.avatar, window) then
+		local headerPad = select(1, rect(header.avatar)) - select(1, rect(header))
+		check("the conversation header's avatar sits on the same margin",
+			math.abs(headerPad - ns.S.LG) < 1.01,
+			("%.2f, want %d"):format(headerPad, ns.S.LG))
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -1011,8 +1174,18 @@ for _, id in ipairs(ns.Skins.order) do
 	-- 1.3:1 to be perceptible at all; below that the rounded rectangle is
 	-- there in the code and invisible on screen.
 	for _, pair in ipairs({
-		{ "bubbleIn", "bg1", "the incoming bubble" },
-		{ "bubbleOut", "bg1", "the outgoing bubble" },
+		-- On bg2, which is the conversation surface bubbles are actually drawn
+		-- on. It was bg1, the sidebar, where no bubble has ever appeared -- and
+		-- since bg1 is the darker of the two, the check was reading a contrast
+		-- ratio slightly better than the one on screen.
+		{ "bubbleIn", "bg2", "the incoming bubble" },
+		{ "bubbleOut", "bg2", "the outgoing bubble" },
+		-- Which conversation you are in, read from across the window. There is
+		-- no marker bar beside the row any more, so this wash is the entire
+		-- signal -- and a selected row you have to hunt for is worse than no
+		-- selection at all.
+		{ "selected", "bg1", "the selected sidebar row" },
+		{ "selected", "bg3", "the selected row on a raised panel" },
 		-- The groove of a slider or a switch is the same kind of boundary: it
 		-- has to be visible before anyone knows there is a control there. Using
 		-- the hover tint for it left an off switch with no switch in it.

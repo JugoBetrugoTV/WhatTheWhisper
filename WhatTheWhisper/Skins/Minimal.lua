@@ -6,11 +6,10 @@ ns.Skins.Register("minimal", {
 	description = "One flat surface, hairlines barely there, generous spacing.",
 	metrics = {
 		sortIndex = 40,
-		bubbleRadius = 8,
+		bubbleRadius = 10,
 		spacingScale = 1.35,
 		borderScale = 0.6,
 		shadow = 0.4,
-		accentBar = false,
 	},
 	colors = {
 		bg0            = "#101215",
@@ -21,9 +20,12 @@ ns.Skins.Register("minimal", {
 		composerBg     = "#101215",
 		inputBg        = "#191D23",
 
-		hover          = { "#FFFFFF", 0.04 },
-		selected       = { "#FFFFFF", 0.08 },
-		pressed        = { "#FFFFFF", 0.12 },
+		-- Minimal is the quietest skin in the set, and it may stay quieter than
+		-- the others -- but not to the point where the open conversation is a
+		-- row you have to hunt for. Quiet is a style; invisible is a bug.
+		hover          = { "#FFFFFF", 0.05 },
+		selected       = { "#FFFFFF", 0.13 },
+		pressed        = { "#FFFFFF", 0.18 },
 
 		borderSubtle   = { "#FFFFFF", 0.04 },
 		borderStrong   = { "#FFFFFF", 0.09 },

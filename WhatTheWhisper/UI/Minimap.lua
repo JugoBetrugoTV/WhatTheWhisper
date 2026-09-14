@@ -138,13 +138,13 @@ local function onRightClick()
 		local id = conv.id
 		entries[#entries + 1] = {
 			text = ("%s  (%d)"):format(CM.DisplayName(conv), conv.unread),
-			icon = "message",
+			icon = "chat",
 			onClick = function() openConversation(id) end,
 		}
 	end
 	if #entries > 0 then
 		entries[#entries + 1] = { separator = true }
-		entries[#entries + 1] = { text = L["Mark all as read"], icon = "check",
+		entries[#entries + 1] = { text = L["Mark all as read"], icon = "sent",
 			onClick = function()
 				local all = unreadConversations()
 				for i = 1, #all do CM.MarkRead(all[i].id) end
@@ -153,7 +153,7 @@ local function onRightClick()
 	end
 	entries[#entries + 1] = { text = L["Open"], icon = "logo",
 		onClick = function() ns.UI.Show() end }
-	entries[#entries + 1] = { text = L["Settings"], icon = "gear",
+	entries[#entries + 1] = { text = L["Settings"], icon = "settings",
 		onClick = function() ns.SettingsUI.Toggle() end }
 	entries[#entries + 1] = { text = L["Hide minimap button"], icon = "close",
 		onClick = function()

@@ -55,7 +55,10 @@ function MainWindow.Get()
 	title:SetPoint("TOPLEFT")
 	title:SetPoint("TOPRIGHT")
 	title:EnableMouse(true)
-	title.divider = W.Hairline(title, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
+	-- The title bar draws no background and no rule: it is the window plate
+	-- showing through, with the sidebar and the thread starting under it. The
+	-- less of it there is, the more this reads as one application rather than a
+	-- game frame with an application inside it.
 	frame.titlebar = title
 
 	title.mark = W.Icon(title, "logo", ns.SZ.ICON_LOGO, "accent")
@@ -81,7 +84,7 @@ function MainWindow.Get()
 	title.minimize = titleButton("minimize", L["Minimize"], function() ns.UI.Minimize() end)
 	title.minimize:SetPoint("RIGHT", title.close, "LEFT", -2, 0)
 
-	title.settings = titleButton("sliders", L["Settings"], function() ns.SettingsUI.Toggle() end)
+	title.settings = titleButton("settings", L["Settings"], function() ns.SettingsUI.Toggle() end)
 	title.settings:SetPoint("RIGHT", title.minimize, "LEFT", -2, 0)
 
 	-- Named for what it shows rather than for the effect it uses, and only there
@@ -154,7 +157,7 @@ function MainWindow.Get()
 	frame.grip:SetSize(ns.SZ.RESIZE_GRIP, ns.SZ.RESIZE_GRIP)
 	frame.grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
 	frame.grip:EnableMouse(true)
-	frame.gripIcon = W.Icon(frame.grip, "sort", ns.SZ.ICON_MARK, "textSecondary")
+	frame.gripIcon = W.Icon(frame.grip, "grip", ns.SZ.ICON_MARK, "textSecondary")
 	frame.gripIcon:SetPoint("CENTER")
 	frame.gripIcon:SetAlpha(0.5)
 	frame.grip:SetScript("OnMouseDown", function()
@@ -341,7 +344,6 @@ end
 
 function M:ApplyTheme()
 	self.surface:ApplyTheme()
-	self.titlebar.divider:ApplyTheme()
 	W.RefreshIcon(self.titlebar.mark)
 	W.RefreshText(self.titlebar.label)
 	self.titlebar.badge:ApplyTheme()

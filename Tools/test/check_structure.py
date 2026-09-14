@@ -174,6 +174,107 @@ notes.append("%d SetPoint offsets checked against the spacing scale"
              % len(SPACING))
 
 # ---------------------------------------------------------------------------
+# Every icon the UI asks for must resolve to art that exists.
+#
+# Icons are named for what they mean, and the name is looked up at runtime. A
+# typo, or a semantic name nobody wired to a cell of the sheet, produces a
+# texture with nothing on it -- a button that is there, takes clicks, and cannot
+# be seen. In the source it looks exactly like a working one, so it has to be
+# caught here.
+
+_atlas = open(os.path.join(ADDON, "UI/IconAtlas.lua"), encoding="utf-8").read()
+ATLAS_KEYS = set(re.findall(r'^\t([a-z_0-9]+)\s*=\s*\{', _atlas, re.M))
+
+_icons = open(os.path.join(ADDON, "UI/Icons.lua"), encoding="utf-8").read()
+_alias_block = re.search(r'local ATLAS_ALIAS = \{(.*?)\n\}', _icons, re.S)
+ALIAS = dict(re.findall(r'(\w+)\s*=\s*"([a-z_0-9]+)"', _alias_block.group(1)))
+_repl_block = re.search(r'Icons\.REPLACEABLE = \{(.*?)\n\}', _icons, re.S)
+REPLACEABLE = set(re.findall(r'^\t(\w+)\s*=\s*\{', _repl_block.group(1), re.M))
+
+# Where an icon name is chosen. The name itself is picked out of the whole
+# expression rather than the position after the comma, because half of these are
+# conditional -- `icon = conv.pinned and "pin" or "unpin"` names two icons, and a
+# pattern that only understood the first would miss whichever one was broken.
+# Each form says which argument carries the name. -1 means "the last one", which
+# is how SetIcon is called both with and without a texture in front of the name.
+ICON_FORMS = (
+    (re.compile(r'\bW\.Icon\('), 1),
+    (re.compile(r'\bSetIcon\('), -1),
+    (re.compile(r'\btitleButton\('), 0),
+    (re.compile(r'\bAddHeaderButton\('), 0),
+    (re.compile(r'\bicon\s*=\s*'), 0),
+)
+NAME = re.compile(r'"([a-z_0-9]+)"')
+
+def split_args(text):
+    """Arguments of a call, split on commas that are not inside brackets."""
+    args, depth, current = [], 0, []
+    for ch in text:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            if depth == 0:
+                break
+            depth -= 1
+        if ch == "," and depth == 0:
+            args.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    args.append("".join(current))
+    return args
+
+def icon_names(body):
+    """Yields (name, line) for every icon named anywhere in the file.
+
+    The name is taken from one argument, and every string literal inside that
+    argument counts: half these calls are conditional, and
+    `icon = conv.pinned and "pin" or "unpin"` names two icons in one place.
+    Widening it to the whole line instead would sweep up the colour role that
+    follows, which is a string and is not an icon.
+    """
+    for line_no, line in enumerate(body.split("\n"), 1):
+        for pattern, index in ICON_FORMS:
+            match = pattern.search(line)
+            if not match:
+                continue
+            args = split_args(line[match.end():])
+            if index == -1:
+                arg = args[-1] if len(args) > 1 else args[0]
+            elif index < len(args):
+                arg = args[index]
+            else:
+                continue
+            for name in NAME.findall(arg):
+                yield name, line_no
+            break
+
+unresolved = []
+drawn = set()
+for rel in declared:
+    if rel in ("UI/IconAtlas.lua", "UI/Icons.lua", "UI/EmojiAtlas.lua"):
+        continue
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    for name, line in icon_names(body):
+        drawn.add(name)
+        if ALIAS.get(name, name) in ATLAS_KEYS:
+            continue
+        unresolved.append("%s:%d asks for icon %r, which is neither a cell of "
+                          "Art/Icons nor an alias for one" % (rel, line, name))
+for one in unresolved:
+    err(one)
+
+# The reverse: a name offered for replacement that nothing draws is a file we
+# would be asking somebody to produce for no reason.
+for name in sorted(REPLACEABLE - drawn):
+    err("UI/Icons.lua offers %r for replacement but nothing in the addon draws "
+        "it; docs/ICON-REPLACEMENT.md would be asking for art nobody sees"
+        % name)
+
+notes.append("%d icon references resolved against %d sheet cells"
+             % (len(drawn), len(ATLAS_KEYS)))
+
+# ---------------------------------------------------------------------------
 # Every XML file must actually be well-formed XML.
 #
 # This check exists because its absence shipped a broken build. Libs.xml carried

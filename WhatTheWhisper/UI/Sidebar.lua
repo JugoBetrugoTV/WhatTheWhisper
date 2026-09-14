@@ -17,7 +17,19 @@ ns.Sidebar = Sidebar
 
 local max, min, floor = math.max, math.min, math.floor
 
-local STAMP_W = 64
+-- Room for the longest thing a timestamp column ever holds -- "Yesterday" in the
+-- longest translation -- so the name's truncation point does not move as the
+-- clock does.
+local STAMP_W = 68
+
+-- The row's margins. The avatar's left inset is the module's one horizontal
+-- reference: the text column starts after it, the separator starts with it, and
+-- the timestamp column ends symmetrically opposite.
+local ROW_PAD_X = ns.S.LG
+-- Between the avatar and the text. Slightly wider than the outer margin because
+-- the avatar is a solid shape and reads as heavier than the panel edge.
+local AVATAR_GAP = ns.S.MD
+
 local S = {}
 
 --------------------------------------------------------------------------------
@@ -26,23 +38,21 @@ local S = {}
 
 local function createRow(sidebar)
 	local row = CreateFrame("Frame", nil, sidebar.list.viewport)
-	row.surface = W.Surface(row, {
-		radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 1, 1 },
-	})
 
-	-- Inside the card, not beside it. The card is inset from the row by S.SM, so
-	-- a marker measured from the row's own edge floats in the gutter and reads as
-	-- the window border bleeding colour rather than as part of the selected row.
-	-- The vertical inset clears the card's corner radius.
-	local ACCENT_X = ns.S.SM + ns.SZ.ACCENT_BAR_INSET
-	row.accent = CreateFrame("Frame", nil, row)
-	row.accent:SetWidth(ns.SZ.ACCENT_BAR_W)
-	row.accent:SetPoint("TOPLEFT", row, "TOPLEFT", ACCENT_X, -ns.S.MD)
-	row.accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ACCENT_X, ns.S.MD)
-	row.accent.surface = W.Surface(row.accent, {
-		color = "accent", radius = ns.SZ.ACCENT_BAR_W / 2, layer = "ARTWORK",
+	-- Full bleed, no card. A rounded rectangle inside the sidebar, inside the
+	-- window, is the box-inside-a-box look that says "addon" before anything has
+	-- been read -- and it costs the row the eight pixels either side that the
+	-- text actually wants. What marks a row now is the surface under it changing
+	-- colour, which is all a desktop messenger has ever needed.
+	row.surface = W.Surface(row, { layer = "BACKGROUND" })
+
+	-- A hairline between rows, starting where the text starts rather than at the
+	-- panel edge: a full-width rule reads as a table, an indented one reads as a
+	-- list. It belongs to the row above it, so the last row has none.
+	row.separator = W.Hairline(row, "horizontal", {
+		anchor = "BOTTOM", color = "borderSubtle",
+		insetStart = ROW_PAD_X + ns.SZ.AVATAR_LG + AVATAR_GAP,
 	})
-	row.accent:Hide()
 
 	row.avatar = ns.Avatar.New(row, ns.SZ.AVATAR_LG)
 	row.avatar:SetSurfaceRole("bg1")
@@ -54,10 +64,24 @@ local function createRow(sidebar)
 
 	-- These two are the only marks on a row that mean something rather than
 	-- decorate it, and at textMuted on a busy list they were easy to miss.
-	row.pin = W.Icon(row, "pin_filled", ns.SZ.ICON_MARK, "textSecondary")
-	row.mute = W.Icon(row, "bell_off", ns.SZ.ICON_MARK, "textSecondary")
+	row.pin = W.Icon(row, "pin", ns.SZ.ICON_MARK, "textSecondary")
+	row.mute = W.Icon(row, "mute", ns.SZ.ICON_MARK, "textSecondary")
 
 	row.badge = ns.Controls.Badge(row)
+
+	-- One place decides whether the hairline under this row is drawn, because
+	-- two places deciding it is how it ended up never drawn at all: the layout
+	-- pass and the interaction callback each had their own expression, and the
+	-- layout one ran last and was wrong.
+	--
+	-- It is drawn between two resting rows and nowhere else -- not under the row
+	-- you are on or pointing at, where it would cut across the wash, and not
+	-- under the last row, where it would be a line with nothing after it.
+	function row:WantsSeparator()
+		if self.compactRow or self.lastInList then return false end
+		local state = self.__wtwState or "rest"
+		return state == "rest" or state == "disabled"
+	end
 
 	W.MakeInteractive(row, function(state, instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
@@ -66,7 +90,7 @@ local function createRow(sidebar)
 		elseif state == "pressed" then role = "selected"
 		elseif state == "hover" then role = "hover" end
 		W.FadeSurfaceTo(row.surface, row, role, duration)
-		row.accent:SetShown(state == "selected" and (Theme.m.accentBar ~= false))
+		row.separator:SetShown(row:WantsSeparator())
 	end)
 
 	row:HookScript("OnMouseUp", function(self, button)
@@ -88,6 +112,9 @@ local function resetRow(_, row)
 	row:ClearAllPoints()
 	row.conv = nil
 	row.rowIndex = nil
+	row.lastInList = nil
+	row.compactRow = nil
+	row.separator:SetShown(false)
 	row:SetSelectedState(false)
 	row.badge:Hide()
 end
@@ -114,18 +141,18 @@ function Sidebar.New(parent)
 	-- field it read as decoration; filled, it reads as the button it is -- the
 	-- same weight the send button carries in the composer, for the same reason.
 	header.newChat = ns.Button.Icon(header, {
-		icon = "message_plus", tooltip = L["New conversation"],
+		icon = "newchat", tooltip = L["New conversation"],
 		variant = "primary", radius = ns.SZ.ICON_BTN / 2,
 		onClick = function(self) ns.UI.PromptNewConversation(self) end,
 	})
-	header.newChat:SetPoint("RIGHT", header, "RIGHT", -ns.S.SM, 0)
+	header.newChat:SetPoint("RIGHT", header, "RIGHT", -ns.S.MD, 0)
 
 	header.search = ns.Controls.SearchBox(header, {
-		placeholder = L["Search conversations"], height = 30,
+		placeholder = L["Search conversations"],
 		onChange = function(value) sb:SetFilter(value) end,
 	})
 	header.search:SetPoint("LEFT", header, "LEFT", ns.S.MD, 0)
-	header.search:SetPoint("RIGHT", header.newChat, "LEFT", -ns.S.XS, 0)
+	header.search:SetPoint("RIGHT", header.newChat, "LEFT", -ns.S.SM, 0)
 
 	--------------------------------------------------------------------- list
 	sb.list = ns.Scroll.New(sb, { barInset = ns.S.XS })
@@ -141,13 +168,13 @@ function Sidebar.New(parent)
 	--------------------------------------------------------------------- empty
 	sb.empty = CreateFrame("Frame", nil, sb.list.viewport)
 	sb.empty:SetAllPoints()
-	sb.emptyIcon = W.Icon(sb.empty, "message", 34, "textMuted")
+	sb.emptyIcon = W.Icon(sb.empty, "chat", ns.SZ.EMPTY_ICON_SM, "textMuted")
 	sb.emptyIcon:SetPoint("CENTER", sb.empty, "CENTER", 0, 28)
 	sb.emptyIcon:SetAlpha(0.22)
-	sb.emptyTitle = W.Text(sb.empty, "SMALL", "textSecondary")
+	sb.emptyTitle = W.Text(sb.empty, "BODY", "textSecondary")
 	sb.emptyTitle:SetPoint("TOP", sb.emptyIcon, "BOTTOM", 0, -ns.S.MD)
 	sb.emptyTitle:SetJustifyH("CENTER")
-	sb.emptyBody = W.Text(sb.empty, "MICRO", "textMuted")
+	sb.emptyBody = W.Text(sb.empty, "SMALL", "textMuted")
 	sb.emptyBody:SetPoint("TOP", sb.emptyTitle, "BOTTOM", 0, -ns.S.XS)
 	sb.emptyBody:SetJustifyH("CENTER")
 
@@ -210,7 +237,7 @@ function S:UpdateCompactMode()
 		self.header.newChat:SetPoint("CENTER", self.header, "CENTER", 0, 0)
 	else
 		self.header.newChat:ClearAllPoints()
-		self.header.newChat:SetPoint("RIGHT", self.header, "RIGHT", -ns.S.SM, 0)
+		self.header.newChat:SetPoint("RIGHT", self.header, "RIGHT", -ns.S.MD, 0)
 	end
 	self:Refresh()
 end
@@ -219,47 +246,63 @@ end
 -- Rendering
 --------------------------------------------------------------------------------
 
+-- Where the text column starts, which is the one number the whole row hangs off.
+local function textLeftFor(avatarSize)
+	return ROW_PAD_X + avatarSize + AVATAR_GAP
+end
+
 local function layoutRow(row, compact)
-	local pad = ns.S.LG
 	local avatarSize = compact and ns.SZ.AVATAR_MD or ns.SZ.AVATAR_LG
+	row.compactRow = compact
 
 	row.avatar:SetAvatarSize(avatarSize)
 	row.avatar:ClearAllPoints()
 	if compact then
 		row.avatar:SetPoint("CENTER", row, "CENTER", 0, 0)
 	else
-		row.avatar:SetPoint("LEFT", row, "LEFT", pad, 0)
+		row.avatar:SetPoint("LEFT", row, "LEFT", ROW_PAD_X, 0)
 	end
 
 	row.name:SetShown(not compact)
 	row.preview:SetShown(not compact)
 	row.time:SetShown(not compact)
+	row.separator:SetShown(row:WantsSeparator())
 
 	if compact then
 		row.badge:ClearAllPoints()
-		row.badge:SetPoint("TOPRIGHT", row.avatar, "TOPRIGHT", 6, 4)
+		row.badge:SetPoint("TOPRIGHT", row.avatar, "TOPRIGHT", ns.S.XS + 2, ns.S.XS)
 		row.pin:Hide()
 		row.mute:Hide()
 		return
 	end
 
-	local textLeft = pad + avatarSize + ns.S.MD
-	local nameTop = ns.S.MD + 1
+	-- The two text lines are a block, centred on the avatar rather than pinned
+	-- to the row's top and bottom edges. Pinning them made the gap between name
+	-- and preview a function of the row height: at the larger font scales the
+	-- two lines drifted apart until the row read as two unrelated things.
+	local block = (row.name:GetStringHeight() or ns.T.BODY)
+		+ ns.S.XS + (row.preview:GetStringHeight() or ns.T.SMALL)
+	local top = ((row:GetHeight() or ns.SZ.ROW_H) - block) / 2
+
+	local textLeft = textLeftFor(avatarSize)
 	row.name:ClearAllPoints()
-	row.name:SetPoint("TOPLEFT", row, "TOPLEFT", textLeft, -nameTop)
+	row.name:SetPoint("TOPLEFT", row, "TOPLEFT", textLeft, -top)
 
 	-- The timestamp is a smaller face than the name; offsetting it by the ascent
 	-- difference puts the two on one baseline instead of one top edge.
 	row.time:ClearAllPoints()
-	row.time:SetPoint("TOPRIGHT", row, "TOPRIGHT", -pad,
-		-(nameTop + W.BaselineOffset(row.time, row.name.__wtwToken)))
+	row.time:SetPoint("TOPRIGHT", row, "TOPRIGHT", -ROW_PAD_X,
+		-(top + W.BaselineOffset(row.time, row.name.__wtwToken)))
 	row.time:SetWidth(STAMP_W)
 
 	row.preview:ClearAllPoints()
-	row.preview:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", textLeft, ns.S.MD + 1)
+	row.preview:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -ns.S.XS)
 
+	-- The badge sits on the preview's line, not on the row's bottom edge, so it
+	-- reads as belonging to the message it counts.
 	row.badge:ClearAllPoints()
-	row.badge:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -pad, ns.S.MD)
+	row.badge:SetPoint("RIGHT", row, "RIGHT", -ROW_PAD_X, 0)
+	row.badge:SetPoint("TOP", row.preview, "TOP", 0, ns.S.XS / 2)
 end
 
 function S:PositionRow(row, index)
@@ -277,6 +320,7 @@ function S:RenderRow(conv, index)
 
 	row.conv = conv
 	row.rowIndex = index
+	row.lastInList = index >= #self.filtered
 	row:SetHeight(rowHeight)
 	self:PositionRow(row, index)
 
@@ -299,33 +343,39 @@ function S:RenderRow(conv, index)
 			W.SetTextRole(row.name, conv.muted and "textSecondary" or "textPrimary")
 		end
 
-		-- Reserve room for whichever indicators this row actually shows.
+		-- Reserve room for whichever indicators this row actually shows. Each is
+		-- its own glyph plus the gap before it, computed rather than guessed:
+		-- the two numbers used to be 15 and 16 for no reason anyone could name.
 		local indicatorWidth = 0
 		row.pin:SetShown(conv.pinned)
 		row.mute:SetShown(conv.muted)
-		if conv.pinned then indicatorWidth = indicatorWidth + 15 end
-		if conv.muted then indicatorWidth = indicatorWidth + 16 end
+		local MARK = ns.SZ.ICON_MARK + ns.S.XS
+		if conv.pinned then indicatorWidth = indicatorWidth + MARK end
+		if conv.muted then indicatorWidth = indicatorWidth + MARK end
 
-		local textLeft = ns.S.LG + ns.SZ.AVATAR_LG + ns.S.MD
-		local available = max(30, (self:GetWidth() or 280)
-			- textLeft - ns.S.LG - STAMP_W - ns.S.SM - indicatorWidth)
+		local textLeft = textLeftFor(ns.SZ.AVATAR_LG)
+		local width = self:GetWidth() or ns.SZ.SIDEBAR_W
+		local available = max(30, width
+			- textLeft - ROW_PAD_X - STAMP_W - ns.S.SM - indicatorWidth)
 		Text.Ellipsize(row.name, CM.DisplayName(conv), available)
 
 		local anchor = row.name
 		if conv.pinned then
 			row.pin:ClearAllPoints()
-			row.pin:SetPoint("LEFT", anchor, "RIGHT", ns.S.XS + 1, 0)
+			row.pin:SetPoint("LEFT", anchor, "RIGHT", ns.S.XS, 0)
 			anchor = row.pin
 		end
 		if conv.muted then
 			row.mute:ClearAllPoints()
-			row.mute:SetPoint("LEFT", anchor, "RIGHT", ns.S.XS + 1, -1)
+			row.mute:SetPoint("LEFT", anchor, "RIGHT", ns.S.XS, -1)
 		end
 
 		row.time:SetText(Format.ListStamp(conv.lastActivity))
-		-- The badge already carries the accent; colouring the stamp too pulls the
-		-- eye away from the name for no extra information.
-		W.SetTextRole(row.time, unread and "textSecondary" or "textMuted")
+		-- Unread is carried by three quiet changes rather than one loud one: the
+		-- time takes the accent, the preview steps up a level, and the badge
+		-- appears. Any one of them alone would be missable in a long list; all
+		-- three at once, and the row still does not shout.
+		W.SetTextRole(row.time, unread and "accent" or "textMuted")
 
 		local preview, direction = CM.Preview(conv)
 		if preview then
@@ -336,11 +386,14 @@ function S:RenderRow(conv, index)
 			preview = ""
 		end
 		W.SetTextRole(row.preview, unread and "textSecondary" or "textMuted")
-		local previewWidth = max(30, (self:GetWidth() or 280) - textLeft - ns.S.LG
-			- (unread and 30 or 0))
+		local badgeWidth = unread and (row.badge:GetWidth() or ns.SZ.BADGE_H) + ns.S.SM or 0
+		local previewWidth = max(30, width - textLeft - ROW_PAD_X - badgeWidth)
 		Text.Ellipsize(row.preview, preview, previewWidth)
 	end
 
+	-- Counted before the preview is measured above on the next render, which is
+	-- fine: the badge's width only changes when the count crosses a digit, and
+	-- the row is re-rendered whenever the count changes at all.
 	row.badge:SetCount(conv.unread, conv.muted)
 	row:Show()
 	return row
@@ -417,7 +470,7 @@ function S:ApplyTheme()
 
 	local function refresh(row)
 		row.surface:ApplyTheme()
-		row.accent.surface:ApplyTheme()
+		row.separator:ApplyTheme()
 		row.avatar:ApplyTheme()
 		W.RefreshText(row.name)
 		W.RefreshText(row.preview)

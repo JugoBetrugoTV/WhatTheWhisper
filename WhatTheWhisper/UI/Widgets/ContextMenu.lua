@@ -21,10 +21,14 @@ local max = math.max
 local frame, catcher, itemPool, secureButton, secureHost
 
 local ITEM_H = ns.SZ.MENU_ITEM_H
-local PAD_Y = 6
-local ICON_X = 10
-local LABEL_X = ICON_X + ns.SZ.MENU_ICON + ns.S.SM
-local SEP_H = 9
+-- The panel's own padding above the first item and below the last, and the
+-- inset an item's hover wash is drawn with inside that. Both come off the
+-- spacing scale rather than being the two numbers that happened to look right.
+local PAD_Y = ns.S.SM
+local ITEM_INSET = ns.S.XS
+local ICON_X = ns.S.MD
+local LABEL_X = ICON_X + ns.SZ.MENU_ICON + ns.S.MD
+local SEP_H = ns.S.MD
 
 --------------------------------------------------------------------------------
 -- Item construction
@@ -33,10 +37,12 @@ local SEP_H = 9
 local function createItem()
 	local row = CreateFrame("Frame", nil, frame)
 	row:SetHeight(ITEM_H)
-	row.surface = W.Surface(row, { radius = ns.R.SM, insets = { 4, 4, 0, 0 } })
-	row.icon = W.Icon(row, "dot", ns.SZ.MENU_ICON, "textSecondary")
+	row.surface = W.Surface(row, {
+		radius = ns.R.MD, insets = { ITEM_INSET, ITEM_INSET, 0, 0 },
+	})
+	row.icon = W.Icon(row, "bullet", ns.SZ.MENU_ICON, "textSecondary")
 	row.icon:SetPoint("LEFT", row, "LEFT", ICON_X, 0)
-	row.label = W.Text(row, "SMALL", "textPrimary")
+	row.label = W.Text(row, "BODY", "textPrimary")
 	row.label:SetPoint("LEFT", row, "LEFT", LABEL_X, 0)
 	row.label:SetPoint("RIGHT", row, "RIGHT", -ns.S.MD, 0)
 
@@ -151,8 +157,11 @@ local function build()
 	frame:SetFrameLevel(60)
 	frame:SetClampedToScreen(true)
 	frame:Hide()
+	-- A panel floating over the window: raised surface, soft corners, a shadow,
+	-- and the faintest possible edge so it still has a boundary on a light
+	-- theme where the shadow alone would not give it one.
 	frame.surface = W.Surface(frame, {
-		color = "bg3", border = "borderStrong", radius = ns.R.MD, shadow = 16,
+		color = "bg3", border = "borderSubtle", radius = ns.R.LG, shadow = 18,
 	})
 	frame:HookScript("OnHide", function()
 		if not Menu.closing then Menu.Close() end

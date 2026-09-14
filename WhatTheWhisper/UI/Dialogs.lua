@@ -38,7 +38,7 @@ local function makeDialog(globalName, width, height)
 	d:SetMovable(true)
 	d:Hide()
 	d.surface = W.Surface(d, {
-		color = "bg1", border = "borderStrong", radius = ns.R.LG, shadow = 20,
+		color = "bg1", radius = ns.R.XL, shadow = 22,
 	})
 
 	d.header = CreateFrame("Frame", nil, d)
@@ -112,7 +112,7 @@ local function buildCopy()
 	local box = CreateFrame("Frame", nil, d)
 	box:SetPoint("TOPLEFT", d.formats, "BOTTOMLEFT", 0, -ns.S.MD)
 	box:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -ns.S.LG, ns.S.LG)
-	box.surface = W.Surface(box, { color = "inputBg", border = "borderSubtle", radius = ns.R.MD })
+	box.surface = W.Surface(box, { color = "inputBg", radius = ns.R.MD })
 	d.box = box
 
 	local scroll = CreateFrame("ScrollFrame", nil, box)
@@ -311,7 +311,9 @@ local function buildConfirm()
 	if confirmDialog then return confirmDialog end
 	local d = makeDialog("WhatTheWhisperConfirmDialog", 400, 190)
 
-	d.body = W.Text(d, "SMALL", "textSecondary")
+	-- A dialog asks a question and the question is the point of the window, so
+	-- it is set at reading size rather than at the size of a caption.
+	d.body = W.Text(d, "BODY", "textSecondary")
 	d.body:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.LG)
 	d.body:SetPoint("TOPRIGHT", d.header, "BOTTOMRIGHT", -ns.S.LG, -ns.S.LG)
 	d.body:SetJustifyH("LEFT")

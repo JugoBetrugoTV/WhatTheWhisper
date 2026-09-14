@@ -99,9 +99,10 @@ local function create(conv)
 	win:EnableMouse(true)
 	Compat.SetResizeBounds(win, ns.SZ.POPOUT_MIN_W, ns.SZ.POPOUT_MIN_H, 900, 900)
 
-	win.surface = W.Surface(win, {
-		color = "bg0", border = "borderSubtle", radius = ns.R.LG, shadow = 14,
-	})
+	-- A window floating over the game, and a shadow is what says so. No outline:
+	-- the popout has a header, a thread and a composer inside it, all of which
+	-- already have edges, and a frame around the lot is one edge too many.
+	win.surface = W.Surface(win, { color = "bg0", radius = ns.R.LG, shadow = 18 })
 
 	win.view = ns.ConversationView.New(win, {
 		headerHeight = ns.SZ.POPOUT_HEADER_H,
@@ -232,7 +233,7 @@ function P:TogglePin(button)
 	self.locked = self.pinned
 	if button then
 		button:SetSelectedState(self.pinned)
-		button:SetIcon(self.pinned and "pin_filled" or "pin")
+		button:SetIcon(self.pinned and "pin" or "unpin")
 	end
 	self:SaveGeometry()
 end

@@ -498,8 +498,23 @@ end
 -- Atlas helpers
 --------------------------------------------------------------------------------
 
+-- Puts a named glyph on a texture, from whichever source has it.
+--
+-- A drop-in file in Media\\Icons wins; the built-in sheet is what everything
+-- falls back to. The caller never learns which it got, and must not: the point
+-- of naming glyphs by meaning is that replacing the art is not a code change.
 function Draw.SetIcon(texture, name)
-	local coords = ns.ICON_ATLAS and ns.ICON_ATLAS[name]
+	local custom = ns.Icons and ns.Icons.CustomPath(name)
+	if custom then
+		texture:SetTexture(custom, "CLAMP", "CLAMP")
+		-- A whole file, not a cell in a sheet. Reset in case this texture was
+		-- showing an atlas glyph a moment ago.
+		texture:SetTexCoord(0, 1, 0, 1)
+		return true
+	end
+
+	local key = ns.Icons and ns.Icons.AtlasKey(name) or name
+	local coords = ns.ICON_ATLAS and ns.ICON_ATLAS[key]
 	if not coords then
 		texture:SetTexture(nil)
 		return false

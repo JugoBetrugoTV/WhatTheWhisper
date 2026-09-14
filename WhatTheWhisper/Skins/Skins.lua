@@ -67,12 +67,13 @@ end
 -- Default metric set; skins override individual entries.
 Skins.DEFAULT_METRICS = {
 	radiusScale   = 1,     -- multiplies every corner radius
-	bubbleRadius  = 12,
+	-- Bubbles are the roundest thing in the addon on purpose: it is the one
+	-- shape a messenger is recognised by from across the room.
+	bubbleRadius  = 16,
 	spacingScale  = 1,     -- multiplies the gaps between message groups
 	borderScale   = 1,     -- multiplies hairline thickness
 	shadow        = 1,     -- drop shadow strength (0 disables)
 	surfaceAlpha  = 1,     -- extra multiplier on top of the user opacity slider
-	accentBar     = true,  -- draw the accent bar on the selected sidebar row
 	-- How far class colours are pulled towards the skin's own text colour. 0
 	-- keeps them exact; a warm or low-chroma skin raises this so a cyan mage
 	-- name does not tear a hole in the palette.

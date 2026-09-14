@@ -411,6 +411,24 @@ end
 
 -- Fades a surface between two colour roles instead of snapping, which is what
 -- makes hover feel like a desktop app rather than a game menu.
+-- The same fade, to a colour rather than to a named role. For the states that
+-- are a blend of two roles -- a focused field lifted a little off its own fill --
+-- which have no role of their own and should not gain one: a role is a decision
+-- a skin gets to make, and "6% lighter than whatever this skin's input is" is
+-- not that.
+function W.FadeSurfaceToColor(surface, key, r, g, b, a, duration)
+	local currentR, currentG, currentB, currentA = surface.rect:GetColor()
+	local from = { currentR or 0, currentG or 0, currentB or 0, currentA or 0 }
+	if duration <= 0 or not Theme.AnimationsEnabled() then
+		Anim.Stop(key)
+		surface:SetColorOverride(r, g, b, a)
+		return
+	end
+	Anim.Color(key, duration, from, { r, g, b, a }, function(nr, ng, nb, na)
+		surface:SetColorOverride(nr, ng, nb, na)
+	end)
+end
+
 function W.FadeSurfaceTo(surface, key, role, duration)
 	local target = role and Theme.Get(role) or { 0, 0, 0, 0 }
 	local currentR, currentG, currentB, currentA = surface.rect:GetColor()

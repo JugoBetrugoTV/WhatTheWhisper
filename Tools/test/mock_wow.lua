@@ -434,10 +434,53 @@ function regionMethods:CreateAnimationGroup()
 end
 
 for k, v in pairs(regionMethods) do textureMethods[k] = v end
-function textureMethods:SetTexture(path) self._texture = path end
+
+-- Which texture files this client has, and whether it will admit to not having
+-- one. Two separate questions, because clients differ on the second and an
+-- addon that assumes either answer gets it wrong somewhere.
+--
+-- M.textureFiles lists the addon's own files. A path outside the addon (the
+-- game's own art) is always accepted: the addon has no business probing those
+-- and the test should not pretend otherwise.
+--
+-- M.textureProbeAnswers = false models the other kind of client: it takes any
+-- path without complaint and hands it straight back, so "is this file there"
+-- has no answer at all. An addon must notice that and stop asking rather than
+-- hand the player a window full of invisible buttons.
+M.textureProbeAnswers = true
+M.textureFiles = {
+	["Interface\\AddOns\\WhatTheWhisper\\Art\\Icons"] = true,
+	["Interface\\AddOns\\WhatTheWhisper\\Art\\Emoji"] = true,
+	["Interface\\AddOns\\WhatTheWhisper\\Art\\Round"] = true,
+	["Interface\\AddOns\\WhatTheWhisper\\Art\\Shadow"] = true,
+	["Interface\\AddOns\\WhatTheWhisper\\Art\\Logo"] = true,
+}
+
+local ADDON_TEXTURE_PREFIX = "Interface\\AddOns\\WhatTheWhisper\\"
+
+function textureMethods:SetTexture(path)
+	if type(path) == "string" and M.textureProbeAnswers
+		and path:sub(1, #ADDON_TEXTURE_PREFIX) == ADDON_TEXTURE_PREFIX
+		and not M.textureFiles[path]
+	then
+		-- The client looked, found nothing, and cleared the texture.
+		self._texture = nil
+		return
+	end
+	self._texture = path
+end
 function textureMethods:GetTexture() return self._texture end
 function textureMethods:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
-function textureMethods:SetTexCoord() end
+-- Recorded rather than discarded: an icon moving between a cell of a sheet and a
+-- whole file has to reset these, and a mock that forgot them could not tell the
+-- difference between "reset" and "never set".
+function textureMethods:SetTexCoord(l, r, t, b)
+	self._coord = { l, r, t, b }
+end
+function textureMethods:GetTexCoord()
+	local c = self._coord or { 0, 1, 0, 1 }
+	return c[1], c[2], c[3], c[4]
+end
 function textureMethods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a } end
 function textureMethods:GetVertexColor()
 	local v = self._vertex or { 1, 1, 1, 1 }

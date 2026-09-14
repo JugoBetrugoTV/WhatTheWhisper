@@ -16,10 +16,12 @@ local byConversation = {}
 local pool
 
 local CORNERS = {
-	topright    = { point = "TOPRIGHT",    x = -ns.S.XL, y = -ns.S.XL, dir = -1, slideX = 24 },
-	topleft     = { point = "TOPLEFT",     x = ns.S.XL,  y = -ns.S.XL, dir = -1, slideX = -24 },
-	bottomright = { point = "BOTTOMRIGHT", x = -ns.S.XL, y = ns.S.XL,  dir = 1,  slideX = 24 },
-	bottomleft  = { point = "BOTTOMLEFT",  x = ns.S.XL,  y = ns.S.XL,  dir = 1,  slideX = -24 },
+	-- A short travel, not a swoop. A notification that slides a long way across
+	-- the screen is asking to be watched; this one is asking to be noticed.
+	topright    = { point = "TOPRIGHT",    x = -ns.S.XL, y = -ns.S.XL, dir = -1, slideX = ns.S.LG },
+	topleft     = { point = "TOPLEFT",     x = ns.S.XL,  y = -ns.S.XL, dir = -1, slideX = -ns.S.LG },
+	bottomright = { point = "BOTTOMRIGHT", x = -ns.S.XL, y = ns.S.XL,  dir = 1,  slideX = ns.S.LG },
+	bottomleft  = { point = "BOTTOMLEFT",  x = ns.S.XL,  y = ns.S.XL,  dir = 1,  slideX = -ns.S.LG },
 }
 
 --------------------------------------------------------------------------------
@@ -33,23 +35,27 @@ local function createToast()
 	t:EnableMouse(true)
 	t:Hide()
 
-	t.surface = W.Surface(t, {
-		color = "bg3", border = "borderStrong", radius = ns.R.LG, shadow = 14,
-	})
+	-- A raised surface with a shadow under it and no outline. A desktop
+	-- notification is a card floating above the screen, and the thing that says
+	-- "floating" is the shadow -- a border as well makes it a dialog.
+	t.surface = W.Surface(t, { color = "bg3", radius = ns.R.LG, shadow = 16 })
 
 	t.avatar = ns.Avatar.New(t, ns.SZ.AVATAR_MD)
-	t.avatar:SetPoint("LEFT", t, "LEFT", ns.S.MD, 0)
+	t.avatar:SetPoint("LEFT", t, "LEFT", ns.S.LG, 0)
 	t.avatar:SetSurfaceRole("bg3")
 
+	-- Name and message are one block centred on the avatar, the same shape a
+	-- sidebar row has. The time hangs off the name's baseline at the far right.
 	t.name = W.Text(t, "BODY", "textPrimary")
-	t.name:SetPoint("TOPLEFT", t.avatar, "TOPRIGHT", ns.S.MD, -1)
+	t.name:SetPoint("BOTTOMLEFT", t.avatar, "RIGHT", ns.S.MD, 1)
 
 	t.time = W.Text(t, "MICRO", "textMuted")
-	t.time:SetPoint("TOPRIGHT", t, "TOPRIGHT", -ns.S.MD, -ns.S.MD)
+	t.time:SetPoint("RIGHT", t, "RIGHT", -ns.S.LG, 0)
+	t.time:SetPoint("BOTTOM", t.name, "BOTTOM", 0, 0)
 	t.time:SetJustifyH("RIGHT")
 
 	t.body = W.Text(t, "SMALL", "textSecondary")
-	t.body:SetPoint("BOTTOMLEFT", t.avatar, "BOTTOMRIGHT", ns.S.MD, 1)
+	t.body:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -ns.S.XS / 2)
 
 	-- Hairline progress bar showing the remaining time.
 	t.progress = CreateFrame("Frame", nil, t)
@@ -174,13 +180,20 @@ function Toast.Show(conv, msg, isMention)
 	if t.count > 1 and settings().summarise then
 		preview = ("(%d) "):format(t.count) .. preview
 	end
-	local bodyWidth = ns.SZ.TOAST_W - ns.S.MD * 2 - ns.SZ.AVATAR_MD - ns.S.MD
+	-- The text column: what is left after the outer margins, the avatar and the
+	-- gap after it. Derived rather than typed, so it follows the avatar when the
+	-- avatar changes size.
+	local textLeft = ns.S.LG + ns.SZ.AVATAR_MD + ns.S.MD
+	local bodyWidth = ns.SZ.TOAST_W - textLeft - ns.S.LG
 	t.body:SetWidth(bodyWidth)
 	t.body:SetWordWrap(false)
 	Text.Ellipsize(t.body, preview, bodyWidth)
 	W.SetTextRole(t.body, isMention and "accent" or "textSecondary")
 
-	local nameWidth = bodyWidth - 44
+	-- The name shares its line with the time, so it truncates sooner than the
+	-- message under it -- by however much room the clock actually needs.
+	t.time:SetWidth(0)
+	local nameWidth = bodyWidth - (t.time:GetStringWidth() or 0) - ns.S.SM
 	t.name:SetWidth(0)
 	if (t.name:GetStringWidth() or 0) > nameWidth then
 		Text.Ellipsize(t.name, displayName, nameWidth)
@@ -189,7 +202,7 @@ function Toast.Show(conv, msg, isMention)
 	Toast.Relayout()
 	if not existing then
 		local corner = CORNERS[settings().position] or CORNERS.topright
-		Anim.SlideIn(t, corner.slideX, 0, Theme.Duration("SLOW"))
+		Anim.SlideIn(t, corner.slideX, 0, Theme.Duration("BASE"))
 	end
 	Toast.StartTimer(t)
 	return t

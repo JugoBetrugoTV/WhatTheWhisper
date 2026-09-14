@@ -240,7 +240,7 @@ function Options.BuildSchema()
 
 	return {
 		{
-			id = "general", label = L["General"], icon = "sliders",
+			id = "general", label = L["General"], icon = "settings",
 			cards = {
 				{
 					title = L["General"],
@@ -278,7 +278,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "appearance", label = L["Appearance"], icon = "eye",
+			id = "appearance", label = L["Appearance"], icon = "appearance",
 			cards = {
 				{
 					title = L["Language"],
@@ -329,7 +329,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "messages", label = L["Messages"], icon = "message",
+			id = "messages", label = L["Messages"], icon = "chat",
 			cards = {
 				{
 					title = L["Chat bubbles"],
@@ -349,7 +349,8 @@ function Options.BuildSchema()
 					title = L["Timestamps"],
 					rows = {
 						toggle("appearance.timestamps", L["Show timestamps"]),
-						toggle("appearance.hoverTimestamp", L["Timestamp on hover"]),
+						toggle("appearance.hoverTimestamp", L["Timestamp on hover"],
+							L["When times are off, hovering a message still shows one."]),
 						toggle("appearance.dateSeparators", L["Show date separators"]),
 						dropdown("appearance.clock24", L["Timestamp format"], {
 							{ value = true, label = L["24 hour"] },
@@ -423,7 +424,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "history", label = L["History"], icon = "clock",
+			id = "history", label = L["History"], icon = "history",
 			cards = {
 				{
 					title = L["History"],
@@ -464,7 +465,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "sounds", label = L["Sounds"], icon = "volume",
+			id = "sounds", label = L["Sounds"], icon = "sounds",
 			cards = {
 				{
 					title = L["Sounds"],
@@ -515,7 +516,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "animations", label = L["Animations"], icon = "refresh",
+			id = "animations", label = L["Animations"], icon = "animations",
 			cards = {
 				{
 					title = L["Animations"],
@@ -532,7 +533,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "combat", label = L["Combat"], icon = "shield",
+			id = "combat", label = L["Combat"], icon = "combat",
 			cards = {
 				{
 					title = L["Combat"],
@@ -578,7 +579,7 @@ function Options.BuildSchema()
 			},
 		},
 		{
-			id = "advanced", label = L["Advanced"], icon = "keyboard",
+			id = "advanced", label = L["Advanced"], icon = "advanced",
 			cards = {
 				{
 					title = L["Diagnostics"],

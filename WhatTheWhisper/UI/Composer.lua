@@ -27,10 +27,12 @@ function Composer.New(parent, opts)
 	c.opts = opts
 
 	c.surface = W.Surface(c, { color = "composerBg" })
-	c.divider = W.Hairline(c, "horizontal", { anchor = "TOP", color = "borderSubtle" })
-
+	-- No rule above the composer. The composer's own surface is a shade darker
+	-- than the thread it sits under, which is separation enough -- a line as
+	-- well is the belt-and-braces look that makes an interface feel heavy.
 	c.emoji = ns.Button.Icon(c, {
-		icon = "smiley", size = ns.SZ.ICON_BTN, tooltip = L["Emoji"],
+		icon = "emoji", size = ns.SZ.ICON_BTN, radius = ns.R.PILL,
+		tooltip = L["Emoji"],
 		onClick = function(self) ns.EmojiPicker.Toggle(self, c) end,
 	})
 	-- The composer sits on the same column as the thread above it: its left
@@ -40,28 +42,28 @@ function Composer.New(parent, opts)
 	local LEFT_MARGIN = ns.SZ.LIST_PAD_X
 	local RIGHT_MARGIN = ns.SZ.LIST_PAD_X + ns.SZ.SCROLLBAR_HIT
 
-	-- Both buttons are shorter than the field beside them, so each is lifted by
-	-- half the difference rather than by a number somebody eyeballed.
-	local function centreOnField(height)
-		return PAD + (ns.SZ.COMPOSER_FIELD_H - height) / 2
-	end
-
-	c.emoji:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT",
-		LEFT_MARGIN, centreOnField(ns.SZ.ICON_BTN))
-
 	c.send = ns.Button.Send(c, {
 		tooltip = L["Send"],
 		onClick = function() c:Submit() end,
 	})
-	c.send:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT",
-		-RIGHT_MARGIN, centreOnField(ns.SZ.SEND_BTN))
+
+	-- Both buttons are shorter than the field beside them and sit centred on it.
+	-- The field's height is not a constant -- it is one line of whatever size
+	-- the player set the font to, and it grows as a message wraps -- so the
+	-- offset is recomputed rather than derived once from COMPOSER_FIELD_H. It
+	-- used to be, and the result was a one pixel misalignment at the default
+	-- font scale that got worse at every larger one.
+	c.margins = { left = LEFT_MARGIN, right = RIGHT_MARGIN }
 
 	c.input = ns.Input.New(c, {
 		multiline = true,
 		placeholder = L["Type a message..."],
 		minHeight = ns.SZ.COMPOSER_FIELD_H,
 		maxHeight = ns.SZ.COMPOSER_MAX_H - PAD * 2,
-		radius = ns.R.MD,
+		-- A pill while it holds one line, which is what it holds almost always.
+		-- Draw.RoundedRect clamps the radius to half the shorter side, so this
+		-- relaxes into a rounded rectangle on its own as the field grows.
+		radius = ns.R.PILL,
 		onEnter = function() c:Submit() end,
 		onChange = function(value) c:OnTextChanged(value) end,
 		onResize = function() c:Relayout() end,
@@ -74,9 +76,9 @@ function Composer.New(parent, opts)
 	c.input:SetPoint("BOTTOM", c, "BOTTOM", 0, PAD)
 
 	-- Above the field, right aligned with it, and the composer grows to make
-	-- room for it. It used to be tucked into the gap between the send button and
-	-- the divider, where at the default font scale it stuck three pixels
-	-- *through* the divider into the message list -- and further at every larger
+	-- room for it rather than overlapping whatever is above. It used to be
+	-- tucked into the gap over the field, where at the default font scale it
+	-- stuck three pixels into the message list -- and further at every larger
 	-- font scale, which is exactly when a player needs to read it.
 	c.counter = W.Text(c, "MICRO", "textMuted")
 	c.counter:SetPoint("BOTTOMRIGHT", c.input, "TOPRIGHT", 0, ns.S.XS)
@@ -87,8 +89,23 @@ function Composer.New(parent, opts)
 	return c
 end
 
+-- Centres the two buttons on the first line of the field, not on the middle of
+-- it: once a message wraps, the field grows upward and the buttons stay with the
+-- line being typed, which is where the hand already is.
+function C:PositionButtons(fieldHeight)
+	local line = math.min(fieldHeight, self.input:SingleLineHeight())
+	local function lift(size) return PAD + (line - size) / 2 end
+	self.emoji:ClearAllPoints()
+	self.emoji:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT",
+		self.margins.left, lift(ns.SZ.ICON_BTN))
+	self.send:ClearAllPoints()
+	self.send:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT",
+		-self.margins.right, lift(ns.SZ.SEND_BTN))
+end
+
 function C:Relayout()
 	local inputHeight = self.input:GetHeight() or ns.SZ.COMPOSER_FIELD_H
+	self:PositionButtons(inputHeight)
 	local counterHeight = 0
 	if self.counter:IsShown() then
 		counterHeight = (self.counter:GetStringHeight() or 0) + ns.S.XS
@@ -192,7 +209,6 @@ end
 
 function C:ApplyTheme()
 	self.surface:ApplyTheme()
-	self.divider:ApplyTheme()
 	self.emoji:ApplyTheme()
 	self.send:ApplyTheme()
 	self.input:ApplyTheme()
