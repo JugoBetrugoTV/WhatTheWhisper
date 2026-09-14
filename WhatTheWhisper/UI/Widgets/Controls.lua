@@ -178,12 +178,42 @@ function Controls.Slider(parent, opts)
 	s.track:SetPoint("LEFT", s, "LEFT", ns.SZ.SLIDER_THUMB / 2, 0)
 	s.track.surface = W.Surface(s.track, { color = "trackBg", radius = ns.SZ.SLIDER_TRACK / 2 })
 
+	-- How wide the readout beside the track has to be.
+	--
+	-- Whatever the formatter produces at the ends of the range, measured at the
+	-- font in use. A fixed column was fine for "50%" and cut "5 seconds" down to
+	-- "5 secon" -- and would have cut "50%" too, two font sizes up. The extremes
+	-- are enough: a formatter whose longest output is in the middle of its own
+	-- range would be a strange thing to write.
+	local valueColumn = ns.SZ.SLIDER_VALUE_W
+	local function measureValueColumn()
+		if not opts.format then
+			valueColumn = ns.SZ.SLIDER_VALUE_W
+			return
+		end
+		local fs = Theme.Measure("SMALL")
+		fs:SetWordWrap(false)
+		fs:SetWidth(0)
+		local widest = 0
+		for _, value in ipairs({ s.minValue, s.maxValue, s.value }) do
+			if type(value) == "number" then
+				local ok, text = pcall(opts.format, value)
+				if ok and type(text) == "string" then
+					fs:SetText(text)
+					widest = max(widest, fs:GetStringWidth() or 0)
+				end
+			end
+		end
+		valueColumn = max(ns.SZ.SLIDER_VALUE_W, math.ceil(widest))
+		s.valueLabel:SetWidth(valueColumn)
+	end
+
 	-- The room left for the track once the thumb has its half-width at each end
 	-- and the value label has its column. Derived from the slider's own width,
 	-- which was set explicitly and is therefore true the moment it is set.
-	local TRACK_INSET = ns.SZ.SLIDER_THUMB + ns.SZ.SLIDER_VALUE_W + ns.SZ.SLIDER_VALUE_GAP
 	local function trackWidth()
-		return max(1, (s:GetWidth() or 0) - TRACK_INSET)
+		return max(1, (s:GetWidth() or 0) - ns.SZ.SLIDER_THUMB - valueColumn
+			- ns.SZ.SLIDER_VALUE_GAP)
 	end
 
 	s.fill = CreateFrame("Frame", nil, s.track)
@@ -203,6 +233,9 @@ function Controls.Slider(parent, opts)
 	s.valueLabel = W.Text(s, "SMALL", "textSecondary")
 	s.valueLabel:SetPoint("RIGHT", s, "RIGHT", 0, 0)
 	s.valueLabel:SetJustifyH("RIGHT")
+	-- One line, always. It is a number with a unit after it, and wrapping it
+	-- puts the unit on a line the slider is not tall enough to show.
+	s.valueLabel:SetWordWrap(false)
 	s.valueLabel:SetWidth(ns.SZ.SLIDER_VALUE_W)
 
 	local function snap(value)
@@ -215,6 +248,7 @@ function Controls.Slider(parent, opts)
 	end
 
 	local function layout()
+		measureValueColumn()
 		local width = trackWidth()
 		s.track:SetWidth(width)
 		local range = s.maxValue - s.minValue
@@ -417,6 +451,27 @@ end
 -- slivers, and that is what the dropdown is still for.
 --
 -- opts: options { { value, label }, ... }, onChange(value)
+-- How wide a row of segments has to be for every caption to fit.
+--
+-- Measured at the font in use, not counted in characters. A rule like "no label
+-- longer than fourteen letters" is a guess about how wide fourteen letters are,
+-- and it was wrong at the default font size and wronger at every other one --
+-- "Bottom right" is twelve characters and nearly twice the width of the segment
+-- it was given.
+function Controls.SegmentedNaturalWidth(options)
+	if type(options) ~= "table" or #options == 0 then return 0 end
+	local fs = Theme.Measure("SMALL")
+	fs:SetWordWrap(false)
+	fs:SetWidth(0)
+	local widest = 0
+	for i = 1, #options do
+		fs:SetText(options[i].label or "")
+		widest = max(widest, fs:GetStringWidth() or 0)
+	end
+	-- The caption, the padding either side of it, and the track's own rim.
+	return math.ceil((widest + ns.S.MD) * #options) + ns.SZ.SEGMENT_RIM * 2
+end
+
 function Controls.Segmented(parent, opts)
 	opts = opts or {}
 	local options = opts.options or {}
@@ -468,6 +523,14 @@ function Controls.Segmented(parent, opts)
 				button:SetWidth(max(1, width))
 				button:ClearAllPoints()
 				button:SetPoint("LEFT", seg, "LEFT", RIM + (i - 1) * width, 0)
+				-- Fitted to the segment every time, because the segment's width
+				-- is a share of the control's and the text's width is a function
+				-- of the font -- and the player can change either. A caption
+				-- wider than its share does not clip, it prints over the caption
+				-- beside it, which is the one failure a row of segments must
+				-- never have.
+				ns.Text.Ellipsize(button.label, button.fullLabel or "",
+					max(1, width - ns.S.SM))
 				W.SetTextRole(button.label,
 					(i == index and "textPrimary")
 					or (button.hovered and "textSecondary")
@@ -492,6 +555,7 @@ function Controls.Segmented(parent, opts)
 				button.label = W.Text(button, "SMALL", "textMuted")
 				button.label:SetPoint("CENTER")
 				button.label:SetJustifyH("CENTER")
+				button.label:SetWordWrap(false)
 				button:SetScript("OnEnter", function(self)
 					self.hovered = true
 					paint(true)
@@ -507,7 +571,10 @@ function Controls.Segmented(parent, opts)
 				seg.segments[i] = button
 			end
 			button.optionValue = options[i].value
-			button.label:SetText(options[i].label or "")
+			-- Kept whole. The label drawn is fitted to the segment, and fitting
+			-- an already-fitted string shortens it a little more every time the
+			-- control is laid out.
+			button.fullLabel = options[i].label or ""
 			button:Show()
 		end
 		for i = #options + 1, #seg.segments do
@@ -527,6 +594,12 @@ function Controls.Segmented(parent, opts)
 	end
 
 	function seg:GetValue() return seg.value end
+
+	-- The narrowest this control can be drawn at and still read: the widest
+	-- caption, plus its breathing room, in every segment.
+	function seg.NaturalWidth(_, list)
+		return Controls.SegmentedNaturalWidth(list or options)
+	end
 
 	function seg:ApplyTheme()
 		seg.surface:SetRadius(ns.R.PILL)

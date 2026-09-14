@@ -348,7 +348,12 @@ end
 -- Measuring and eliding
 --------------------------------------------------------------------------------
 
+-- Three full stops rather than the single "…" character: the game's default
+-- fonts render it, but several of the fonts a player can pick do not, and a
+-- shortened name ending in an empty box is worse than one ending in dots.
+-- Published so a test can look for it rather than assume which one it is.
 local ELLIPSIS = "..."
+Text.ELLIPSIS = ELLIPSIS
 
 -- Truncates to `maxChars` *visible* characters.
 --
@@ -418,7 +423,12 @@ end
 
 -- Shortens `text` until it fits `maxWidth` in the given FontString, appending an
 -- ellipsis. Binary search keeps this at ~8 measurements even for long strings.
+-- Shortens `text` to fit `maxWidth`, and records on the font string whether it
+-- had to. The flag is the honest way to ask "was this cut off": looking for
+-- trailing dots cannot tell a shortened name from a placeholder that ends in
+-- them on purpose, and "Message Thrall..." is the composer working correctly.
 function Text.Ellipsize(fontString, text, maxWidth)
+	fontString.__wtwTruncated = false
 	if not text or text == "" then
 		fontString:SetText("")
 		return ""
@@ -427,6 +437,7 @@ function Text.Ellipsize(fontString, text, maxWidth)
 	if maxWidth <= 0 or fontString:GetStringWidth() <= maxWidth then
 		return text
 	end
+	fontString.__wtwTruncated = true
 	local total = Text.Len(text)
 	local lo, hi, best = 0, total, ""
 	while lo <= hi do

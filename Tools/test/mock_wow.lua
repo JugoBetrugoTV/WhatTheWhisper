@@ -831,7 +831,11 @@ function frameMethods:SetResizeBounds(minW, minH)
 end
 function frameMethods:SetMinResize() end
 function frameMethods:SetMaxResize() end
-function frameMethods:SetClipsChildren() end
+-- Recorded, not discarded. A frame that clips does not draw what hangs outside
+-- it, and a geometry audit that does not know which frames clip reports a bubble
+-- scrolled under the composer as a bubble drawn over the composer.
+function frameMethods:SetClipsChildren(v) self._clipsChildren = (v ~= false) end
+function frameMethods:DoesClipChildren() return self._clipsChildren or false end
 function frameMethods:SetHyperlinksEnabled(enabled)
 	self._hyperlinksEnabled = (enabled ~= false)
 end
@@ -1326,6 +1330,45 @@ function M.Descendants(root, out)
 		end
 	end
 	return out
+end
+
+-- The frames parented directly to `root`, in creation order. Enough to notice
+-- that opening a toast or a dialog put something new on the screen, without the
+-- addon having to expose a handle on it.
+function M.Children(root)
+	local out = {}
+	for i = 1, #M.frames do
+		if M.frames[i]._parent == root then out[#out + 1] = M.frames[i] end
+	end
+	return out
+end
+
+-- What of `node` is actually painted: its own rectangle, trimmed by every
+-- clipping ancestor between it and `root`. Returns nil when nothing of it
+-- survives -- a row scrolled out of its list, for instance.
+--
+-- Anything measuring what the player can see has to go through this. A frame's
+-- own geometry is where it *would* be drawn, which for anything inside a scroll
+-- viewport is not the same question.
+function M.VisibleRect(node, root)
+	local l, b, w, h = M.Geometry(node)
+	if not l or w <= 0 or h <= 0 then return nil end
+	local r, t = l + w, b + h
+	local up, hops = node._parent, 0
+	while up and hops < 64 do
+		if up._clipsChildren then
+			local cl, cb, cw, ch = M.Geometry(up)
+			if cl then
+				l, b = math.max(l, cl), math.max(b, cb)
+				r, t = math.min(r, cl + cw), math.min(t, cb + ch)
+				if r - l <= 0.5 or t - b <= 0.5 then return nil end
+			end
+		end
+		if up == root then break end
+		up = up._parent
+		hops = hops + 1
+	end
+	return l, b, r - l, t - b, r, t
 end
 
 -- A node is only really on screen if it and every ancestor up to the root are

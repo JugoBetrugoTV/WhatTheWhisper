@@ -61,6 +61,7 @@ local function createRow(sidebar)
 	row.preview = W.Text(row, "SMALL", "textMuted")
 	row.time = W.Text(row, "MICRO", "textMuted")
 	row.time:SetJustifyH("RIGHT")
+	row.time:SetWordWrap(false)
 
 	-- These two are the only marks on a row that mean something rather than
 	-- decorate it, and at textMuted on a busy list they were easy to miss.

@@ -27,9 +27,15 @@ local CARD_PAD = ns.S.LG
 -- rows between them do not have.
 local CARD_PAD_Y = ns.S.XS
 local CARD_GAP = ns.SZ.SETTINGS_GROUP_GAP
--- How much of a settings row the control on the right may take. Wide enough
--- for four segments to be readable, which is the widest control here.
-local CONTROL_W = ns.SZ.SEGMENT_MIN_W * 3 + ns.S.XXL
+-- How much of a settings row the control on the right may take.
+--
+-- A function, not a constant, because everything in it is text and the player
+-- can change how big text is. Held at a constant, the column kept its pixels
+-- while the words in it grew, and a dropdown's value ran off its own edge.
+local CONTROL_W_BASE = ns.SZ.SEGMENT_MIN_W * 3 + ns.S.XXL
+local function controlWidth()
+	return math.floor(CONTROL_W_BASE * (Theme.FontSize("BODY") / ns.T.BODY) + 0.5)
+end
 -- The section label sits above its card, the way settings panes in modern
 -- desktop apps do. Inside the card it competed with the first row's label,
 -- which reads as two headings for the same thing.
@@ -87,6 +93,11 @@ local function createRowFrame(parent)
 	-- else a person reads rather than at the smaller size a control label used
 	-- to get. The description under it steps down one level, not two.
 	row.label = W.Text(row, "BODY", "textPrimary")
+	-- Allowed to wrap, and the row grows to hold it. Shortening the name of a
+	-- setting is the one thing a settings pane must not do -- "Sound when window
+	-- is h..." is a row nobody can act on -- and at the largest font sizes a
+	-- long name and a wide control genuinely do not fit on one line.
+	row.label:SetWordWrap(true)
 	row.caption = W.Text(row, "SMALL", "textMuted")
 	row.caption:SetJustifyV("TOP")
 	row.caption:SetWordWrap(true)
@@ -184,17 +195,20 @@ end
 -- schema says "one of these values", and how many of them fit side by side is
 -- not something a settings author should have to think about.
 local SEGMENT_MAX_OPTIONS = 4
-local SEGMENT_MAX_LABEL = 14
 
-local function suitsSegments(spec)
+-- Whether this choice is better shown as a row of segments than as a menu.
+--
+-- Two conditions, and only one of them is a matter of taste. Few enough options
+-- is taste: past four, segments are slivers whatever the words are. Wide enough
+-- to read them is not -- it is measured, at the font actually in use, and the
+-- moment the answer is no this falls back to a dropdown. Which it does often at
+-- the larger font sizes, and should: a menu that shows one value at a time is
+-- the right control when four of them will not fit side by side.
+local function suitsSegments(spec, width)
 	local options = spec.options
 	if type(options) ~= "table" then return false end
 	if #options < 2 or #options > SEGMENT_MAX_OPTIONS then return false end
-	for i = 1, #options do
-		local label = options[i].label
-		if type(label) ~= "string" or #label > SEGMENT_MAX_LABEL then return false end
-	end
-	return true
+	return Controls.SegmentedNaturalWidth(options) <= width
 end
 
 function factories.segmented(parent)
@@ -248,7 +262,7 @@ function factories.button(parent)
 			if spec and spec.onClick then ns.Guard("Settings.button", spec.onClick) end
 		end,
 	})
-	control:SetWidth(CONTROL_W)
+	control:SetWidth(controlWidth())
 	return control
 end
 
@@ -288,7 +302,7 @@ end
 
 function factories.info(parent)
 	local holder = CreateFrame("Frame", nil, parent)
-	holder:SetSize(CONTROL_W, 20)
+	holder:SetSize(CONTROL_W_BASE, ns.SZ.BADGE_H)
 	holder.text = W.Text(holder, "MICRO", "textSecondary")
 	holder.text:SetPoint("RIGHT", holder, "RIGHT", 0, 0)
 	holder.text:SetJustifyH("RIGHT")
@@ -301,8 +315,9 @@ local function buildControl(spec, parent)
 	-- `spec.type` stays what the schema said, because every other consumer of
 	-- the schema -- search, the audit, the row layout -- reasons about the
 	-- declared type and not about how it happened to be rendered.
+	local width = controlWidth()
 	local kind = spec.type
-	if kind == "dropdown" and suitsSegments(spec) then kind = "segmented" end
+	if kind == "dropdown" and suitsSegments(spec, width) then kind = "segmented" end
 
 	local factory = factories[kind]
 	if not factory then return nil end
@@ -311,7 +326,7 @@ local function buildControl(spec, parent)
 	control.spec = spec
 
 	if kind == "segmented" then
-		control:SetWidth(CONTROL_W)
+		control:SetWidth(width)
 		control:SetOptions(spec.options)
 		control:SetValue(readValue(spec), false)
 	elseif spec.type == "toggle" then
@@ -319,24 +334,27 @@ local function buildControl(spec, parent)
 	elseif spec.type == "slider" then
 		-- Width first, then the range, then the value: every one of those is an
 		-- input to where the thumb sits, and the control lays itself out on each.
-		control:SetWidth(CONTROL_W)
+		control:SetWidth(width)
 		control:SetRange(spec.minValue, spec.maxValue, spec.step)
 		control:SetValue(tonumber(readValue(spec)) or spec.minValue, false)
 	elseif spec.type == "dropdown" then
-		control:SetWidth(CONTROL_W)
+		control:SetWidth(width)
 		control:SetOptions(spec.options)
 		control:SetValue(readValue(spec), false)
 	elseif spec.type == "button" then
 		control:SetText(spec.buttonText or spec.label)
 		control:SetVariant(spec.danger and "danger" or "subtle")
 	elseif spec.type == "input" then
-		control:SetWidth(CONTROL_W)
+		control:SetWidth(width)
 		control:SetText(Options.Get(spec.path) or "")
 	elseif spec.type == "color" then
 		local value = Options.Get(spec.path) or Theme.Get(spec.defaultRole or "accent")
 		control.surface:SetColorOverride(value[1], value[2], value[3], 1)
 	elseif spec.type == "info" then
-		control:SetWidth(CONTROL_W)
+		-- Given the row, because there is no label beside it competing for the
+		-- space and the sentence is long enough to want all of it.
+		control:SetWidth(spec.rowWidth or width)
+		control.text:SetWidth(spec.rowWidth or width)
 		control.text:SetText(spec.value and spec.value() or "")
 	end
 	return control
@@ -547,14 +565,29 @@ function SettingsUI.Refresh()
 				row:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -rowY)
 				row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -CARD_PAD, -rowY)
 
-				row.label:SetText(spec.label or "")
-				local labelWidth = available - CARD_PAD * 2 - CONTROL_W - ns.S.LG
-				row.label:SetWidth(max(60, labelWidth))
-				row.caption:SetWidth(max(60, labelWidth))
+				-- An info row is a readout, not a setting: its value is already a
+				-- whole sentence ("Stored messages: 5 in 3 conversations") and
+				-- the schema names the row with the same string. Drawing both
+				-- printed it twice, the second time with the %d still in it, so
+				-- the row is given over to the value and the label stands down.
+				local readout = spec.type == "info"
+				local labelWidth = max(60, available - CARD_PAD * 2 - controlWidth()
+					- ns.S.LG)
+				-- Fitted, not merely bounded. SetWidth on a font string that
+				-- wraps gives it a second line; on one that does not, it lets
+				-- the text run out of the box and over the control beside it.
+				-- Either way the label has to be made to fit the room it has.
+				row.label:SetWidth(labelWidth)
+				row.label:SetText(readout and "" or (spec.label or ""))
+				row.label:SetShown(not readout)
+				row.caption:SetWidth(labelWidth)
 				row.caption:SetText(spec.caption or "")
 				local hasCaption = (spec.caption or "") ~= ""
 				row.caption:SetShown(hasCaption)
 
+				-- A readout spans the row it no longer shares with a label.
+				spec.rowWidth = readout
+					and max(60, available - CARD_PAD * 2) or nil
 				local control = buildControl(spec, card)
 				row.control = control
 				if control then

@@ -77,6 +77,7 @@ function ConversationView.New(parent, opts)
 
 	bar.count = W.Text(bar, "MICRO", "textMuted")
 	bar.count:SetJustifyH("RIGHT")
+	bar.count:SetWordWrap(false)
 
 	bar.close = ns.Button.Icon(bar, {
 		icon = "close", size = ns.SZ.ICON_BTN_SM, glyph = ns.SZ.ICON_GLYPH_SM,

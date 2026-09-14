@@ -363,6 +363,14 @@ function Dialogs.Confirm(title, body, confirmLabel, onConfirm, danger)
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 end
 
+-- Closes whichever dialog is open, without the caller having to know which one
+-- it was. Built lazily and kept, so this is written the same way ApplyTheme is.
+function Dialogs.HideAll()
+	if copyDialog then copyDialog:Hide() end
+	if confirmDialog then confirmDialog:Hide() end
+	if ns.Dialogs.promptDialog then ns.Dialogs.promptDialog:Hide() end
+end
+
 function Dialogs.ApplyTheme()
 	if copyDialog then copyDialog:ApplyTheme() end
 	if confirmDialog then confirmDialog:ApplyTheme() end

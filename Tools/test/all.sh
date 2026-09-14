@@ -73,6 +73,7 @@ suite "restricted content"    Tools/test/arena.lua
 suite "presence and profile"  Tools/test/presence.lua
 suite "minimap button"        Tools/test/minimap.lua
 suite "ui geometry"           Tools/test/ui.lua
+suite "font scale"            Tools/test/fontscale.lua
 
 echo "== languages =="
 for client in enUS koKR zhCN zhTW; do

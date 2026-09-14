@@ -14,6 +14,11 @@ ns.Input = Input
 
 local max, min = math.max, math.min
 
+-- Below this a field has not been laid out yet and its width means nothing.
+-- Narrower than any field the addon actually builds, so a real one is never
+-- mistaken for an unresolved one.
+local MIN_FIT_WIDTH = 60
+
 local PAD_X = ns.S.MD
 -- Half the difference between a 40px field and the line of text in it, near
 -- enough. Written as a step off the scale rather than as the number it works out
@@ -104,13 +109,57 @@ function Input.New(parent, opts)
 		container.placeholder:SetPoint("LEFT", container, "LEFT", PAD_X, 0)
 	end
 	container.placeholder:SetWordWrap(false)
-	container.placeholder:SetText(opts.placeholder or "")
+
+	-- Fitted to the field rather than left to run out of it. "Message
+	-- Sylvanas-Blackrock..." is longer than a popout's composer is wide, and a
+	-- placeholder that does not wrap simply keeps going -- over the thread above
+	-- it in the mock, and clipped mid-word in the game. Neither is readable.
+	function container:FitPlaceholder()
+		local text = container.placeholderText or ""
+		local room = (container:GetWidth() or 0) - PAD_X * 2
+		-- The caret's own inset, where something has shifted the text right to
+		-- make room for a glyph -- the search field's magnifier.
+		local textLeft = select(4, container.editBox:GetPoint(1))
+		if type(textLeft) == "number" and textLeft > PAD_X then
+			room = room - (textLeft - PAD_X)
+		end
+		-- A field whose width is not settled yet reports a useless one, and
+		-- fitting to that would shorten the placeholder to "Search c..." and
+		-- leave it there. Shortening is only ever right against a real width, so
+		-- until there is one the text stays whole and the next fit does the job.
+		if room < MIN_FIT_WIDTH then
+			container.placeholder:SetText(text)
+			container.placeholder.__wtwTruncated = false
+			return
+		end
+		ns.Text.Ellipsize(container.placeholder, text, room)
+	end
+
+	-- Re-fitted whenever the field's width changes and again when it becomes
+	-- visible. A field built inside a window that has not been laid out yet
+	-- reports a width that means nothing, and the fit it produces from that is
+	-- wrong and permanent -- the settings pane's "Search set..." was exactly
+	-- that. By the time it is on screen the width is real.
+	container:HookScript("OnSizeChanged", function()
+		container:FitPlaceholder()
+	end)
+	container:HookScript("OnShow", function()
+		container:FitPlaceholder()
+	end)
+
+	container.placeholderText = opts.placeholder or ""
+	container:FitPlaceholder()
 
 	----------------------------------------------------------------- behaviour
 	local lastText = ""
 
 	local function updatePlaceholder()
-		container.placeholder:SetShown(editBox:GetText() == "")
+		local empty = editBox:GetText() == ""
+		-- Re-fitted on the way in, when the field's width is settled: this runs
+		-- on every text change and on every conversation change, which is every
+		-- moment the placeholder is about to be looked at.
+		if empty then container:FitPlaceholder() end
+		container.placeholder:SetShown(empty)
 	end
 
 	local function measureHeight(text)
@@ -242,7 +291,11 @@ function Input.New(parent, opts)
 	function container:ClearFocus() editBox:ClearFocus() end
 	function container:HasFocus() return editBox:HasFocus() end
 	function container:SetPlaceholder(value)
-		container.placeholder:SetText(value or "")
+		-- The whole string is kept; what goes on the font string is whatever
+		-- fits the field right now, and it is re-derived from this every time
+		-- the field or the font changes.
+		container.placeholderText = value or ""
+		container:FitPlaceholder()
 		updatePlaceholder()
 	end
 	function container:Insert(value)
@@ -261,6 +314,10 @@ function Input.New(parent, opts)
 		local c = Theme.Get("textPrimary")
 		editBox:SetTextColor(c[1], c[2], c[3], 1)
 		W.RefreshText(container.placeholder)
+		-- From the whole string, not from whatever is currently on the font
+		-- string: the font just changed, and re-fitting an already-shortened
+		-- placeholder only ever shortens it again. It never grows back.
+		container:FitPlaceholder()
 		setFocusVisual(editBox:HasFocus())
 		applyHeight(editBox:GetText())
 	end

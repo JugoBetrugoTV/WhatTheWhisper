@@ -20,7 +20,18 @@ local max = math.max
 
 local frame, catcher, itemPool, secureButton, secureHost
 
-local ITEM_H = ns.SZ.MENU_ITEM_H
+-- The size a menu entry is drawn at, named once. The width of the panel is
+-- worked out by measuring the entries, and that measurement has to be taken at
+-- the size they are actually set in: it was taken at SMALL while the rows drew
+-- at BODY, so every menu came out about a sixth too narrow -- invisible at the
+-- default font size and, three steps up, two entries wrapping into each other.
+local ITEM_FONT = "BODY"
+
+-- Comfortable room around the entry's text, never less than the design's row
+-- height. Like everything else here it follows the font rather than fixing it.
+local function itemHeight()
+	return math.max(ns.SZ.MENU_ITEM_H, math.ceil(Theme.FontSize(ITEM_FONT)) + ns.S.MD)
+end
 -- The panel's own padding above the first item and below the last, and the
 -- inset an item's hover wash is drawn with inside that. Both come off the
 -- spacing scale rather than being the two numbers that happened to look right.
@@ -36,13 +47,16 @@ local SEP_H = ns.S.MD
 
 local function createItem()
 	local row = CreateFrame("Frame", nil, frame)
-	row:SetHeight(ITEM_H)
+	row:SetHeight(itemHeight())
 	row.surface = W.Surface(row, {
 		radius = ns.R.MD, insets = { ITEM_INSET, ITEM_INSET, 0, 0 },
 	})
 	row.icon = W.Icon(row, "bullet", ns.SZ.MENU_ICON, "textSecondary")
 	row.icon:SetPoint("LEFT", row, "LEFT", ICON_X, 0)
-	row.label = W.Text(row, "BODY", "textPrimary")
+	row.label = W.Text(row, ITEM_FONT, "textPrimary")
+	-- One line. A menu entry that wraps is an entry printed over the one below
+	-- it: the rows are a fixed height and the panel is sized to hold them all.
+	row.label:SetWordWrap(false)
 	row.label:SetPoint("LEFT", row, "LEFT", LABEL_X, 0)
 	row.label:SetPoint("RIGHT", row, "RIGHT", -ns.S.MD, 0)
 
@@ -193,7 +207,7 @@ function Menu.Open(entries, opts)
 	Menu.Close()
 	opts = opts or {}
 
-	local measure = Theme.Measure("SMALL")
+	local measure = Theme.Measure(ITEM_FONT)
 	local width = opts.minWidth or ns.SZ.MENU_MIN_W
 	local height = PAD_Y * 2
 	local shown = {}
@@ -215,7 +229,7 @@ function Menu.Open(entries, opts)
 			height = height + SEP_H
 		elseif not entry.hidden then
 			local row = itemPool:Acquire()
-			row:SetHeight(ITEM_H)
+			row:SetHeight(itemHeight())
 			row.danger = entry.danger
 			row.onClick = entry.onClick
 			-- A row may be written in a script the theme font cannot draw; the
@@ -242,7 +256,7 @@ function Menu.Open(entries, opts)
 			width = max(width, measure:GetStringWidth() + LABEL_X + ns.S.MD + ns.S.SM)
 
 			shown[#shown + 1] = row
-			height = height + ITEM_H
+			height = height + itemHeight()
 			row.entry = entry
 		end
 	end
@@ -254,6 +268,7 @@ function Menu.Open(entries, opts)
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, y)
 		row:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, y)
+		row:SetHeight(row.isSeparator and SEP_H or itemHeight())
 		row:Show()
 		y = y - row:GetHeight()
 	end

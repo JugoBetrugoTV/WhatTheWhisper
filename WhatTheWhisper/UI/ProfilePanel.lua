@@ -10,7 +10,7 @@
 -- in as many words, and offers the one thing that would fill it in.
 
 local _, ns = ...
-local W, Compat = ns.Widgets, ns.Compat
+local W, Compat, Theme = ns.Widgets, ns.Compat, ns.Theme
 local PI = ns.PlayerInfo
 local L = ns.L
 
@@ -19,17 +19,13 @@ ns.ProfilePanel = ProfilePanel
 
 local P = {}
 
-local ROW_H = 18
-local LABEL_W = 62
 local PAD_X, PAD_Y = ns.S.LG, ns.S.SM
 -- Two columns. Six facts stacked in one column is a tall panel using a quarter
 -- of a wide window, and the window is wide.
 local COLUMNS = 2
 local COLUMN_GAP = ns.S.XL
--- Below this the columns would squeeze the values into ellipses, so the panel
--- falls back to one.
-local MIN_COLUMN_W = 190
 local LOOKUP_H = 22
+
 
 --------------------------------------------------------------------------------
 -- What we know
@@ -86,26 +82,71 @@ local BN_FIELDS = {
 }
 
 --------------------------------------------------------------------------------
+-- Measurement
+--------------------------------------------------------------------------------
+
+-- Every measurement in this panel is a measurement of text, so every one of them
+-- is a function of the font rather than a number. At a constant 18px row and a
+-- constant 62px label column, turning the font size up walked "Class" straight
+-- through "Level", and the row of values under them into each other.
+
+local function rowHeight()
+	return math.ceil(Theme.FontSize("SMALL")) + ns.S.SM
+end
+
+-- As wide as the longest label there is. There are eight of them and they are
+-- right here, so guessing a width for a list already in hand would be a strange
+-- thing to do -- and the guess has to be wrong in at least one of eleven
+-- languages, which is how it was.
+local function labelWidth()
+	local fs = Theme.Measure("MICRO")
+	fs:SetWordWrap(false)
+	fs:SetWidth(0)
+	local widest = 0
+	for _, list in ipairs({ FIELDS, BN_FIELDS }) do
+		for i = 1, #list do
+			fs:SetText(L[list[i].label] or list[i].label or "")
+			widest = math.max(widest, fs:GetStringWidth() or 0)
+		end
+	end
+	return math.ceil(widest)
+end
+
+-- Below this a column would squeeze its values into ellipses, so the panel falls
+-- back to one. Follows the label column, which follows the font.
+local function minColumnWidth()
+	return labelWidth() * 3
+end
+
+--------------------------------------------------------------------------------
 -- Construction
 --------------------------------------------------------------------------------
 
 local function createRow(panel)
 	local row = CreateFrame("Frame", nil, panel)
-	row:SetHeight(ROW_H)
+	row:SetHeight(rowHeight())
 	row.label = W.Text(row, "MICRO", "textMuted")
 	row.label:ClearAllPoints()
 	row.label:SetPoint("LEFT", row, "LEFT", 0, 0)
-	row.label:SetWidth(LABEL_W)
 	row.label:SetJustifyH("LEFT")
+	row.label:SetWordWrap(false)
 	-- The label is the quiet half of the pair and the value is the half
 	-- somebody opened the panel to read, so they are not the same size.
 	row.value = W.Text(row, "SMALL", "textSecondary")
 	row.value:ClearAllPoints()
-	row.value:SetPoint("LEFT", row, "LEFT", LABEL_W + ns.S.SM, 0)
 	row.value:SetPoint("RIGHT", row, "RIGHT", 0, 0)
 	row.value:SetJustifyH("LEFT")
-	row.value:SetJustifyH("LEFT")
 	row.value:SetWordWrap(false)
+
+	-- Both halves re-anchored to the measured column rather than to a constant,
+	-- every time the panel lays out -- which is every time the font changes.
+	function row:FitColumns(labelW)
+		self:SetHeight(rowHeight())
+		self.label:SetWidth(labelW)
+		self.value:ClearAllPoints()
+		self.value:SetPoint("LEFT", self, "LEFT", labelW + ns.S.SM, 0)
+		self.value:SetPoint("RIGHT", self, "RIGHT", 0, 0)
+	end
 	return row
 end
 
@@ -159,8 +200,10 @@ function P:Refresh()
 	local fields = conv.isBN and BN_FIELDS or FIELDS
 
 	local inner = (self:GetWidth() or 0) - PAD_X * 2
+	local labelW = labelWidth()
+	local rowH = rowHeight()
 	local columns = COLUMNS
-	if inner < MIN_COLUMN_W * COLUMNS + COLUMN_GAP then columns = 1 end
+	if inner < minColumnWidth() * COLUMNS + COLUMN_GAP then columns = 1 end
 	local columnW = columns > 1
 		and ((inner - COLUMN_GAP * (columns - 1)) / columns) or inner
 	local perColumn = math.ceil(#fields / columns)
@@ -177,6 +220,7 @@ function P:Refresh()
 			ns.SoftError("ProfilePanel." .. tostring(field.key), value)
 			value = nil
 		end
+		row:FitColumns(labelW)
 		row.label:SetText(L[field.label])
 		if value and value ~= "" then
 			row.value:SetText(value)
@@ -193,12 +237,12 @@ function P:Refresh()
 		local indexInColumn = (i - 1) % perColumn
 		local x = PAD_X + column * (columnW + COLUMN_GAP)
 		row:ClearAllPoints()
-		row:SetPoint("TOPLEFT", self, "TOPLEFT", x, -(PAD_Y + indexInColumn * ROW_H))
+		row:SetPoint("TOPLEFT", self, "TOPLEFT", x, -(PAD_Y + indexInColumn * rowH))
 		row:SetWidth(columnW)
 		row:Show()
 	end
 	for i = #fields + 1, #self.rows do self.rows[i]:Hide() end
-	local y = PAD_Y + perColumn * ROW_H
+	local y = PAD_Y + perColumn * rowH
 
 	-- The lookup is only offered where it can actually answer, and it is the
 	-- *only* way a /who ever goes out: SendWho is protected, so the client
@@ -252,4 +296,9 @@ function P:ApplyTheme()
 	self:Refresh()
 end
 
-ProfilePanel.HEIGHT_HINT = PAD_Y * 2 + ROW_H * math.ceil(#FIELDS / COLUMNS)
+-- A first guess at the panel's height, used before it has ever been laid out.
+-- Deliberately the largest of the two font sizes it might be built at, so the
+-- window reserves too much rather than too little and the thread never has to
+-- jump down by a line the first time the panel opens.
+ProfilePanel.HEIGHT_HINT = PAD_Y * 2
+	+ (ns.T.SMALL + ns.S.SM) * math.ceil(#FIELDS / COLUMNS)
