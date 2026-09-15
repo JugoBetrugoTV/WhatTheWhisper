@@ -1526,16 +1526,17 @@ for _, id in ipairs(ns.Skins.order) do
 			("thumb %.3f, track %.3f"):format(luminance(thumb), luminance(track)))
 	end
 
-	-- Which tab you are on must be visible in every skin. The raised fill alone
-	-- is not enough: bg2 against bg1 is a 1% difference in Dark and exactly zero
-	-- in Minimal, where the active tab was simply invisible. So the marker is
-	-- what carries it, and the marker's colour has to separate from the strip.
-	do
-		local bg = over(ns.Theme.Get("bg1"), { 0, 0, 0, 1 })
+	-- Which tab you are on must be visible in every skin. The fill alone is not
+	-- enough: the active tab takes the header's colour so that it reads as
+	-- continuous with what is under the strip, and in Midnight and Minimal that
+	-- is the strip's own colour -- so the fill says nothing at all there. The
+	-- marker carries it, and it has to separate from both surfaces it crosses.
+	for _, base in ipairs({ "bg1", "headerBg" }) do
+		local bg = over(ns.Theme.Get(base), { 0, 0, 0, 1 })
 		local marker = over(ns.Theme.Get("accent"), bg)
-		check(("%s: the active tab marker is visible on the strip"):format(id),
+		check(("%s: the active tab marker is visible on %s"):format(id, base),
 			contrast(marker, bg) >= 1.35,
-			("accent on bg1 is only %.2f:1"):format(contrast(marker, bg)))
+			("accent on %s is only %.2f:1"):format(base, contrast(marker, bg)))
 	end
 
 	-- An unresolved colour role renders magenta on purpose; none may survive.

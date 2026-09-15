@@ -31,11 +31,12 @@ local function createTab(strip)
 	tab.surface = W.Surface(tab, { radius = ns.R.MD })
 	tab.surface:SetCorners(true, true, false, false)
 
-	-- Which tab you are on cannot rest on the raised fill alone. That fill is
-	-- bg2 against the strip's bg1, and several skins put those within a percent
-	-- of each other -- in Minimal they are the same colour, so the active tab
-	-- was invisible. An accent bar along the top edge says it whatever the
-	-- palette does, the way every editor with tabs does.
+	-- Which tab you are on cannot rest on the fill alone. The active tab takes
+	-- the header's colour so that it reads as continuous with what is under the
+	-- strip, and in several skins the strip is that same colour -- in Minimal
+	-- and in Midnight exactly so, which leaves the fill saying nothing at all.
+	-- A marker along the top edge says it whatever the palette does, the way
+	-- every editor with tabs does.
 	tab.marker = CreateFrame("Frame", nil, tab)
 	tab.marker:SetHeight(ns.SZ.TAB_MARKER_H)
 	tab.marker:SetPoint("TOPLEFT", tab, "TOPLEFT", ns.R.MD, 0)
@@ -76,7 +77,12 @@ local function createTab(strip)
 		local duration = instant and 0 or Theme.Duration("FAST")
 		local role
 		if tab.active then
-			role = "bg2"
+			-- The surface that continues underneath the strip, which is the
+			-- conversation header -- not the thread further down. It was `bg2`,
+			-- and in a palette where the thread is black and the header is not
+			-- that made the active tab a black notch cut into a grey plate,
+			-- pointing at a surface that is nowhere near it.
+			role = "headerBg"
 		elseif state == "hover" or state == "pressed" then
 			role = "hover"
 		end

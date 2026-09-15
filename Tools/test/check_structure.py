@@ -426,6 +426,61 @@ for rel in declared:
     bypasses += 1
 notes.append("%d files checked for client calls that belong behind Compat" % bypasses)
 
+# --- DESIGN.md's metrics table must be the code's metrics -------------------
+#
+# The table in section 1.2 is the design contract, and a contract that drifts is
+# worse than none: every number in it was wrong by the time anybody looked,
+# because nothing made them wrong out loud. Now they do.
+design_path = os.path.join(ADDON, "DESIGN.md")
+design = open(design_path, encoding="utf-8").read()
+namespace_src = open(os.path.join(ADDON, "Core/Namespace.lua"), encoding="utf-8").read()
+
+
+def _namespace_table(name):
+    start = namespace_src.index("ns.%s = {" % name)
+    depth, i = 0, start
+    while True:
+        if namespace_src[i] == "{":
+            depth += 1
+        elif namespace_src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    body = namespace_src[start:i]
+    out = {}
+    for key, value in re.findall(r'^\s*(\w+)\s*=\s*([0-9.]+)\s*,', body, re.M):
+        out[key] = value
+    return out
+
+
+NS_TABLES = {"SZ": _namespace_table("SZ"), "S": _namespace_table("S"),
+             "R": _namespace_table("R"), "T": _namespace_table("T")}
+
+
+def _lookup(name):
+    for table in ("SZ", "S", "R", "T"):
+        if name in NS_TABLES[table]:
+            return NS_TABLES[table][name]
+    return None
+
+
+DESIGN_ROW = re.compile(r'^\|\s*`([A-Z][A-Z0-9_]*)`\s*\|\s*([0-9.]+)\s*\|', re.M)
+checked_rows = 0
+for name, stated in DESIGN_ROW.findall(design):
+    actual = _lookup(name)
+    if actual is None:
+        err("DESIGN.md quotes %s, which is not a constant in Namespace.lua" % name)
+        continue
+    if float(actual) != float(stated):
+        err("DESIGN.md says %s is %s; Namespace.lua says %s"
+            % (name, stated, actual))
+    checked_rows += 1
+if checked_rows < 30:
+    err("only %d metrics checked against DESIGN.md; the table has stopped being "
+        "read" % checked_rows)
+notes.append("%d design metrics checked against the code" % checked_rows)
+
 print("\n".join("  " + n for n in notes))
 if errors:
     print("\nSTRUCTURE ERRORS:")

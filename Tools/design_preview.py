@@ -306,7 +306,7 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
                 cv.rect(tx + tw_each - 1, top + S["SM"], 1,
                         tab_h - S["SM"] * 2, c["borderSubtle"])
             if active:
-                cv.rrect(tx, top, tw_each, tab_h, radius(R["MD"]), fill=c["bg2"],
+                cv.rrect(tx, top, tw_each, tab_h, radius(R["MD"]), fill=c["headerBg"],
                          corners=(True, True, False, False))
                 # The raised fill alone is invisible in some skins; the marker
                 # along the top edge is what actually says which tab you are on.
