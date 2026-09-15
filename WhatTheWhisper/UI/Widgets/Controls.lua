@@ -157,6 +157,10 @@ end
 --------------------------------------------------------------------------------
 
 -- opts: minValue, maxValue, step, format(value) -> string, onChange(value)
+-- The size a slider's readout is set in, named once so the measurement and the
+-- drawing cannot disagree.
+local VALUE_FONT = "SUBHEAD"
+
 function Controls.Slider(parent, opts)
 	opts = opts or {}
 	local s = CreateFrame("Frame", nil, parent)
@@ -191,7 +195,10 @@ function Controls.Slider(parent, opts)
 			valueColumn = ns.SZ.SLIDER_VALUE_W
 			return
 		end
-		local fs = Theme.Measure("SMALL")
+		-- At the size the readout is drawn at. Measuring at one size and drawing
+		-- at another is how a column ends up two pixels short of the words in
+		-- it, which is exactly what happened to the context menu.
+		local fs = Theme.Measure(VALUE_FONT)
 		fs:SetWordWrap(false)
 		fs:SetWidth(0)
 		local widest = 0
@@ -230,7 +237,7 @@ function Controls.Slider(parent, opts)
 		color = "textPrimary", radius = ns.SZ.SLIDER_THUMB / 2, layer = "OVERLAY",
 	})
 
-	s.valueLabel = W.Text(s, "SMALL", "textSecondary")
+	s.valueLabel = W.Text(s, VALUE_FONT, "textSecondary")
 	s.valueLabel:SetPoint("RIGHT", s, "RIGHT", 0, 0)
 	s.valueLabel:SetJustifyH("RIGHT")
 	-- One line, always. It is a number with a unit after it, and wrapping it
@@ -290,11 +297,16 @@ function Controls.Slider(parent, opts)
 		region:SetScript("OnHide", endDrag)
 	end
 
-	-- The track is drawn 4px high because a fat bar looks clumsy, but clicking
-	-- to jump along it has to be possible without taking aim. Negative insets
-	-- grow the hit rect to the thumb's height, which is the size the whole
-	-- control reads as.
-	local trackGrow = (ns.SZ.SLIDER_THUMB - ns.SZ.SLIDER_TRACK) / 2
+	-- The track is drawn 4px high because a fat bar looks clumsy, but clicking to
+	-- jump along it has to be possible without taking aim. Negative insets grow
+	-- the hit rect to a full-size target.
+	--
+	-- To MIN_HIT rather than to the thumb's height. Grown to the thumb it was
+	-- 14px tall, which only counted as aimable because the track happened to be
+	-- longer than 100px -- the allowance a scrollbar gets for being aimed at
+	-- along one axis. A slider in a settings row is not that long, and the first
+	-- time the column beside it grew, it stopped being aimable at all.
+	local trackGrow = (ns.MIN_HIT - ns.SZ.SLIDER_TRACK) / 2
 	s.track:SetHitRectInsets(0, 0, -trackGrow, -trackGrow)
 
 	-- The thumb is a 14px dot, which is the right size to look at and too small
@@ -360,7 +372,7 @@ function Controls.Dropdown(parent, opts)
 	d.options = opts.options or {}
 
 	d.surface = W.Surface(d, { color = "inputBg", radius = ns.R.MD })
-	d.label = W.Text(d, "SMALL", "textPrimary")
+	d.label = W.Text(d, "SUBHEAD", "textPrimary")
 	d.label:SetPoint("LEFT", d, "LEFT", ns.S.MD, 0)
 	d.label:SetPoint("RIGHT", d, "RIGHT", -(ns.S.MD + ns.SZ.ICON_GLYPH_SM), 0)
 	-- Secondary, not muted: this one says the row opens, and a hint you have to
@@ -451,6 +463,12 @@ end
 -- slivers, and that is what the dropdown is still for.
 --
 -- opts: options { { value, label }, ... }, onChange(value)
+-- The size a segment's caption is set in, named once so the width this control
+-- asks for and the text it draws cannot disagree. They have disagreed three
+-- times in this file's history, each time silently, and each time the symptom
+-- was a caption a couple of pixels wider than the space reserved for it.
+local SEGMENT_FONT = "SUBHEAD"
+
 -- How wide a row of segments has to be for every caption to fit.
 --
 -- Measured at the font in use, not counted in characters. A rule like "no label
@@ -460,7 +478,7 @@ end
 -- it was given.
 function Controls.SegmentedNaturalWidth(options)
 	if type(options) ~= "table" or #options == 0 then return 0 end
-	local fs = Theme.Measure("SMALL")
+	local fs = Theme.Measure(SEGMENT_FONT)
 	fs:SetWordWrap(false)
 	fs:SetWidth(0)
 	local widest = 0
@@ -552,7 +570,7 @@ function Controls.Segmented(parent, opts)
 				button = CreateFrame("Frame", nil, seg)
 				button:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
 				button:EnableMouse(true)
-				button.label = W.Text(button, "SMALL", "textMuted")
+				button.label = W.Text(button, SEGMENT_FONT, "textMuted")
 				button.label:SetPoint("CENTER")
 				button.label:SetJustifyH("CENTER")
 				button.label:SetWordWrap(false)

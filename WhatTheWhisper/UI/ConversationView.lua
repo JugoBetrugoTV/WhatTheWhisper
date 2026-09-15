@@ -53,7 +53,7 @@ function ConversationView.New(parent, opts)
 	-- The realm, BattleTag or presence under the name. One step below the name
 	-- rather than three: at MICRO under a TITLE it read as a footnote to the
 	-- header instead of as the second line of it.
-	header.status = W.Text(header, "SMALL", "textMuted")
+	header.status = W.Text(header, "SUBHEAD", "textMuted")
 	v:LayoutHeaderText(false)
 
 	-- Header actions live in an ordered list and are laid out right to left, so

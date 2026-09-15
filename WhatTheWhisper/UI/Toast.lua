@@ -54,7 +54,7 @@ local function createToast()
 	t.time:SetPoint("BOTTOM", t.name, "BOTTOM", 0, 0)
 	t.time:SetJustifyH("RIGHT")
 
-	t.body = W.Text(t, "SMALL", "textSecondary")
+	t.body = W.Text(t, "SUBHEAD", "textSecondary")
 	t.body:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -ns.S.XS / 2)
 
 	-- Hairline progress bar showing the remaining time.

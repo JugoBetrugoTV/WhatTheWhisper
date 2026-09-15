@@ -39,12 +39,16 @@ local S = {}
 local function createRow(sidebar)
 	local row = CreateFrame("Frame", nil, sidebar.list.viewport)
 
-	-- Full bleed, no card. A rounded rectangle inside the sidebar, inside the
-	-- window, is the box-inside-a-box look that says "addon" before anything has
-	-- been read -- and it costs the row the eight pixels either side that the
-	-- text actually wants. What marks a row now is the surface under it changing
-	-- colour, which is all a desktop messenger has ever needed.
-	row.surface = W.Surface(row, { layer = "BACKGROUND" })
+	-- A resting row is full bleed with a hairline under it; a selected one is an
+	-- inset rounded rectangle. That is not an inconsistency, it is how the
+	-- sidebar of Messages on an iPad works, and it is worth copying exactly: the
+	-- selection reads as a thing lifted out of the list rather than as the list
+	-- changing colour under one of its rows.
+	row.surface = W.Surface(row, {
+		radius = ns.R.MD,
+		insets = { ns.S.SM, ns.S.SM, ns.S.XS / 2, ns.S.XS / 2 },
+		layer = "BACKGROUND",
+	})
 
 	-- A hairline between rows, starting where the text starts rather than at the
 	-- panel edge: a full-width rule reads as a table, an indented one reads as a
@@ -58,8 +62,11 @@ local function createRow(sidebar)
 	row.avatar:SetSurfaceRole("bg1")
 
 	row.name = W.Text(row, "BODY", "textPrimary")
-	row.preview = W.Text(row, "SMALL", "textMuted")
-	row.time = W.Text(row, "MICRO", "textMuted")
+	-- Subheadline, not footnote: an iOS list row sets its second line one step
+	-- under the title, not two. At 13 under a 17 the preview read as a caption
+	-- attached to the name rather than as the message it is.
+	row.preview = W.Text(row, "SUBHEAD", "textMuted")
+	row.time = W.Text(row, "SMALL", "textMuted")
 	row.time:SetJustifyH("RIGHT")
 	row.time:SetWordWrap(false)
 
@@ -93,6 +100,7 @@ local function createRow(sidebar)
 		W.FadeSurfaceTo(row.surface, row, role, duration)
 		row.separator:SetShown(row:WantsSeparator())
 	end)
+
 
 	row:HookScript("OnMouseUp", function(self, button)
 		if not self:IsMouseOver() or not self.conv then return end

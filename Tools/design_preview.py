@@ -139,14 +139,18 @@ CONVERSATIONS = [
          unread=0, initial="M"),
 ]
 
+# One centred marker at the head, bubbles under it, and the delivery state on
+# its own line under the newest message sent -- which is the whole structure of
+# a Messages thread. Nothing is tucked inside a bubble.
 THREAD = [
-    ("sep", "Today"),
-    ("in", ["Yo kommst du Raid?", "wir brauchen noch einen Heiler"], "22:41"),
-    ("out", ["Ja bin gleich da"], "22:42", "ok"),
-    ("in", ["top", "invite ist raus"], "22:43"),
+    ("sep", "Today", "22:41"),
+    ("in", ["Yo kommst du Raid?", "wir brauchen noch einen Heiler"]),
+    ("out", ["Ja bin gleich da"]),
+    ("in", ["top", "invite ist raus"]),
     ("out", ["Bin drin. Hab noch 2 Flasks ubrig, brauchst du eine?",
-             "sag kurz Bescheid"], "22:45", "ok"),
-    ("in", ["ja gerne :)"], "22:46"),
+             "sag kurz Bescheid"]),
+    ("in", ["ja gerne :)"]),
+    ("out", ["top, bis gleich"]),
 ]
 
 
@@ -219,16 +223,11 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
             if y + row_h > H:
                 break
             if conv.get("selected"):
-                cv.rrect(S["SM"], y + 1, sidebar_w - S["SM"] * 2, row_h - 2,
-                         radius(R["MD"]), fill=c["selected"])
-                if m.get("accentBar", 1):
-                    # Inside the row card, which is itself inset by S.SM -- the
-                    # marker has to sit past that inset or it floats in the
-                    # gutter and reads as the window edge.
-                    bar_w = SZ["ACCENT_BAR_W"]
-                    bar_x = S["SM"] + SZ["ACCENT_BAR_INSET"]
-                    cv.rrect(bar_x, y + S["MD"], bar_w, row_h - S["MD"] * 2,
-                             bar_w / 2, fill=c["accent"])
+                # The selection is the card, not a bar beside it: a rounded
+                # surface inset from the column on every side, which is how an
+                # iPad list says "this one" without drawing anything extra.
+                cv.rrect(S["SM"], y + S["XS"] / 2, sidebar_w - S["SM"] * 2,
+                         row_h - S["XS"], radius(R["MD"]), fill=c["selected"])
 
             av = SZ["AVATAR_LG"]
             ax, ay = S["LG"], y + (row_h - av) / 2
@@ -287,10 +286,11 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
             if active:
                 cv.rrect(tx, top, tw_each, tab_h, radius(R["MD"]), fill=c["bg2"],
                          corners=(True, True, False, False))
-                # The raised fill alone is invisible in some skins; the accent
-                # bar is what actually says which tab you are on.
-                cv.rect(tx + radius(R["MD"]), top,
-                        tw_each - radius(R["MD"]) * 2, SZ["ACCENT_BAR_W"], c["accent"])
+                # The raised fill alone is invisible in some skins; the marker
+                # along the top edge is what actually says which tab you are on.
+                cv.rrect(tx + radius(R["MD"]), top,
+                         tw_each - radius(R["MD"]) * 2, SZ["TAB_MARKER_H"],
+                         SZ["TAB_MARKER_H"] / 2, fill=c["accent"])
             lx = tx + S["MD"]
             if unread:
                 cv.circle(lx + 3, top + tab_h / 2, 3, fill=c["accent"])
@@ -381,18 +381,19 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
             remaining = remaining[cut:].strip()
         return rows or [""]
 
+    sep_h = T["MICRO"]
+    receipt_h = max(T["MICRO"], SZ["STATUS_ICON"])
     layout_items, total = [], SZ["LIST_PAD_Y"]
     for item in THREAD:
         if item[0] == "sep":
-            total += SZ["MSG_GAP_DATE"] * spacing
-            layout_items.append(dict(kind="sep", label=item[1], y=total, h=20))
-            total += 20 + S["MD"] * spacing
+            if layout_items:
+                total += SZ["MSG_GAP_DATE"] * spacing
+            layout_items.append(dict(kind="sep", day=item[1], clock=item[2],
+                                     y=total, h=sep_h))
+            total += sep_h + S["MD"] * spacing
             continue
-        kind, lines, stamp = item[0], item[1], item[2]
-        status = item[3] if len(item) > 3 else None
+        kind, lines = item[0], item[1]
         total += SZ["MSG_GAP_GROUP"] * spacing
-        layout_items.append(dict(kind="header", side=kind, stamp=stamp, y=total, h=18))
-        total += 18 + 2
         for i, line in enumerate(lines):
             if i:
                 total += SZ["MSG_GAP_TIGHT"]
@@ -402,8 +403,13 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
                   + SZ["BUBBLE_PAD_Y"] * 2)
             layout_items.append(dict(kind="bubble", side=kind, rows=rows, y=total, h=bh,
                                      w=min(widest, content_max) + SZ["BUBBLE_PAD_X"] * 2,
-                                     first=i == 0, last=i == len(lines) - 1, status=status))
+                                     first=i == 0, last=i == len(lines) - 1))
             total += bh
+    tail = layout_items[-1] if layout_items else None
+    if tail and tail["kind"] == "bubble" and tail["side"] == "out":
+        total += SZ["RECEIPT_GAP"]
+        layout_items.append(dict(kind="receipt", label="Delivered", y=total, h=receipt_h))
+        total += receipt_h
     total += SZ["LIST_PAD_Y"]
 
     # Short conversations rest on the composer instead of floating at the top.
@@ -418,20 +424,25 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
         if y + it["h"] < canvas_top or y > canvas_bottom or y < canvas_top:
             continue
         if it["kind"] == "sep":
-            lw = cv.measure(it["label"], T["MICRO"]) + S["MD"] * 2
+            # Two words, centred as a pair. No pill behind them: the day is a
+            # paragraph break in the conversation, not a chip you can press.
             cx = content_x + (content_w - SZ["SCROLLBAR_HIT"]) / 2
-            cv.rrect(cx - lw / 2, y, lw, it["h"], it["h"] / 2, fill=c["bg3"])
-            cv.text(cx, y + it["h"] / 2, it["label"], T["MICRO"], c["textMuted"], anchor="mm")
-        elif it["kind"] == "header":
-            # A time and nothing else, on the side its group sits on. The name
-            # is in the window header and the avatar is class coloured, so
-            # repeating it over every group was pure noise.
-            if it["side"] == "in":
-                cv.text(content_x + pad + avatar + gap, y + 9, it["stamp"],
-                        T["MICRO"], c["textMuted"])
-            else:
-                cv.text(content_x + content_w - pad - SZ["SCROLLBAR_HIT"], y + 9, it["stamp"],
-                        T["MICRO"], c["textMuted"], anchor="rm")
+            day_w = cv.measure(it["day"], T["MICRO"])
+            clock_w = cv.measure(it["clock"], T["MICRO"])
+            left = cx - (day_w + SZ["SEP_WORD_GAP"] + clock_w) / 2
+            cv.text(left, y + it["h"] / 2, it["day"], T["MICRO"], c["textSecondary"])
+            cv.text(left + day_w + SZ["SEP_WORD_GAP"], y + it["h"] / 2, it["clock"],
+                    T["MICRO"], c["textMuted"])
+        elif it["kind"] == "receipt":
+            # One line, under the newest message sent, ending on its edge.
+            right = content_x + content_w - pad - SZ["SCROLLBAR_HIT"]
+            label_w = cv.measure(it["label"], T["MICRO"])
+            cv.text(right, y + it["h"] / 2, it["label"], T["MICRO"], c["textMuted"],
+                    anchor="rm")
+            cv.icon("check_double",
+                    right - label_w - SZ["RECEIPT_ICON_GAP"] - SZ["STATUS_ICON"],
+                    y + (it["h"] - SZ["STATUS_ICON"]) / 2, SZ["STATUS_ICON"],
+                    c["textMuted"])
         else:
             incoming = it["side"] == "in"
             bw, bh = it["w"], it["h"]
@@ -449,8 +460,6 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
                 cv.rrect(bx, y, bw, bh, bubble_radius, fill=c["bubbleOut"],
                          corners=(True, not it["first"], True, True))
                 fill = c["bubbleOutText"]
-                if it["status"] and it["last"]:
-                    cv.icon("check", bx - S["SM"] - 11, y + bh - 13, 11, c["textMuted"])
             ty = y + SZ["BUBBLE_PAD_Y"]
             for row in it["rows"]:
                 cv.text(bx + SZ["BUBBLE_PAD_X"], ty + T["BODY"] / 2, row, T["BODY"], fill)
@@ -528,9 +537,6 @@ def render_settings(skin_id="midnight", path=None):
         active = label == "Appearance"
         if active:
             cv.rrect(S["SM"], y, nav_w - S["SM"] * 2, row_h, radius(R["MD"]), fill=c["selected"])
-            bar_w = SZ["ACCENT_BAR_W"]
-            cv.rrect(S["SM"] + SZ["ACCENT_BAR_INSET"], y + S["SM"], bar_w,
-                     row_h - S["SM"] * 2, bar_w / 2, fill=c["accent"])
         cv.icon(icon, S["LG"], y + (row_h - 14) / 2, 14,
                 c["accent"] if active else c["textMuted"])
         cv.text(S["LG"] + 14 + S["MD"], y + row_h / 2, label, T["SMALL"],

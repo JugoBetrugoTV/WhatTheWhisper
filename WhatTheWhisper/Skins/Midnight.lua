@@ -1,89 +1,90 @@
--- WhatTheWhisper -- Midnight: the default skin, and the one the design is for.
+-- WhatTheWhisper -- Midnight: iOS Dark, and the skin the design is drawn for.
 --
--- Dark, but not black, and nowhere near neon. The whole palette is built from
--- one family of desaturated blue-greys with a deliberately small step between
--- each layer: window, sidebar, thread, raised. You should be able to see that
--- the sidebar is a different surface from the thread beside it, and you should
--- have to look to see it. That restraint is most of what separates a calm
--- application from a game panel.
+-- Apple's own system colours, by their own names and their own values. Using the
+-- real numbers rather than numbers near them is most of the difference between
+-- "iOS-ish" and iOS: these are the greys and blues a player has been looking at
+-- on a phone every day for years, and the eye notices when they are almost right.
 --
--- The accent is used sparingly and never at full saturation. It marks the
--- outgoing bubble, the send button and the unread badge, and nothing else --
--- a dark interface with bright blue sprinkled through it reads as a gamer UI no
--- matter how good the spacing is.
+--   systemBackground            #000000
+--   secondarySystemBackground   #1C1C1E     (systemGray6)
+--   tertiarySystemBackground    #2C2C2E     (systemGray5)
+--   systemGray4 / 3 / 2         #3A3A3C  #48484A  #636366
+--   label                       #FFFFFF
+--   secondary / tertiary label  #EBEBF5 at 60% / 30%
+--   opaqueSeparator             #38383A
+--   systemBlue / Green / Red    #0A84FF  #30D158  #FF453A
+--
+-- The thread is pure black and the sidebar is one step off it, which is how
+-- Messages is built on an iPad: the conversation is the deepest surface and
+-- everything else sits above it.
 local _, ns = ...
 
 ns.Skins.Register("midnight", {
 	name = "Midnight",
-	description = "Layered blue-grey with a muted indigo accent.",
+	description = "iOS Dark: Apple's system greys with systemBlue.",
 	metrics = { sortIndex = 10 },
 	colors = {
-		-- The four surfaces, darkest to lightest. Each step is about 3% of
-		-- lightness: enough to separate, not enough to draw a line.
-		bg0            = "#0F1216",   -- the window plate, behind everything
-		bg1            = "#14181D",   -- the sidebar
-		bg2            = "#181D23",   -- the thread, which is the largest area
-		bg3            = "#212831",   -- raised: menus, cards, the search field
+		bg0            = "#000000",   -- the window plate
+		bg1            = "#1C1C1E",   -- the sidebar
+		bg2            = "#000000",   -- the thread, the way Messages does it
+		bg3            = "#1C1C1E",   -- raised: menus, grouped lists, cards
 
-		-- The header and the composer sit a half-step below the thread so the
-		-- thread is the brightest thing on screen without a border saying so.
-		headerBg       = "#14181D",
-		composerBg     = "#14181D",
-		inputBg        = "#232A34",
+		-- The navigation bar and the composer's strip. The composer shares the
+		-- thread's black on purpose: in Messages the field floats on the
+		-- conversation rather than sitting in a bar of its own.
+		headerBg       = "#1C1C1E",
+		composerBg     = "#000000",
+		inputBg        = "#2C2C2E",
 
-		-- Interaction is a change in the surface, never an outline.
-		--
-		-- Hover can be faint: the cursor is already there and the eye is already
-		-- looking. Selected cannot -- it is how you know which conversation you
-		-- are in, read from across the window, and with no marker bar beside the
-		-- row any more it is the only thing saying so. 0.12 clears the
-		-- perceptibility floor on every surface with room to spare.
-		hover          = { "#FFFFFF", 0.055 },
-		selected       = { "#FFFFFF", 0.12 },
-		pressed        = { "#FFFFFF", 0.17 },
+		-- Interaction is a change of surface, never an outline. The values are
+		-- picked so the *selected* row clears the perceptibility floor against
+		-- both the sidebar and a raised panel: it is the only thing saying which
+		-- conversation you are in.
+		hover          = { "#FFFFFF", 0.06 },
+		selected       = { "#FFFFFF", 0.13 },
+		pressed        = { "#FFFFFF", 0.18 },
 
-		-- Separators exist to be found, not seen. borderStrong is only for the
-		-- few places that genuinely need an edge, like a focused field.
-		borderSubtle   = { "#FFFFFF", 0.055 },
-		borderStrong   = { "#FFFFFF", 0.12 },
+		-- iOS separators, which are lighter than most people expect and still
+		-- almost invisible until you look for one.
+		borderSubtle   = { "#FFFFFF", 0.09 },
+		borderStrong   = { "#FFFFFF", 0.16 },
 
-		-- Desaturated indigo. The old accent was a 96% saturated blue that
-		-- announced itself from across the screen; this one is the same hue with
-		-- the volume down, and it still carries the send button perfectly well.
-		accent         = "#5C7AE6",
-		accentHover    = "#6D89F0",
-		accentActive   = "#4C68CC",
+		accent         = "#0A84FF",   -- systemBlue, dark
+		accentHover    = "#3D9BFF",
+		accentActive   = "#0768CC",
 		onAccent       = "#FFFFFF",
 
-		-- Four levels, and the gaps between them are what the hierarchy is made
-		-- of: a name, a message, a preview and a timestamp should be
-		-- distinguishable with the text blurred out.
-		textPrimary    = "#E9EDF3",
-		textSecondary  = "#9AA4B2",
-		textMuted      = "#6E7887",
-		textDisabled   = "#464E59",
+		-- Apple's label ramp. Not four greys: one colour at four opacities,
+		-- which is why secondary text sits in the same family as primary instead
+		-- of looking like a different decision.
+		textPrimary    = "#FFFFFF",
+		textSecondary  = { "#EBEBF5", 0.60 },
+		textMuted      = { "#EBEBF5", 0.40 },
+		textDisabled   = { "#EBEBF5", 0.25 },
 
-		-- The incoming bubble is a surface, a step above the thread it sits on
-		-- and nothing more. The outgoing one carries the accent, but muted far
-		-- past the button version: it is a large area of colour that a long
-		-- conversation is read through, and at full strength it is exhausting.
-		bubbleIn       = "#303845",
-		bubbleInText   = "#E6EAF1",
-		bubbleOut      = "#33487E",
-		bubbleOutText  = "#EAEFFA",
+		-- iMessage. The incoming bubble is systemGray5, a step off the black
+		-- thread and nothing more. The outgoing one is blue -- but a little
+		-- deeper than systemBlue, because white on #0A84FF measures 3.65:1 and
+		-- message text is the thing in this addon most likely to be read at two
+		-- in the morning. #0A6FD8 is the same blue with the readability, at
+		-- 4.91:1, and beside the send button nobody can tell them apart.
+		bubbleIn       = "#2C2C2E",
+		bubbleInText   = "#FFFFFF",
+		bubbleOut      = "#0A6FD8",
+		bubbleOutText  = "#FFFFFF",
 
-		success        = "#43B581",
-		danger         = "#E05A5F",
-		warning        = "#D9A441",
+		success        = "#30D158",   -- systemGreen
+		danger         = "#FF453A",   -- systemRed
+		warning        = "#FF9F0A",   -- systemOrange
 
-		online         = "#43B581",
-		away           = "#D9A441",
-		busy           = "#E05A5F",
+		online         = "#30D158",
+		away           = "#FF9F0A",
+		busy           = "#FF453A",
 
-		link           = "#7D9BF5",
-		scrim          = { "#000000", 0.58 },
-		shadow         = { "#000000", 0.50 },
-		scrollbar      = { "#FFFFFF", 0.15 },
-		focusRing      = "#5C7AE6",
+		link           = "#0A84FF",
+		scrim          = { "#000000", 0.60 },
+		shadow         = { "#000000", 0.55 },
+		scrollbar      = { "#EBEBF5", 0.18 },
+		focusRing      = "#0A84FF",
 	},
 })

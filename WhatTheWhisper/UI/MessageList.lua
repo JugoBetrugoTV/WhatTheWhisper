@@ -5,9 +5,9 @@
 -- Ten messages and ten thousand messages cost the same number of frames.
 --
 -- Layout elements, in the order they appear:
---   sep     a date separator
---   header  a group header (avatar + name + time, or just the time for your own)
---   bubble  one message
+--   sep      a centred time marker, speaking for everything under it
+--   bubble   one message
+--   receipt  the delivery state of the newest message you sent
 --
 -- Grouping follows DESIGN.md §4.3: same sender, same kind, within GROUP_WINDOW.
 
@@ -22,12 +22,19 @@ ns.MessageList = MessageList
 local MSG_TS, MSG_DIR, MSG_KIND, MSG_STATUS =
 	ns.MSG_TS, ns.MSG_DIR, ns.MSG_KIND, ns.MSG_STATUS
 
-local max, min, floor, abs = math.max, math.min, math.floor, math.abs
+local max, min, floor, ceil, abs = math.max, math.min, math.floor, math.ceil, math.abs
 
--- The date pill's row: the label's own line plus padding above and below it.
-local SEP_H = ns.T.MICRO + ns.S.MD
 local AVATAR = ns.SZ.AVATAR_SM
 local AVATAR_GAP = ns.S.SM
+
+-- The delivery states worth a line of their own, in the words Messages uses for
+-- them. The mark before the word is ours: one check on its way, two when the
+-- server has echoed it back, and a clear failure when it has not.
+local RECEIPT = {
+	[ns.SEND_PENDING] = { icon = "sent", label = "Sending", role = "textMuted", alpha = 0.75 },
+	[ns.SEND_OK] = { icon = "delivered", label = "Delivered", role = "textMuted", alpha = 1 },
+	[ns.SEND_FAILED] = { icon = "failed", label = "Not delivered", role = "danger", alpha = 1 },
+}
 
 -- Rendered text and measured geometry, keyed by the message table itself so it
 -- is collected with the message.
@@ -42,43 +49,33 @@ end
 -- Measurement
 --------------------------------------------------------------------------------
 
--- The time, and for an outgoing message the delivery mark after it, tucked into
--- the bottom right corner of the bubble.
---
--- This is the single detail that most decides whether a thread reads as a
--- messenger or as a chat log. The alternative -- a timestamp on a line above
--- each group, and a tick floating in the margin outside the bubble -- is what a
--- log looks like, and it is what this used to be.
---
--- The width is deliberately not a function of the delivery state. Every state
--- has a mark, so reserving the same room for all of them keeps the bubble from
--- resizing under the player when a message goes from sending to sent, and keeps
--- the measurement cache from needing to know about delivery at all.
-local function metaText(msg)
-	if not ns.db.profile.appearance.timestamps then return "" end
-	return Format.Clock(msg[MSG_TS])
-end
-
--- Both dimensions, measured rather than assumed. A font's point size is not the
--- height of a line set in it -- it is smaller, by an amount that varies with the
--- face -- and reserving the point size left the last line of a wrapped message
--- overlapping its own timestamp by exactly that difference.
-local function metaSize(msg, text)
-	local width, height = 0, 0
-	if text ~= "" then
+-- One line set in the micro face, measured rather than assumed. A font's point
+-- size is not the height of a line set in it -- it is smaller, by an amount that
+-- varies with the face -- and both of the one-line elements in the thread, the
+-- time marker and the receipt, are laid out from this number before either of
+-- them exists as a frame.
+local microLine, microLineStamp = 0, -1
+local function microLineHeight()
+	if microLineStamp ~= metricsStamp then
 		local fs = Theme.Measure("MICRO")
 		fs:SetWordWrap(false)
 		fs:SetWidth(0)
-		fs:SetText(text)
-		width = fs:GetStringWidth() or 0
-		height = fs:GetStringHeight() or Theme.FontSize("MICRO")
+		fs:SetText("Ag")
+		microLine = fs:GetStringHeight() or Theme.FontSize("MICRO")
+		microLineStamp = metricsStamp
 	end
-	if msg[MSG_DIR] == ns.DIR_OUT and ns.db.profile.messages.deliveryStatus then
-		if width > 0 then width = width + ns.SZ.BUBBLE_META_TIGHT end
-		width = width + ns.SZ.STATUS_ICON_W
-		height = max(height, ns.SZ.STATUS_ICON)
-	end
-	return width, height
+	return microLine
+end
+
+-- A centred time marker is its own line and nothing else: no pill, no rule, no
+-- box. A pill around a date is a chip, and a chip is a thing you can press.
+local function separatorHeight()
+	return ceil(microLineHeight())
+end
+
+-- The receipt sets a word beside a mark, so it is as tall as the taller of them.
+local function receiptHeight()
+	return max(ceil(microLineHeight()), ns.SZ.STATUS_ICON)
 end
 
 local function measure(msg, maxContentW)
@@ -92,9 +89,6 @@ local function measure(msg, maxContentW)
 	local processed = ns.URLs.Process(raw)
 	processed = ns.Emoticons.Process(processed, Theme.FontSize("BODY"))
 
-	local meta = metaText(msg)
-	local metaW, metaH = metaSize(msg, meta)
-
 	local fs = Theme.Measure("BODY")
 	fs:SetWordWrap(true)
 	if fs.SetNonSpaceWrap then fs:SetNonSpaceWrap(true) end
@@ -102,38 +96,16 @@ local function measure(msg, maxContentW)
 	fs:SetText(processed)
 	local natural = fs:GetStringWidth() or 0
 
-	-- Two shapes, and which one a message gets is decided by whether the time
-	-- still fits beside it.
-	--
-	-- Short message: the time sits on the same line, after the last word, and
-	-- the bubble is wide enough for both. This is the shape almost every
-	-- whisper takes, and it is the one worth getting right.
-	--
-	-- Long message: the text has already used the full width, so the time drops
-	-- to its own line under it, right aligned. Which is exactly what a wrapped
-	-- message does in WhatsApp, for the same reason.
-	local inlineRoom = maxContentW - metaW - ns.SZ.BUBBLE_META_GAP
-	local inline = metaW > 0 and natural <= inlineRoom
-	local contentW, textH
-
-	if inline then
-		contentW = max(16, natural)
-		fs:SetWidth(contentW + 1)
-		textH = fs:GetStringHeight() or Theme.FontSize("BODY")
-	else
-		contentW = min(maxContentW, max(16, natural))
-		fs:SetWidth(contentW + (natural <= contentW and 1 or 0))
-		textH = fs:GetStringHeight() or Theme.FontSize("BODY")
-	end
-
-	local bubbleW, bubbleH
-	if inline then
-		bubbleW = contentW + ns.SZ.BUBBLE_META_GAP + metaW + ns.SZ.BUBBLE_PAD_X * 2
-		bubbleH = textH + ns.SZ.BUBBLE_PAD_Y * 2
-	else
-		bubbleW = max(contentW, metaW) + ns.SZ.BUBBLE_PAD_X * 2
-		bubbleH = textH + metaH + ns.SZ.BUBBLE_PAD_Y * 2
-	end
+	-- One shape. A bubble is its text and the padding around it, and nothing
+	-- else is tucked inside it -- which is the whole of the change from a
+	-- WhatsApp thread to a Messages one. The time moved to a marker above the
+	-- group, the delivery state to a line under the newest message, and what is
+	-- left is the sentence somebody wrote.
+	local contentW = min(maxContentW, max(16, natural))
+	-- The extra pixel is for the exact-fit case: a font string set to precisely
+	-- its own measured width will occasionally wrap its last word.
+	fs:SetWidth(contentW + (natural <= contentW and 1 or 0))
+	local textH = fs:GetStringHeight() or Theme.FontSize("BODY")
 
 	cached = {
 		text = processed,
@@ -144,11 +116,8 @@ local function measure(msg, maxContentW)
 		censored = msg[ns.MSG_CENSORED] == true,
 		contentW = contentW,
 		textH = textH,
-		meta = meta,
-		metaW = metaW,
-		metaInline = inline,
-		bubbleW = bubbleW,
-		bubbleH = bubbleH,
+		bubbleW = contentW + ns.SZ.BUBBLE_PAD_X * 2,
+		bubbleH = textH + ns.SZ.BUBBLE_PAD_Y * 2,
 	}
 	metrics[msg] = cached
 	return cached
@@ -158,17 +127,42 @@ end
 -- Element pools
 --------------------------------------------------------------------------------
 
--- "Today", in a small translucent pill in the middle of the thread. Not a rule
--- across the whole width with a word sitting in a gap in it: that is a document
--- divider, and this is a date stamp.
+-- "Today 9:41", centred, in the middle of the thread with air above and below
+-- it and nothing drawn around it.
+--
+-- Not a pill and not a rule with a word in a gap in it. A pill is a chip and a
+-- chip is something you can press; a rule is a document divider. This is a line
+-- of small grey text that says when the conversation picked up again, which is
+-- what it is and all it is.
+--
+-- Two strings rather than one. Messages sets the day in semibold and the time
+-- in regular beside it, and the game ships no semibold face for most of the
+-- fonts a player can pick -- so the day carries the brighter of the two quiet
+-- greys and the time carries the quieter one. Same read, available typography.
 local function createSeparator(list)
 	local f = CreateFrame("Frame", nil, list.content)
-	f:SetHeight(SEP_H)
-	f.surface = W.Surface(f, { color = "bg3", radius = ns.R.PILL })
-	f.label = W.Text(f, "MICRO", "textSecondary")
+	f.day = W.Text(f, "MICRO", "textSecondary")
+	f.day:ClearAllPoints()
+	f.day:SetJustifyH("LEFT")
+	f.day:SetWordWrap(false)
+	f.clock = W.Text(f, "MICRO", "textMuted")
+	f.clock:ClearAllPoints()
+	f.clock:SetJustifyH("LEFT")
+	f.clock:SetWordWrap(false)
+	return f
+end
+
+-- "Delivered", under the newest message you sent, right aligned to its edge.
+local function createReceipt(list)
+	local f = CreateFrame("Frame", nil, list.content)
+	f.mark = f:CreateTexture(nil, "ARTWORK")
+	f.mark:SetSize(ns.SZ.STATUS_ICON, ns.SZ.STATUS_ICON)
+	f.mark:SetPoint("LEFT", f, "LEFT", 0, 0)
+	f.label = W.Text(f, "MICRO", "textMuted")
 	f.label:ClearAllPoints()
-	f.label:SetPoint("CENTER", f, "CENTER", 0, 0)
-	f.label:SetJustifyH("CENTER")
+	f.label:SetPoint("LEFT", f.mark, "RIGHT", ns.SZ.RECEIPT_ICON_GAP, 0)
+	f.label:SetJustifyH("LEFT")
+	f.label:SetWordWrap(false)
 	return f
 end
 
@@ -187,18 +181,18 @@ local function createBubble(list)
 	f.avatar:SetPoint("TOPRIGHT", f, "TOPLEFT", -AVATAR_GAP, 0)
 	f.avatar:Hide()
 
-	-- The time, inside the bubble, bottom right. Not a hover affordance and not
-	-- a header above the group: it is simply part of the message, the way it is
-	-- in every messenger the last fifteen years.
+	-- The time a single message was said, on hover, outside the bubble. With the
+	-- markers switched off it is the only way left to find out, and it is what
+	-- the drag-left gesture shows in Messages.
 	f.stamp = W.Text(f, "MICRO", "textMuted")
 	f.stamp:SetJustifyH("RIGHT")
-	-- Bottom, not middle: it is anchored to the bubble's lower edge on purpose,
-	-- and calling it centred would be describing a different layout.
-	f.stamp:SetJustifyV("BOTTOM")
+	f.stamp:SetWordWrap(false)
 	f.stamp:Hide()
 
+	-- The mark beside a message that did not go. Outside the bubble: nothing is
+	-- tucked inside one any more.
 	f.status = f:CreateTexture(nil, "OVERLAY")
-	f.status:SetSize(ns.SZ.STATUS_ICON_W, ns.SZ.STATUS_ICON)
+	f.status:SetSize(ns.SZ.STATUS_ICON, ns.SZ.STATUS_ICON)
 	f.status:Hide()
 
 	f:EnableMouse(true)
@@ -234,6 +228,7 @@ local function resetElement(_, f)
 	if f.avatar then f.avatar:Hide() end
 	if f.status then f.status:Hide() end
 	if f.stamp then f.stamp:Hide() end
+	if f.mark then f.mark:Hide() end
 	-- Drop every reference: a pooled bubble holding the last pointer to a
 	-- message would keep it alive after the thread was cleared.
 	f.entry = nil
@@ -259,6 +254,7 @@ function MessageList.New(parent)
 
 	list.sepPool = Pool.New(function() return createSeparator(list) end, resetElement, "list.separator")
 	list.bubblePool = Pool.New(function() return createBubble(list) end, resetElement, "list.bubble")
+	list.receiptPool = Pool.New(function() return createReceipt(list) end, resetElement, "list.receipt")
 	list.visible = {}
 
 	list.OnScrollChanged = function(self)
@@ -323,6 +319,23 @@ local function startsNewGroup(prev, msg)
 	return false
 end
 
+-- What a time marker above `msg` would be able to say, given the two timestamp
+-- settings. Both of them mean exactly what their labels say and neither is a
+-- proxy for the other: "show timestamps" puts a clock in the thread, "show date
+-- separators" puts a day in it, and a marker is only worth a line when at least
+-- one of them has something to contribute.
+local function stampParts(prev, msg)
+	local ap = ns.db.profile.appearance
+	local newDay = not prev or not Format.IsSameDay(prev[MSG_TS] or 0, msg[MSG_TS] or 0)
+	-- Long enough since the last message that the conversation reads as having
+	-- been picked up again rather than continued.
+	local resumed = newDay or
+		((msg[MSG_TS] or 0) - (prev[MSG_TS] or 0)) > ns.STAMP_WINDOW
+	local wantsDay = newDay and ap.dateSeparators == true
+	local wantsClock = resumed and ap.timestamps == true
+	return newDay, (wantsDay or wantsClock), wantsDay, wantsClock
+end
+
 -- Appends the elements for message `index` to the layout array.
 function ML:AppendEntries(index, maxContentW)
 	local conv = self.conv
@@ -331,16 +344,20 @@ function ML:AppendEntries(index, maxContentW)
 	if not msg then return end
 	local prev = messages[index - 1]
 	local layout = self.layout
-	local ap = ns.db.profile.appearance
+
+	-- The receipt always trails the thread, so it is lifted off the end before
+	-- anything is appended under it and put back afterwards. Appending a message
+	-- underneath it and leaving it where it was would have it describing a
+	-- message it is no longer beside.
+	self:DropReceipt()
 
 	local newGroup = startsNewGroup(prev, msg)
-	local newDay = ap.dateSeparators and
-		(not prev or not Format.IsSameDay(prev[MSG_TS] or 0, msg[MSG_TS] or 0))
+	local newDay, wantsSep, wantsDay, wantsClock = stampParts(prev, msg)
 
 	local y = self.totalHeight
 	if #layout == 0 then
 		y = ns.SZ.LIST_PAD_Y
-	elseif newDay then
+	elseif wantsSep then
 		y = y + Theme.MessageSpacing(ns.SZ.MSG_GAP_DATE)
 	elseif newGroup then
 		y = y + Theme.MessageSpacing(ns.SZ.MSG_GAP_GROUP)
@@ -348,9 +365,13 @@ function ML:AppendEntries(index, maxContentW)
 		y = y + ns.SZ.MSG_GAP_TIGHT
 	end
 
-	if newDay then
-		layout[#layout + 1] = { kind = "sep", y = y, h = SEP_H, ts = msg[MSG_TS] }
-		y = y + SEP_H + Theme.MessageSpacing(ns.S.MD)
+	if wantsSep then
+		local h = separatorHeight()
+		layout[#layout + 1] = {
+			kind = "sep", y = y, h = h, ts = msg[MSG_TS],
+			withDay = wantsDay, withClock = wantsClock,
+		}
+		y = y + h + Theme.MessageSpacing(ns.S.MD)
 	end
 
 	-- A bubble learns it was the last of its group from the one after it, so the
@@ -359,7 +380,7 @@ function ML:AppendEntries(index, maxContentW)
 	-- true, and stops being true at the moment the correction is made.
 	local previousBubble = self.lastBubbleEntry
 	if previousBubble then
-		previousBubble.groupEnd = newGroup or newDay
+		previousBubble.groupEnd = newGroup or wantsSep or newDay
 	end
 
 	local m = measure(msg, maxContentW)
@@ -370,6 +391,52 @@ function ML:AppendEntries(index, maxContentW)
 	layout[#layout + 1] = entry
 	self.lastBubbleEntry = entry
 	self.totalHeight = y + m.bubbleH
+
+	self:AppendReceipt()
+end
+
+--------------------------------------------------------------------------------
+-- The receipt
+--------------------------------------------------------------------------------
+
+-- Messages names the delivery state once, under the newest message you sent,
+-- rather than marking every bubble. That reads better, and it is also the more
+-- honest of the two: anything further back was either answered -- which is proof
+-- it arrived -- or is still the last thing anybody said, in which case it is the
+-- one this line is about.
+--
+-- A message that actually failed keeps its own mark for as long as it is in the
+-- thread; see RenderBubble. This line is about the newest one only.
+function ML:DropReceipt()
+	local layout = self.layout
+	if layout[#layout] and layout[#layout].kind == "receipt" then
+		layout[#layout] = nil
+		self.totalHeight = self.heightBeforeReceipt or self.totalHeight
+	end
+	self.receiptEntry = nil
+end
+
+function ML:AppendReceipt()
+	self.heightBeforeReceipt = self.totalHeight
+	self.receiptEntry = nil
+	if not ns.db.profile.messages.deliveryStatus then return end
+
+	local entry = self.lastBubbleEntry
+	if not entry or entry.dir ~= ns.DIR_OUT then return end
+	local conv = self.conv
+	local msg = conv and conv.messages[entry.index]
+	local status = msg and msg[MSG_STATUS]
+	if not status or not RECEIPT[status] then return end
+
+	local y = self.totalHeight + ns.SZ.RECEIPT_GAP
+	local h = receiptHeight()
+	local receipt = {
+		kind = "receipt", y = y, h = h, index = entry.index,
+		dir = ns.DIR_OUT, status = status,
+	}
+	self.layout[#self.layout + 1] = receipt
+	self.receiptEntry = receipt
+	self.totalHeight = y + h
 end
 
 function ML:Rebuild(keepPosition)
@@ -379,6 +446,8 @@ function ML:Rebuild(keepPosition)
 	wipe(self.layout)
 	self.totalHeight = 0
 	self.lastBubbleEntry = nil
+	self.receiptEntry = nil
+	self.heightBeforeReceipt = nil
 	self.rangeFirst, self.rangeLast = nil, nil
 
 	local conv = self.conv
@@ -430,7 +499,8 @@ end
 
 -- Anchoring is identical for all three element kinds, which is what lets a
 -- scroll that does not change the visible range skip re-rendering entirely and
--- just move what is already there.
+-- just move what is already there. The receipt carries the outgoing direction
+-- so that it lands on the same right edge as the bubble it speaks for.
 function ML:PositionElement(f, entry)
 	local shift = self:ContentShift()
 	local pad = ns.SZ.LIST_PAD_X
@@ -448,7 +518,7 @@ function ML:PositionElement(f, entry)
 end
 
 function ML:RepositionVisible()
-	local pools = { self.sepPool, self.bubblePool }
+	local pools = { self.sepPool, self.bubblePool, self.receiptPool }
 	for i = 1, #pools do
 		for f in pools[i]:EnumerateActive() do
 			if f.entry then self:PositionElement(f, f.entry) end
@@ -463,31 +533,63 @@ local function bubbleColors(dir)
 	return "bubbleIn", "bubbleInText"
 end
 
+-- The day and the time are read at render time, not stored on the entry: a
+-- thread left open across midnight would otherwise still be saying "Today"
+-- about yesterday.
 function ML:RenderSeparator(entry)
 	local f = self.sepPool:Acquire()
 	f.entry = entry
-	f.label:SetText(Format.DayLabel(entry.ts))
-	-- Wider padding than tall: a pill whose horizontal padding equals its
-	-- vertical one reads as a circle with a word crushed into it.
-	local height = SEP_H - ns.S.SM
-	local width = (f.label:GetStringWidth() or 40) + ns.S.MD * 2
-	f:SetSize(width, height)
+	local day = entry.withDay and Format.DayLabel(entry.ts) or ""
+	local clock = entry.withClock and Format.Clock(entry.ts) or ""
+
+	f.day:SetFontObject(Theme.Font("MICRO"))
+	f.clock:SetFontObject(Theme.Font("MICRO"))
+	f.day:SetText(day)
+	f.clock:SetText(clock)
+	local dayW = day ~= "" and (f.day:GetStringWidth() or 0) or 0
+	local clockW = clock ~= "" and (f.clock:GetStringWidth() or 0) or 0
+	local gap = (dayW > 0 and clockW > 0) and ns.SZ.SEP_WORD_GAP or 0
+
+	f.day:ClearAllPoints()
+	f.clock:ClearAllPoints()
+	f.day:SetPoint("LEFT", f, "LEFT", 0, 0)
+	if dayW > 0 then
+		f.clock:SetPoint("LEFT", f.day, "RIGHT", gap, 0)
+	else
+		f.clock:SetPoint("LEFT", f, "LEFT", 0, 0)
+	end
+	f.day:SetShown(dayW > 0)
+	f.clock:SetShown(clockW > 0)
+
+	f:SetSize(max(16, dayW + gap + clockW), entry.h)
 	self:PositionElement(f, entry)
-	f.surface:SetRadius(height / 2)
-	f.surface:ApplyTheme()
-	f.surface:SetAlphaScale(0.7)
 	f:Show()
 	return f
 end
 
--- Read receipts, in the shape everybody already knows: one mark on its way, two
--- when the server has echoed it back, and a clear failure when it has not. The
--- drawings are ours; the vocabulary is not, and should not be.
-local STATUS_ICON = {
-	[ns.SEND_PENDING] = { icon = "sent", role = "bubbleOutText", alpha = 0.45 },
-	[ns.SEND_OK] = { icon = "delivered", role = "bubbleOutText", alpha = 0.75 },
-	[ns.SEND_FAILED] = { icon = "failed", role = "danger", alpha = 1 },
-}
+function ML:RenderReceipt(entry)
+	local spec = RECEIPT[entry.status]
+	if not spec then return nil end
+	local f = self.receiptPool:Acquire()
+	f.entry = entry
+
+	Draw.SetIcon(f.mark, spec.icon)
+	f.mark:SetSize(ns.SZ.STATUS_ICON, ns.SZ.STATUS_ICON)
+	local c = Theme.Get(spec.role)
+	f.mark:SetVertexColor(c[1], c[2], c[3], spec.alpha)
+	f.mark:Show()
+
+	f.label:SetFontObject(Theme.Font("MICRO"))
+	f.label:SetText(L[spec.label])
+	W.SetTextRole(f.label, spec.role)
+	f.label:SetAlpha(spec.alpha)
+
+	f:SetSize(ns.SZ.STATUS_ICON + ns.SZ.RECEIPT_ICON_GAP
+		+ (f.label:GetStringWidth() or 40), entry.h)
+	self:PositionElement(f, entry)
+	f:Show()
+	return f
+end
 
 function ML:RenderBubble(entry)
 	local conv = self.conv
@@ -503,8 +605,8 @@ function ML:RenderBubble(entry)
 
 	f:SetSize(m.bubbleW, m.bubbleH)
 	-- Both dimensions, not just the width. An unsized font string reports
-	-- whatever the engine last gave it, and the meta row's whole job is to sit
-	-- clear of the text -- which cannot be checked against a height nobody set.
+	-- whatever the engine last gave it, which makes every measurement taken
+	-- against it a measurement of the previous message.
 	f.text:SetWidth(m.contentW + 1)
 	f.text:SetHeight(m.textH)
 	f.text:SetText(m.text)
@@ -554,81 +656,50 @@ function ML:RenderBubble(entry)
 		f.avatar:Hide()
 	end
 
-	-- The meta row, inside the bubble at the bottom right: the time, and after it
-	-- the delivery mark on an outgoing message. Laid out from the right edge
-	-- inwards so the two are always in the same order and can never collide,
-	-- whichever of them is present.
-	--
-	-- `measure` already reserved the room for both, which is why nothing here
-	-- resizes anything: a message going from sending to sent changes the mark
-	-- and not the shape around it.
+	-- A message that did not go keeps a mark of its own for as long as it is in
+	-- the thread, outside the bubble on the inner side. The receipt under the
+	-- newest message only ever speaks for that one, so without this a failure
+	-- four messages back would be silent.
 	local status = msg[MSG_STATUS]
-	local showStatus = entry.dir == ns.DIR_OUT and status
-		and ns.db.profile.messages.deliveryStatus and STATUS_ICON[status] ~= nil
-
-	-- The same inset from the bottom and the right in both bubble shapes. A mark
-	-- that sits three pixels lower on wrapped messages than on short ones is the
-	-- kind of thing nobody can name and everybody can see.
-	local metaBottom = ns.SZ.BUBBLE_PAD_Y
-	local rightEdge = -ns.SZ.BUBBLE_PAD_X
-
-	if showStatus then
-		local spec = STATUS_ICON[status]
-		Draw.SetIcon(f.status, spec.icon)
-		local c = Theme.Get(ap.bubbles and spec.role or "textMuted")
-		f.status:SetVertexColor(c[1], c[2], c[3], spec.alpha)
-		f.status:SetSize(ns.SZ.STATUS_ICON_W, ns.SZ.STATUS_ICON)
+	local failed = entry.dir == ns.DIR_OUT and status == ns.SEND_FAILED
+		and ns.db.profile.messages.deliveryStatus == true
+	if failed then
+		Draw.SetIcon(f.status, "failed")
+		local c = Theme.Get("danger")
+		f.status:SetVertexColor(c[1], c[2], c[3], 1)
+		f.status:SetSize(ns.SZ.STATUS_ICON, ns.SZ.STATUS_ICON)
 		f.status:ClearAllPoints()
-		f.status:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", rightEdge, metaBottom)
+		f.status:SetPoint("RIGHT", f, "LEFT", -ns.S.SM, 0)
 		f.status:Show()
-		rightEdge = rightEdge - ns.SZ.STATUS_ICON_W - ns.SZ.BUBBLE_META_TIGHT
-		if status == ns.SEND_FAILED then
-			-- Two different failures, and the difference matters: one is worth
-			-- retrying later, the other means the name is wrong.
-			local who = ns.ConversationManager.DisplayName(conv)
-			W.SetTooltip(f, L["Not delivered"], conv.notFound
-				and L["There is no character named %s."]:format(who)
-				or L["%s is not online"]:format(who))
-		else
-			W.SetTooltip(f, nil)
-		end
+		-- Two different failures, and the difference matters: one is worth
+		-- retrying later, the other means the name is wrong.
+		local who = ns.ConversationManager.DisplayName(conv)
+		W.SetTooltip(f, L["Not delivered"], conv.notFound
+			and L["There is no character named %s."]:format(who)
+			or L["%s is not online"]:format(who))
 	else
 		f.status:Hide()
 		W.SetTooltip(f, nil)
 	end
 
-	-- With times switched off there is no meta row to tuck anything into, so the
-	-- hover timestamp earns its keep again: it is the only way left to find out
-	-- when something was said. It hangs outside the bubble, on the outer side,
-	-- because no room was reserved for it inside one.
-	f.showStamp = m.meta == "" and ap.hoverTimestamp and ap.timestamps ~= true
+	-- With the markers switched off, nothing in the thread says when anything
+	-- was said, so the hover time is the only way left to find out. It hangs
+	-- outside the bubble on the outer side -- and clear of the failure mark,
+	-- which is already parked there.
+	f.showStamp = ap.hoverTimestamp == true and ap.timestamps ~= true
 	if f.showStamp then
+		f.stamp:SetFontObject(Theme.Font("MICRO"))
 		f.stamp:SetText(Format.Clock(msg[MSG_TS]))
 		W.SetTextRole(f.stamp, "textMuted")
 		f.stamp:ClearAllPoints()
 		if entry.dir == ns.DIR_OUT then
-			f.stamp:SetPoint("RIGHT", f, "LEFT", -ns.S.SM, 0)
+			local clearance = failed and (ns.SZ.STATUS_ICON + ns.S.XS) or 0
+			f.stamp:SetPoint("RIGHT", f, "LEFT", -(ns.S.SM + clearance), 0)
 		else
 			f.stamp:SetPoint("LEFT", f, "RIGHT", ns.S.SM, 0)
 		end
 		f.stamp:SetAlpha(0)
 		f.stamp:Hide()
-	elseif m.meta ~= "" then
-		f.stamp:SetText(m.meta)
-		-- Quiet, but part of the bubble rather than floating outside it, so it
-		-- takes the bubble's own text colour dimmed rather than the panel's
-		-- muted grey -- which on the accent-coloured outgoing bubble would be
-		-- close to unreadable.
-		local role = ap.bubbles
-			and (entry.dir == ns.DIR_OUT and "bubbleOutText" or "bubbleInText")
-			or "textMuted"
-		local c = Theme.Get(role)
-		f.stamp:SetTextColor(c[1], c[2], c[3], 0.6)
-		f.stamp.__wtwRole = role
-		f.stamp:ClearAllPoints()
-		f.stamp:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", rightEdge, metaBottom)
-		f.stamp:SetAlpha(1)
-		f.stamp:Show()
 	else
 		f.stamp:Hide()
 	end
@@ -658,6 +729,7 @@ function ML:UpdateVisible()
 	if not self.conv or #layout == 0 then
 		self.sepPool:ReleaseAll()
 		self.bubblePool:ReleaseAll()
+		self.receiptPool:ReleaseAll()
 		self.pushDown = 0
 		self.rangeFirst, self.rangeLast = nil, nil
 		return
@@ -690,11 +762,14 @@ function ML:UpdateVisible()
 
 	self.sepPool:ReleaseAll()
 	self.bubblePool:ReleaseAll()
+	self.receiptPool:ReleaseAll()
 
 	for i = first, last do
 		local entry = layout[i]
 		if entry.kind == "sep" then
 			self:RenderSeparator(entry)
+		elseif entry.kind == "receipt" then
+			self:RenderReceipt(entry)
 		else
 			self:RenderBubble(entry)
 		end
@@ -761,6 +836,23 @@ end
 
 function ML:OnMessageUpdated(conv, msg)
 	if conv ~= self.conv then return end
+
+	-- A delivery state changing on the newest message is a change to the line
+	-- under it as well as to the bubble, and the line can appear or disappear --
+	-- so the tail of the layout is rebuilt rather than patched.
+	local messages = conv.messages
+	if messages[#messages] == msg and msg[MSG_DIR] == ns.DIR_OUT then
+		local had = self.receiptEntry ~= nil
+		self:DropReceipt()
+		self:AppendReceipt()
+		if had or self.receiptEntry then
+			self:SetContentHeight(self.totalHeight + ns.SZ.LIST_PAD_Y, false)
+			self.rangeFirst, self.rangeLast = nil, nil
+			self:UpdateVisible()
+			return
+		end
+	end
+
 	for f in self.bubblePool:EnumerateActive() do
 		if f.msg == msg then
 			self:RenderBubbleInPlace(f)
@@ -936,14 +1028,17 @@ function ML:ApplyTheme()
 		for _, element in ipairs(pool.free) do fn(element) end
 	end
 	refresh(self.sepPool, function(f)
-		f.surface:ApplyTheme()
-		W.RefreshText(f.label)
+		W.RefreshText(f.day)
+		W.RefreshText(f.clock)
 	end)
 	refresh(self.bubblePool, function(f)
 		f.surface:ApplyTheme()
 		W.RefreshText(f.text)
 		W.RefreshText(f.stamp)
 		f.avatar:ApplyTheme()
+	end)
+	refresh(self.receiptPool, function(f)
+		W.RefreshText(f.label)
 	end)
 
 	MessageList.InvalidateMetrics()

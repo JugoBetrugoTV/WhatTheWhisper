@@ -132,7 +132,7 @@ local function createRow(panel)
 	row.label:SetWordWrap(false)
 	-- The label is the quiet half of the pair and the value is the half
 	-- somebody opened the panel to read, so they are not the same size.
-	row.value = W.Text(row, "SMALL", "textSecondary")
+	row.value = W.Text(row, "SUBHEAD", "textSecondary")
 	row.value:ClearAllPoints()
 	row.value:SetPoint("RIGHT", row, "RIGHT", 0, 0)
 	row.value:SetJustifyH("LEFT")

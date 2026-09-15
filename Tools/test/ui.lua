@@ -75,6 +75,13 @@ whisper("kommst du?", "Sylvanas", "G-SYLV")
 ns.UI.Show()
 local thrall = ns.Compat.NormalizeName("Thrall")
 CM.Select(thrall)
+-- A message that did not go, with more written after it. The delivery state of
+-- the newest message is one line under the thread; a failure further back has
+-- only its own mark, and that mark has to survive being buried.
+CM.SendMessage(thrall, "are you getting these?")
+M.RunTimers(1)
+M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Thrall' is currently playing.")
+M.RunTimers(1)
 CM.SendMessage(thrall, "on my way")
 CM.SendMessage(thrall, "this one is a good deal longer, long enough to wrap onto a "
 	.. "second line inside the bubble so the padding is measured on a multi-line body")
@@ -524,67 +531,152 @@ do
 	end
 end
 
--- The meta row: a time, and on an outgoing message a delivery mark after it,
--- tucked into the bottom right corner of the bubble itself. This is what makes a
--- thread read as a messenger rather than as a log, so it is worth measuring
--- rather than eyeballing.
+-- The thread, in the shape Messages gives one. A bubble holds its text and the
+-- padding around it and nothing else: the time is a centred marker above the
+-- group it speaks for, the delivery state is one line under the newest message
+-- you sent, and a message that did not go keeps a mark outside its bubble.
 --
--- Three things have to hold. It is inside the bubble. It does not overlap the
--- message text. And it is in the same place on every bubble -- a mark that sits
--- at a different inset on each message reads as debris.
+-- That division is the whole difference between a conversation and a chat log,
+-- so every part of it is measured rather than eyeballed.
 -- rect() is (left, bottom, width, height, right, top): WoW's y grows upward, so
 -- "bottom" is the low edge and "top" the high one.
-local metas = {}
+local lastOutgoing
 for i = 1, #bubbles do
 	local b = bubbles[i]
-	local bl, bb, _, _, br, btop = rect(b)
-	local mark = b.status and M.EffectivelyShown(b.status, window) and b.status
-	local stamp = b.stamp and M.EffectivelyShown(b.stamp, window) and b.stamp
+	local bl, _, _, _, br = rect(b)
 
+	check("no bubble carries a time inside it",
+		not (b.stamp and M.EffectivelyShown(b.stamp, window)), describe(b))
+
+	local mark = b.status and M.EffectivelyShown(b.status, window) and b.status
 	if mark then
 		local ml, mb, _, _, mr, mtop = rect(mark)
-		check("the delivery mark is inside its bubble",
-			ml >= bl - EPS and mr <= br + EPS and mb >= bb - EPS and mtop <= btop + EPS,
-			("mark x %.1f..%.1f y %.1f..%.1f in bubble x %.1f..%.1f y %.1f..%.1f")
-				:format(ml, mr, mb, mtop, bl, br, bb, btop))
-		metas[#metas + 1] = { right = br - mr, bottom = mb - bb }
+		check("a failure mark hangs beside its bubble, never inside it",
+			mr <= bl + EPS or ml >= br - EPS,
+			("mark x %.1f..%.1f, bubble x %.1f..%.1f"):format(ml, mr, bl, br))
+		-- Beside, not above or below it: a mark floating off the message's line
+		-- reads as belonging to the one under it.
+		local _, bb, _, _, _, btop = rect(b)
+		check("and on the same line as the message it marks",
+			mtop <= btop + EPS and mb >= bb - EPS,
+			("mark y %.1f..%.1f, bubble y %.1f..%.1f"):format(mb, mtop, bb, btop))
 	end
 
-	if stamp and mark then
-		check("the time sits before the delivery mark, not on top of it",
-			select(5, rect(stamp)) <= select(1, rect(mark)) + EPS,
-			("time ends %.1f, mark starts %.1f"):format(
-				select(5, rect(stamp)), select(1, rect(mark))))
-	end
-
-	-- The whole reason `measure` reserves room for the meta row: without it the
-	-- last words of a message would run underneath the time. Clear means either
-	-- beside it, or entirely above it.
-	if stamp and b.text then
-		local textRight, textBottom = select(5, rect(b.text)), select(2, rect(b.text))
-		local stampLeft, stampTop = select(1, rect(stamp)), select(6, rect(stamp))
-		check("the message text never runs under its own timestamp",
-			textRight <= stampLeft + EPS or textBottom >= stampTop - EPS,
-			("text right %.1f bottom %.1f, stamp left %.1f top %.1f"):format(
-				textRight, textBottom, stampLeft, stampTop))
+	if b.entry and b.msg and b.msg[ns.MSG_DIR] == ns.DIR_OUT then
+		if not lastOutgoing or b.entry.index > lastOutgoing.entry.index then
+			lastOutgoing = b
+		end
 	end
 end
 
-check("outgoing messages carry a delivery mark", #metas > 0)
-if #metas > 1 then
-	local sameRight, sameBottom = true, true
-	for i = 2, #metas do
-		if math.abs(metas[i].right - metas[1].right) > EPS then sameRight = false end
-		if math.abs(metas[i].bottom - metas[1].bottom) > EPS then sameBottom = false end
-	end
-	check("every delivery mark sits at the same inset from the right",
-		sameRight, ("%.2f vs %.2f"):format(metas[#metas].right, metas[1].right))
-	check("and at the same height from the bottom",
-		sameBottom, ("%.2f vs %.2f"):format(metas[#metas].bottom, metas[1].bottom))
-	check("the mark is inset by the bubble's own padding",
-		math.abs(metas[1].right - ns.SZ.BUBBLE_PAD_X) < 1.01,
-		("%.2f, want %d"):format(metas[1].right, ns.SZ.BUBBLE_PAD_X))
+check("a message in the thread did not go, so the failure mark was measured",
+	(function()
+		for i = 1, #bubbles do
+			if bubbles[i].status and M.EffectivelyShown(bubbles[i].status, window) then
+				return true
+			end
+		end
+		return false
+	end)())
+
+-- The receipt: one line, under the newest message you sent, right aligned to its
+-- edge. Once in the thread and never more -- a delivery state on every bubble is
+-- what this replaced.
+local receipts = {}
+for f in list.receiptPool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then receipts[#receipts + 1] = f end
 end
+eq("the thread names its delivery state exactly once", #receipts, 1)
+
+if receipts[1] and lastOutgoing then
+	local rl, rb, _, _, rr, rtop = rect(receipts[1])
+	local _, bb, _, _, br = rect(lastOutgoing)
+	check("the receipt ends on the edge of the message it speaks for",
+		math.abs(rr - br) <= EPS, ("receipt ends %.2f, bubble ends %.2f"):format(rr, br))
+	check("and sits under it, by the named gap",
+		math.abs((bb - rtop) - ns.SZ.RECEIPT_GAP) <= 1.01,
+		("%.2f, want %d"):format(bb - rtop, ns.SZ.RECEIPT_GAP))
+
+	local mark = receipts[1].mark
+	local label = receipts[1].label
+	check("the receipt draws its mark", M.EffectivelyShown(mark, window), describe(receipts[1]))
+	check("and names the state in words", (label._text or "") ~= "", describe(label))
+	if M.EffectivelyShown(mark, window) then
+		local ml, mb, _, mh, mr = rect(mark)
+		local cl, cb, _, ch = rect(label)
+		check("the mark is read before the word", mr <= cl + EPS,
+			("mark ends %.2f, word starts %.2f"):format(mr, cl))
+		check("the mark and the word share a centre line",
+			math.abs((mb + mh / 2) - (cb + ch / 2)) <= EPS,
+			("%.2f vs %.2f"):format(mb + mh / 2, cb + ch / 2))
+		check("and the whole line stays inside its own frame",
+			ml >= rl - EPS and cl >= rl - EPS and rtop >= rb,
+			describe(receipts[1]))
+	end
+
+	for j = 1, #bubbles do
+		local jb, jtop = select(2, rect(bubbles[j])), select(6, rect(bubbles[j]))
+		check("the receipt never overlaps a message",
+			jb >= rtop - EPS or jtop <= rb + EPS,
+			("receipt y %.1f..%.1f, bubble y %.1f..%.1f"):format(rb, rtop, jb, jtop))
+	end
+end
+-- The centred time marker. One line of small grey text with air around it: no
+-- pill, no rule, nothing drawn behind it.
+--
+-- It sits at the head of the thread, which a populated conversation has already
+-- scrolled off the top, so the view goes up to meet it and comes back after.
+list:SetOffset(0, false)
+M.RunFrames(2)
+local separators, topBubbles = {}, {}
+for f in list.sepPool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then separators[#separators + 1] = f end
+end
+for f in list.bubblePool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then topBubbles[#topBubbles + 1] = f end
+end
+check("the thread opens with a time marker", #separators >= 1, tostring(#separators))
+
+for i = 1, #separators do
+	local f = separators[i]
+	local fl, fb, _, _, fr, ftop = rect(f)
+	-- Centred on the thread, allowing for the scrollbar gutter on the right.
+	local vl, _, vw = rect(list.viewport)
+	local wanted = vl + (vw - ns.SZ.SCROLLBAR_HIT) / 2
+	check("the time marker is centred on the thread",
+		math.abs((fl + fr) / 2 - wanted) <= 1.01,
+		("centre %.2f, want %.2f"):format((fl + fr) / 2, wanted))
+
+	local day = f.day and M.EffectivelyShown(f.day, window) and f.day
+	local clock = f.clock and M.EffectivelyShown(f.clock, window) and f.clock
+	check("the marker says something", day ~= nil or clock ~= nil, describe(f))
+	if day and clock then
+		local _, db, _, dh, dr = rect(day)
+		local cl, cb, _, ch = rect(clock)
+		check("the day is read before the time", dr <= cl + EPS,
+			("day ends %.2f, time starts %.2f"):format(dr, cl))
+		check("and the two sit on one line",
+			math.abs((db + dh / 2) - (cb + ch / 2)) <= EPS,
+			("%.2f vs %.2f"):format(db + dh / 2, cb + ch / 2))
+		check("a word apart, not a gap apart",
+			math.abs((cl - dr) - ns.SZ.SEP_WORD_GAP) <= 1.01,
+			("%.2f, want %d"):format(cl - dr, ns.SZ.SEP_WORD_GAP))
+	end
+
+	-- Nothing shares the marker's line. It is a paragraph break, and a bubble
+	-- level with it would read as a caption on that message.
+	for j = 1, #topBubbles do
+		local bb, btop = select(2, rect(topBubbles[j])), select(6, rect(topBubbles[j]))
+		check("nothing else sits on the time marker's line",
+			bb >= ftop - EPS or btop <= fb + EPS,
+			("marker y %.1f..%.1f, bubble y %.1f..%.1f"):format(fb, ftop, bb, btop))
+	end
+end
+
+
+list:ScrollToBottom(false)
+M.RunFrames(2)
+
 
 --------------------------------------------------------------------------------
 -- The rhythm: one spacing scale, one type scale, one set of control sizes
@@ -629,7 +721,7 @@ end
 -- two.
 do
 	local allowed, names = {}, {}
-	for _, token in ipairs({ "MICRO", "SMALL", "BODY", "TITLE", "DISPLAY" }) do
+	for _, token in ipairs({ "MICRO", "SMALL", "SUBHEAD", "BODY", "TITLE", "DISPLAY" }) do
 		allowed[ns.Theme.FontSize(token)] = true
 		names[#names + 1] = ("%s=%d"):format(token, ns.Theme.FontSize(token))
 	end

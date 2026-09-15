@@ -49,7 +49,7 @@ end
 -- Fonts
 --------------------------------------------------------------------------------
 
-local FONT_TOKENS = { "MICRO", "SMALL", "BODY", "TITLE", "DISPLAY" }
+local FONT_TOKENS = { "MICRO", "SMALL", "SUBHEAD", "BODY", "TITLE", "DISPLAY" }
 
 local function buildFonts()
 	local ap = appearance()

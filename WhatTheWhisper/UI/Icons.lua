@@ -175,21 +175,23 @@ Icons.REPLACEABLE = {
 		use = "Invite this player to your group",
 	},
 
-	-- Delivery state beside an outgoing message. The smallest things drawn.
+	-- Delivery state. The smallest things drawn: the first two share a line with
+	-- an 11px word under the newest message you sent, and the third stands alone
+	-- beside a message that did not go.
 	sent = {
 		size = "STATUS_ICON",
 		note = "single check",
-		use = "Delivery: sent, waiting for the server's echo",
+		use = "Delivery line: sent, waiting for the server's echo",
 	},
 	delivered = {
 		size = "STATUS_ICON",
 		note = "two overlapping checks",
-		use = "Delivery: the server echoed it back",
+		use = "Delivery line: the server echoed it back",
 	},
 	failed = {
 		size = "STATUS_ICON",
 		note = "circled exclamation or X",
-		use = "Delivery: it did not go",
+		use = "Delivery: it did not go -- in the line, and beside the message",
 	},
 
 	-- The settings sidebar. One per category, and they are read as a column of

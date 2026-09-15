@@ -98,6 +98,7 @@ local function createRowFrame(parent)
 	-- is h..." is a row nobody can act on -- and at the largest font sizes a
 	-- long name and a wide control genuinely do not fit on one line.
 	row.label:SetWordWrap(true)
+	-- Footnote under a body-sized label, which is the iOS grouped-list pair.
 	row.caption = W.Text(row, "SMALL", "textMuted")
 	row.caption:SetJustifyV("TOP")
 	row.caption:SetWordWrap(true)
@@ -303,7 +304,7 @@ end
 function factories.info(parent)
 	local holder = CreateFrame("Frame", nil, parent)
 	holder:SetSize(CONTROL_W_BASE, ns.SZ.BADGE_H)
-	holder.text = W.Text(holder, "MICRO", "textSecondary")
+	holder.text = W.Text(holder, "SUBHEAD", "textSecondary")
 	holder.text:SetPoint("RIGHT", holder, "RIGHT", 0, 0)
 	holder.text:SetJustifyH("RIGHT")
 	function holder:ApplyTheme() W.RefreshText(holder.text) end

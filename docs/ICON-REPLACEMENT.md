@@ -63,12 +63,12 @@ nothing in this set does.
 | `close.tga` | Close buttons: window, popout, dialogs, clearing a search | 22px | 64 x 64 | yes | 6px | a thin X, equal-armed | not needed | 10 places |
 | `combat.tga` | Settings category: Combat | 22px | 64 x 64 | yes | 6px | shield outline | not needed | 1 place |
 | `copy.tga` | Copy name, copy message, copy URL | 20px | 64 x 64 | yes | 5px | two overlapping rounded squares | not needed | 3 places |
-| `delivered.tga` | Delivery: the server echoed it back | 16px | 64 x 64 | yes | 4px | two overlapping checks | not needed | 1 place |
+| `delivered.tga` | Delivery line: the server echoed it back | 16px | 64 x 64 | yes | 4px | two overlapping checks | not needed | 1 place |
 | `dock.tga` | Put a detached conversation back in the main window | 22px | 64 x 64 | yes | 6px | arrow entering a square | not needed | 2 places |
 | `down.tga` | Next search match, jump-to-latest, and dropdown chevrons | 19px | 64 x 64 | yes | 5px | chevron pointing down | not needed | 3 places |
 | `emoji.tga` | Opens the emoji picker, left of the composer field | 22px | 64 x 64 | yes | 6px | simple round smile | not needed | 1 place |
 | `export.tga` | Export or copy a whole conversation | 20px | 64 x 64 | yes | 5px | tray with an arrow leaving upward | not needed | 3 places |
-| `failed.tga` | Delivery: it did not go | 16px | 64 x 64 | yes | 4px | circled exclamation or X | not needed | 1 place |
+| `failed.tga` | Delivery: it did not go -- in the line, and beside the message | 16px | 64 x 64 | yes | 4px | circled exclamation or X | not needed | 2 places |
 | `grid.tga` | Show every open conversation window at once | 22px | 64 x 64 | yes | 6px | four rounded squares | not needed | 2 places |
 | `grip.tga` | The window's resize corner | 18px | 64 x 64 | yes | 5px | three short diagonal strokes | not needed | 1 place |
 | `history.tga` | Settings category: History | 22px | 64 x 64 | yes | 6px | clock face | not needed | 1 place |
@@ -86,7 +86,7 @@ nothing in this set does.
 | `reveal.tga` | Show a message the game has hidden | 20px | 64 x 64 | yes | 5px | an open eye | not needed | 1 place |
 | `search.tga` | Search fields, and the header's search-in-thread button | 22px | 64 x 64 | yes | 6px | magnifier, handle to lower right | not needed | 5 places |
 | `send.tga` | The send button in the composer | 24px | 64 x 64 | yes | 6px | paper plane, pointing up-right | not needed | 1 place |
-| `sent.tga` | Delivery: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
+| `sent.tga` | Delivery line: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
 | `settings.tga` | Opens the settings window; the Appearance-level settings category | 22px | 64 x 64 | yes | 6px | two horizontal sliders | not needed | 3 places |
 | `sounds.tga` | Settings category: Sounds | 22px | 64 x 64 | yes | 6px | speaker with one wave | not needed | 1 place |
 | `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 1 place |

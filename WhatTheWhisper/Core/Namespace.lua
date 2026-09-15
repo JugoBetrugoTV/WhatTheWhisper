@@ -29,15 +29,18 @@ ns.S = {
 -- Corner radii
 --------------------------------------------------------------------------------
 
--- Softer than a panel, harder than a pill. The whole set moved up a step for
--- the messenger look: at 8px a surface reads as a box with the corners taken
--- off, and at 14 it reads as a surface. Nothing here is decorative -- the radius
--- is most of what separates "an application" from "a frame with a border".
+-- The iOS corner ladder. Apple uses a small set of radii and uses them
+-- consistently, which is most of why its interfaces look like one thing: 8 for a
+-- small control, 12 for a grouped list or a row, 16 for a panel, 22 for a sheet.
+--
+-- Nothing here is decorative. The radius is most of what separates "an
+-- application" from "a frame with a border", and the specific values are most of
+-- what separates iOS from every other rounded interface.
 ns.R = {
-	SM   = 6,    -- badges, inline chips, the search field's inner marks
-	MD   = 10,   -- rows, cards, menu items
-	LG   = 14,   -- panels, windows, popouts
-	XL   = 20,   -- sheets and dialogs
+	SM   = 8,    -- badges, inline chips, small controls
+	MD   = 12,   -- grouped list groups, rows, menu items
+	LG   = 16,   -- panels, windows, popouts
+	XL   = 22,   -- sheets and dialogs
 	PILL = 999,  -- clamped to half the shorter side by Draw.RoundedRect
 }
 
@@ -72,25 +75,24 @@ ns.SZ = {
 	SIDEBAR_COMPACT_AT= 248,
 	SIDEBAR_RAIL_W    = 76,
 	SIDEBAR_HEADER_H  = 60,
-	-- The search pill. A hair shorter than the composer's field, because it is a
-	-- filter rather than something you write in.
+	-- The iOS search field, at the height iOS draws one.
 	SEARCH_H          = 36,
 
-	-- A 48px avatar with 12px above and below it. The row height is that sum
-	-- rather than a number chosen first and filled afterwards.
-	ROW_H             = 72,
-	ROW_H_COMPACT     = 58,
+	-- A 48px avatar with 14px above and below it. The row height is that sum
+	-- rather than a number chosen first and filled afterwards, and it lands
+	-- where a two-line iOS list row lands.
+	ROW_H             = 76,
+	ROW_H_COMPACT     = 60,
 
 	HEADER_H          = 64,
 	TAB_H             = 36,
 	TAB_MIN_W         = 96,
 	TAB_MAX_W         = 168,
 
-	COMPOSER_MIN_H    = 64,
-	COMPOSER_MAX_H    = 152,
-	-- The rounded field itself. 40 is a comfortable single line at BODY with
-	-- 12px of padding above and below the text.
-	COMPOSER_FIELD_H  = 40,
+	COMPOSER_MIN_H    = 66,
+	COMPOSER_MAX_H    = 160,
+	-- The rounded field itself, at a comfortable single line of 17px body.
+	COMPOSER_FIELD_H  = 42,
 
 	AVATAR_LG         = 48,
 	AVATAR_MD         = 40,
@@ -98,12 +100,11 @@ ns.SZ = {
 	AVATAR_XS         = 20,
 
 	BADGE_H           = 20,
-	-- The delivery mark tucked into the corner of an outgoing bubble. Still the
-	-- smallest glyph the UI draws -- it shares a line with an 11px timestamp and
-	-- must not out-shout it -- but a tick nobody can resolve is a tick that may
-	-- as well not be drawn. Double-check marks are wider than they are tall.
+	-- The delivery mark: in the receipt line under the newest message you sent,
+	-- and beside a message that did not go. Still the smallest glyph the UI
+	-- draws -- it shares a line with an 11px word and must not out-shout it --
+	-- but a tick nobody can resolve is a tick that may as well not be drawn.
 	STATUS_ICON       = 16,
-	STATUS_ICON_W     = 21,
 	STATUS_DOT        = 7,
 
 	-- An icon button is a hit target with a mark inside it. The two sizes are
@@ -150,16 +151,25 @@ ns.SZ = {
 	BUBBLE_PAD_X      = 12,
 	BUBBLE_PAD_Y      = 8,
 	BUBBLE_TAIL_R     = 5,
-	-- The gap between the last word and the time tucked in beside it, and the
-	-- gap between the time and the delivery mark after it.
-	BUBBLE_META_GAP   = 8,
-	BUBBLE_META_TIGHT = 3,
+
+	-- The delivery line under the newest message you sent. It belongs to the
+	-- bubble above it rather than to the thread, so it sits closer than any two
+	-- messages ever do -- MSG_GAP_TIGHT is already the tightest gap between two
+	-- separate things, and this is one thing.
+	RECEIPT_GAP       = 3,
+	RECEIPT_ICON_GAP  = 4,
 
 	MSG_GAP_TIGHT     = 3,
 	MSG_GAP_GROUP     = 14,
+	-- The air around a centred time marker. It is the thread's paragraph break:
+	-- everything below it was said after a pause long enough to be worth naming.
 	MSG_GAP_DATE      = 24,
+	-- A word and a time set side by side read as one label at a word's space
+	-- apart, and as two labels at anything more.
+	SEP_WORD_GAP      = 4,
 
-	MENU_ITEM_H       = 32,
+	-- An iOS context menu row.
+	MENU_ITEM_H       = 44,
 	MENU_MIN_W        = 184,
 	-- A menu entry's mark is read as part of the line it labels, so it is set
 	-- against the entry's text rather than against a button.
@@ -177,7 +187,7 @@ ns.SZ = {
 	-- on the right. 44 is the iOS row height, and it is the right one here for
 	-- the same reason: it is what a comfortable tap or click target looks like
 	-- when the thing being clicked is the whole row.
-	SETTINGS_ROW_H    = 44,
+	SETTINGS_ROW_H    = 44,   -- the iOS table row, unchanged: it was already this
 	-- The category list on the left is a list of destinations, not of controls,
 	-- so its rows are tighter than the settings rows they lead to.
 	SETTINGS_NAV_ROW_H = 36,
@@ -193,17 +203,18 @@ ns.SZ = {
 	EMPTY_ICON_SM     = 36,
 	EMPTY_TEXT_W      = 340,
 
-	-- A switch, not a checkbox wearing a pill. The proportions are the ones the
-	-- shape is recognised by: a track a little under twice as wide as it is
-	-- tall, and a knob that fills it but for a 2px rim.
-	TOGGLE_W          = 44,
-	TOGGLE_H          = 26,
-	TOGGLE_KNOB       = 22,
+	-- The iOS switch, at the size iOS draws it: 51 x 31 with a 27 knob. Not
+	-- proportions near those -- these exact ones. It is the single most
+	-- recognisable control Apple ships, and at 44 x 26 it read as something
+	-- imitating a switch rather than as one.
+	TOGGLE_W          = 51,
+	TOGGLE_H          = 31,
+	TOGGLE_KNOB       = 27,
 
 	-- A segmented control: a track with one raised thumb sliding between equal
 	-- segments. SEGMENT_RIM is the gap between the thumb and the track's edge,
 	-- and it is what makes the thumb read as sitting *in* the track.
-	SEGMENT_H         = 28,
+	SEGMENT_H         = 32,
 	SEGMENT_RIM       = 2,
 	SEGMENT_MIN_W     = 56,
 
@@ -248,23 +259,29 @@ ns.SZ = {
 -- Type scale
 --------------------------------------------------------------------------------
 
--- Five sizes, and every one of them has exactly one job. The gaps between them
--- are what the hierarchy is made of: 11/13/15/17/20 is a clear step at each
--- level, where the old 11/12/14/16/18 asked the eye to tell 11 from 12.
+-- Apple's text ramp, by the names Apple gives the steps. Using the real numbers
+-- rather than numbers near them is the difference between "iOS-ish" and iOS:
+-- every size below is a text style the system actually ships, and the gaps
+-- between them are the ones the eye has been trained on for a decade.
+--
+-- The one liberty taken is that iOS separates a title from a body with *weight*
+-- as often as with size, and the game ships no semibold face for most of the
+-- fonts a player can pick. So where Apple would set a header at 17 semibold over
+-- 17 regular, this steps up a size instead.
 --
 -- Nothing is smaller than 11. A timestamp that has to be squinted at is not
 -- quiet, it is unreadable, and those are different things.
 ns.T = {
-	MICRO   = 11,   -- timestamps, delivery state, counters
-	SMALL   = 13,   -- message previews, secondary rows, descriptions
-	BODY    = 15,   -- message text, conversation names, settings labels
-	TITLE   = 17,   -- the name in a conversation header
-	DISPLAY = 20,   -- empty states, section titles
+	MICRO   = 11,   -- caption 2: timestamps, delivery state, counters
+	SMALL   = 13,   -- footnote: descriptions, section headers
+	SUBHEAD = 15,   -- subheadline: previews, control values, secondary rows
+	BODY    = 17,   -- body: message text, list titles, settings labels
+	TITLE   = 20,   -- title 3: the name in a conversation header
+	DISPLAY = 24,   -- title 2: empty states
 }
 
--- Message text is read in paragraphs, so it is set looser than a label: 15px
--- with 5px of leading is about a 1.33 line height, which is where long messages
--- stop feeling cramped.
+-- Message text is read in paragraphs, so it is set looser than a label. iOS body
+-- is 17 over a 22 line box; 5px of leading on a 17px face lands there.
 ns.LINE_SPACING = 5
 
 --------------------------------------------------------------------------------
@@ -309,6 +326,17 @@ ns.SEND_FAILED  = 2
 -- Grouping window: consecutive messages from the same sender inside this many
 -- seconds collapse into one visual group.
 ns.GROUP_WINDOW = 300
+
+-- How long the thread has to have been quiet before the time is worth writing
+-- down again. Messages carry no time of their own any more -- a centred marker
+-- above a group carries it for everything under it, which is what Messages does
+-- and is most of why a thread there reads as a conversation rather than a log.
+--
+-- An hour, not the five minutes that decide grouping. Grouping asks "is this the
+-- same breath"; this asks "is this the same sitting", and a marker at every
+-- five minute gap would put a clock between almost every pair of messages --
+-- which is the log this exists to stop being.
+ns.STAMP_WINDOW = 3600
 
 -- Hard whisper payload limit in bytes, enforced by the server.
 ns.MAX_MESSAGE_BYTES = 255

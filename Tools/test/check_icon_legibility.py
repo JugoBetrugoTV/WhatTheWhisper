@@ -106,6 +106,16 @@ for name, l, r, t, b in re.findall(
         r'(\w+)\s*=\s*\{\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\}', atlas):
     cells[name] = (round(float(l) * 8), round(float(t) * 8))
 
+# The source draws semantic names -- "delivered", "up", "mute" -- and the sheet
+# stores drawings -- "check_double", "chevron_up", "bell_off". Icons.lua is what
+# joins the two, and without reading it this check silently skipped every icon
+# that goes through an alias, which is most of the small ones it exists to guard.
+icons_src = open(os.path.join(ADDON, "UI/Icons.lua"), encoding="utf-8").read()
+alias_block = re.search(r'local ATLAS_ALIAS = \{(.*?)\n\}', icons_src, re.S)
+ALIAS = dict(re.findall(r'(\w+)\s*=\s*"(\w+)"', alias_block.group(1))) if alias_block else {}
+if not ALIAS:
+    err("Icons.lua declares no atlas aliases; this check would skip most icons")
+
 # --- measure ---------------------------------------------------------------
 
 # Fraction of an icon's ink that stays fully opaque after downsampling. Below
@@ -117,10 +127,11 @@ SOLID = 128     # alpha above which it counts as opaque
 
 checked = 0
 for icon in sorted(usage):
-    if icon not in cells:
+    key = ALIAS.get(icon, icon)
+    if key not in cells:
         err("%s is drawn but is not in the atlas" % icon)
         continue
-    col, row = cells[icon]
+    col, row = cells[key]
     cell = sheet.crop((col * 64, row * 64, col * 64 + 64, row * 64 + 64))
     for size in sorted(usage[icon]):
         if size > 32:

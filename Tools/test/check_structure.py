@@ -174,6 +174,43 @@ notes.append("%d SetPoint offsets checked against the spacing scale"
              % len(SPACING))
 
 # ---------------------------------------------------------------------------
+# Measuring text at one size and drawing it at another.
+#
+# Three separate controls have shipped this bug: the context menu measured its
+# entries at SMALL and drew them at BODY and came out a sixth too narrow; the
+# slider measured its readout at SMALL and drew it at SUBHEAD and clipped
+# "5 seconds"; the segmented control did the same and cut "Sidebar" to "Sid...".
+#
+# Every one was silent -- the layout is computed from the measurement, so it is
+# self-consistently wrong -- and every one only showed up at a font size nobody
+# was testing by eye.
+#
+# The rule: a file that measures at a size must also draw at it. That does not
+# prove the measurement is used for the right thing, but it catches the whole
+# family, because in each case the drawn token was absent from the measured set.
+
+MEASURE = re.compile(r'Theme\.Measure\(\s*"([A-Z_]+)"\s*\)')
+DRAWN = re.compile(r'W\.Text\([^,]+,\s*"([A-Z_]+)"|Theme\.Font\(\s*"([A-Z_]+)"\s*\)'
+                   r'|SetFontObject\(Theme\.Font\(\s*"([A-Z_]+)"')
+for rel in declared:
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    measured = set(MEASURE.findall(body))
+    if not measured:
+        continue
+    drawn = set()
+    for groups in DRAWN.findall(body):
+        drawn.update(g for g in groups if g)
+    # A file that names its size in a constant and passes the constant around is
+    # doing the right thing and shows up as neither measured nor drawn.
+    for token in sorted(measured - drawn):
+        if drawn:
+            err("%s measures text at %s but never draws at it (draws at %s). "
+                "Measuring at one size and drawing at another is how a column "
+                "ends up narrower than the words in it."
+                % (rel, token, ", ".join(sorted(drawn))))
+notes.append("text measured at the size it is drawn at")
+
+# ---------------------------------------------------------------------------
 # One API that must not come back.
 #
 # C_ChatInfo.AreOutgoingAddonChatMessagesRestricted answers "may addons send on

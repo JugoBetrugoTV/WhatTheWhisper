@@ -100,18 +100,30 @@ physical pixel (`ns.Pixel`), so 1080p / 1440p / 4K and UI-scale 0.53–1.0 all r
 
 ## 2. Typography
 
-Five sizes, no more. Font path is derived from `ChatFontNormal` at runtime so every locale
-(incl. ruRU / koKR / zhCN) gets a valid face; user-selectable faces are validated before use.
+Apple's text ramp, by the names Apple gives the steps, because using the real numbers
+rather than numbers near them is most of the difference between "iOS-ish" and iOS. Font
+path is derived from `ChatFontNormal` at runtime so every locale (incl. ruRU / koKR /
+zhCN) gets a valid face; user-selectable faces are validated before use.
 
-| Token       | px | Use |
-|-------------|----|-----|
-| `T.micro`   | 11 | timestamps, badge counts, meta chips |
-| `T.small`   | 12 | last-message preview, secondary labels, empty-state body |
-| `T.body`    | 14 | message text, contact name, input text |
-| `T.title`   | 16 | conversation header name, section titles |
-| `T.display` | 18 | empty-state headline |
+| Token       | px | iOS style  | Use |
+|-------------|----|------------|-----|
+| `T.micro`   | 11 | caption 2  | time markers, the delivery line, badge counts |
+| `T.small`   | 13 | footnote   | descriptions, section headers, empty-state body |
+| `T.subhead` | 15 | subheadline| last-message preview, control values, secondary rows |
+| `T.body`    | 17 | body       | message text, list titles, settings labels, input |
+| `T.title`   | 20 | title 3    | the name in a conversation header |
+| `T.display` | 24 | title 2    | empty-state headline |
 
-* Line spacing for message bodies: **3 px**. Everything else: default.
+iOS separates a title from a body with *weight* as often as with size, and the game ships
+no semibold face for most of the fonts a player can pick. Where Apple would set 17
+semibold over 17 regular, this steps up a size instead — and where two strings share a
+line and one should lead (the day and the clock in a time marker), the emphasis ladder
+carries it instead of the weight.
+
+* Line spacing for message bodies: **5 px** — iOS body is 17 over a 22 line box.
+  Everything else: default.
+* Nothing is smaller than 11. A timestamp that has to be squinted at is not quiet, it is
+  unreadable, and those are different things.
 * No `OUTLINE` flags anywhere in chrome (outlines are the #1 "2010 addon" tell). Optional
   outline exists only for the *message text* skin setting, off by default.
 * Emphasis ladder: `textMuted` → `textSecondary` → `textPrimary` → `accent`.
@@ -181,23 +193,48 @@ same palette, so layout never shifts.
 
 ### 4.3 Message bubble
 
-* max width `min(66 %, 560)`, padding `11 / 7`, radius `12`
-* the corner facing the group's "spine" uses radius `4` (tail)
+* max width `min(68 %, 620)`, padding `12 / 8`, radius `R.lg`
+* **a bubble holds its text and the padding around it, and nothing else.** No time in
+  the corner, no tick tucked into the bottom right. Everything a message needs said
+  about it is said outside it — §4.4 for when, §4.5 for whether it arrived. This is the
+  difference between a conversation and a chat log, and it is the reason the thread
+  reads the way it does.
 * incoming: left, `bubbleIn`; outgoing: right, `bubbleOut`
-* **Grouping**: same sender + same type + ≤ 300 s apart → one group.
-  First bubble of a group carries avatar + `Name · 22:41`; the rest are bare, 2 px apart.
-* per-message timestamp appears on hover on the outer side (option: always)
-* outgoing status glyph, 10 px, right of the timestamp:
-  `pending (muted dot) → sent (✓, success)` and `failed (✕, danger)` when the server
-  replies "no player named …". This is real delivery information, not a simulation.
-* selection/copy: hover reveals a 20 px overflow affordance → per-message menu
+* **Grouping**: same sender + same type + ≤ 300 s apart → one group. The corners facing
+  the group's spine go square in the middle of a run and stay round at its ends, so a
+  stack reads as one block with a rounded top and bottom. No drawn tail.
+  First bubble of an incoming group carries the avatar; the rest are bare, 3 px apart.
+* per-message timestamp on hover, outside the bubble on the outer side — the drag-left
+  gesture's equivalent, and the only time in the thread when §4.4 is switched off
+* a message the server refused keeps a `failed` mark at `STATUS_ICON`, outside the
+  bubble on the inner side, for as long as it is in the thread
+* selection/copy: right-click opens the per-message menu
 
-### 4.4 Date separator
+### 4.4 Time marker
 
-Centred pill on `bg3` at 55 % opacity, `T.micro`, `textMuted`, 20 px above / 12 px below.
-No rules, no lines: `Today` / `Yesterday` / weekday / `dd.mm.yyyy` (locale aware).
+Centred, `T.micro`, one line, nothing drawn behind it: the day in `textSecondary`, the
+clock in `textMuted`, `SEP_WORD_GAP` apart. `MSG_GAP_DATE` above, `S.md` below.
 
-### 4.5 Composer
+It is emitted once per resumption of the conversation, not once per message: on a new
+day, or after the thread has been quiet for `STAMP_WINDOW` (an hour). What it can say
+is what the two settings allow — *Show timestamps* contributes the clock, *Show date
+separators* contributes `Today` / `Yesterday` / weekday / the date — and with neither
+on, no marker is drawn at all.
+
+Not a pill. A pill is a chip and a chip is something you can press; a rule with a word
+in a gap is a document divider. This is a paragraph break in a conversation.
+
+### 4.5 Delivery line
+
+One line under the newest message you sent, right aligned to its edge, `RECEIPT_GAP`
+below it: a `STATUS_ICON` mark and then the state in words — `Sending` (one check),
+`Delivered` (two), `Not delivered` (in `danger`). Never on any other message: anything
+further back was either answered, which is proof it arrived, or is itself the newest.
+
+This is real delivery information. `Delivered` means the server echoed the whisper back;
+`Not delivered` means it replied "no player named …". Nothing here is simulated.
+
+### 4.6 Composer
 
 `bg3` rounded field (radius 8) inset 12 px from the composer strip, internal padding 12/8.
 Left: emoji button (30). Right: circular send button (32) that fades from `textMuted` to
@@ -207,14 +244,14 @@ Placeholder: *"Message Thrall…"*. `Enter` sends, `Shift+Enter` newline, `Esc` 
 Multi-line input is split into whisper-legal chunks (255 **bytes**, UTF-8 safe, word-aware).
 A character counter appears only at ≥ 200 bytes, in `textMuted`, `danger` past the limit.
 
-### 4.6 Tabs
+### 4.7 Tabs
 
 Browser-style, not Blizzard registers: 36 px tall, radius 8 on the top corners only,
 inactive on `bg1`, active raised to `bg2` so it visually merges with the canvas below.
 Unread → 6 px accent dot left of the label. Close button appears on hover (or when active).
 Drag to reorder with a 150 ms slide of the displaced neighbours.
 
-### 4.7 Buttons
+### 4.8 Buttons
 
 | Kind        | Height | Radius | Rest | Hover | Pressed | Disabled |
 |-------------|--------|--------|------|-------|---------|----------|
@@ -223,7 +260,7 @@ Drag to reorder with a 150 ms slide of the displaced neighbours.
 | Ghost       | 30     | 8      | transparent, `textSecondary` | `hover` fill | `selected` | `textDisabled` |
 | Destructive | 30     | 8      | transparent, `danger` | `danger @ 14 %` fill | `danger @ 22 %` | 40 % |
 
-### 4.8 Context menu
+### 4.9 Context menu
 
 Own implementation (no `UIDropDownMenu` → no taint, full design control).
 `bg3`, radius 8, 1 px `borderSubtle`, 6 px vertical padding, item height 28, icon 14 at
@@ -231,20 +268,20 @@ Own implementation (no `UIDropDownMenu` → no taint, full design control).
 items are `danger` and always sit last, below a separator. Opens with a 90 ms fade + 4 px
 rise; a full-screen invisible catcher closes it on any outside click or `Esc`.
 
-### 4.9 Tooltip
+### 4.10 Tooltip
 
 Own frame. `bg3`, radius 6, padding 8/5, `T.micro`, single line, 350 ms delay, 90 ms fade.
 Never taller than two lines. Blizzard's `GameTooltip` is used **only** for real game
 hyperlinks (items, spells, achievements) inside message text, where it is the correct tool.
 
-### 4.10 Toast notification
+### 4.11 Toast notification
 
 Top-right stack (corner configurable), 320 × 62, `bg3`, radius 12, 1 px `borderSubtle`,
 avatar 32 + name `T.body` + one clamped preview line `T.small`. Enters with a 16 px slide
 from the edge + fade over 200 ms, auto-dismisses after 5 s with a hairline progress bar in
 `accent`. Hover pauses the timer; click opens the conversation.
 
-### 4.11 Scrolling
+### 4.12 Scrolling
 
 * Custom 4 px scrollbar (10 px hit area), `borderStrong`, radius 2. Hidden at rest, fades
   in on hover-over-list or during scroll, fades out 900 ms after the last movement.
@@ -253,7 +290,7 @@ from the edge + fade over 200 ms, auto-dismisses after 5 s with a hairline progr
   `↓ 3 new messages`, `accent` fill, click → smooth scroll to bottom.
 * Wheel scroll animates over 140 ms (`Reduced`/`Off` → instant).
 
-### 4.12 Empty states
+### 4.13 Empty states
 
 Centred, max 320 px wide, vertically at 42 % height (optically centred, not mathematically).
 
@@ -267,7 +304,7 @@ Centred, max 320 px wide, vertically at 42 % height (optically centred, not math
 
 Each carries a 40 px line-art glyph drawn from the same icon primitives at 20 % alpha.
 
-### 4.13 Settings
+### 4.14 Settings
 
 Left nav 200 px (`bg1`, 32 px rows, accent bar on active), right content on `bg2`, max
 content width 640 centred. Settings are grouped into **cards** (`bg3`, radius 12, padding
@@ -343,6 +380,7 @@ A view ships only when all of these are true:
 
 Alignment on the 4 px grid · consistent padding with its siblings · every interactive
 element has hover + pressed + disabled · focus is visible · empty state exists · text
-truncates with `…` instead of overflowing · nothing shifts by ±1 px when state changes ·
-no element uses a colour literal · works at 660 px width · works at UI scale 0.53 ·
-survives 5 000 messages in the list without a frame drop.
+truncates with `Text.ELLIPSIS` instead of overflowing · nothing shifts by ±1 px when
+state changes · no element uses a colour literal · works at `WINDOW_MIN_W` · works at
+UI scale 0.53 · works at every step of the font-size setting, measured rather than
+assumed · survives 5 000 messages in the list without a frame drop.
