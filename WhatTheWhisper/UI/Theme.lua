@@ -30,6 +30,12 @@ local RAISED_ROLES = {
 -- ~1.35:1 perceptibility floor in all six skins, with headroom.
 local TRACK_LIFT = 0.16
 
+-- And how far above that groove the thing running in it has to sit. Luminance
+-- rather than a mix amount, because the two ends of the palette range need very
+-- different mixes to travel the same visible distance.
+local THUMB_DELTA = 0.10
+local THUMB_STEP = 0.10
+
 local RADIUS_SCALE = { [0] = 0, [1] = 1, [2] = 1.6 }
 local SPACING_SCALE = { [0] = 0.7, [1] = 1, [2] = 1.4 }
 
@@ -242,6 +248,25 @@ function Theme.Refresh()
 		local lifted = Color.Mix(raised, Theme.c.textPrimary or { 1, 1, 1, 1 }, TRACK_LIFT)
 		lifted[4] = raised[4] or 1
 		Theme.c.trackBg = lifted
+
+		-- And the thing that runs in that groove: the segmented control's thumb,
+		-- which is the one part of a control that has to read as sitting *above*
+		-- the track rather than as cut into it.
+		--
+		-- Always lighter than the track, in a light palette as well as a dark
+		-- one, because that is what iOS does in both: the selected segment is
+		-- systemGray2 on dark and plain white on light, and in each case it is
+		-- the lighter of the two. Deriving it the way the groove is derived --
+		-- towards the text colour -- would make it lighter on dark and darker on
+		-- light, which is a second groove.
+		local thumb = lifted
+		local floor = Color.Luminance(lifted) + THUMB_DELTA
+		for _ = 1, 10 do
+			if Color.Luminance(thumb) >= floor then break end
+			thumb = Color.Lighten(thumb, THUMB_STEP)
+		end
+		thumb[4] = raised[4] or 1
+		Theme.c.thumbBg = thumb
 	end
 
 	-- user link colour override

@@ -92,6 +92,19 @@ local function measure(label, times, action)
 	for i = 1, times do action(i) end
 	M.RunFrames(3)
 	local grew = frames() - before
+	-- A leak is only actionable if you can see what leaked, and "one new frame"
+	-- on its own sends you reading pool code at random.
+	if grew ~= 0 then
+		for i = before + 1, #M.frames do
+			local f = M.frames[i]
+			local trail, up, hops = {}, f, 0
+			while up and hops < 6 do
+				trail[#trail+1] = tostring(up._name or up._wtwTag or up._kind or "?")
+				up = up._parent; hops = hops + 1
+			end
+			print("   NEW FRAME: " .. table.concat(trail, "<"))
+		end
+	end
 	check(label .. " creates no frames when repeated", grew == 0,
 		("%d new frames over %d repeats"):format(grew, times))
 end

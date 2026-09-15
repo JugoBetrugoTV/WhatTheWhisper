@@ -37,8 +37,14 @@ end
 -- spacing scale rather than being the two numbers that happened to look right.
 local PAD_Y = ns.S.SM
 local ITEM_INSET = ns.S.XS
-local ICON_X = ns.S.MD
-local LABEL_X = ICON_X + ns.SZ.MENU_ICON + ns.S.MD
+-- The label leads and the mark trails, which is the way round iOS and macOS set
+-- a menu: you read what the entry does, and the icon is there to recognise it by
+-- once you know. Icon-first is the Windows and Android arrangement, and it makes
+-- every menu a column of symbols with words after them.
+local LABEL_X = ns.S.MD + ITEM_INSET
+local ICON_PAD = ns.S.MD + ITEM_INSET
+-- The gap kept between the longest label and the mark beyond it.
+local LABEL_ICON_GAP = ns.S.LG
 local SEP_H = ns.S.MD
 
 --------------------------------------------------------------------------------
@@ -52,13 +58,14 @@ local function createItem()
 		radius = ns.R.MD, insets = { ITEM_INSET, ITEM_INSET, 0, 0 },
 	})
 	row.icon = W.Icon(row, "bullet", ns.SZ.MENU_ICON, "textSecondary")
-	row.icon:SetPoint("LEFT", row, "LEFT", ICON_X, 0)
+	row.icon:SetPoint("RIGHT", row, "RIGHT", -ICON_PAD, 0)
 	row.label = W.Text(row, ITEM_FONT, "textPrimary")
 	-- One line. A menu entry that wraps is an entry printed over the one below
 	-- it: the rows are a fixed height and the panel is sized to hold them all.
 	row.label:SetWordWrap(false)
+	row.label:SetJustifyH("LEFT")
 	row.label:SetPoint("LEFT", row, "LEFT", LABEL_X, 0)
-	row.label:SetPoint("RIGHT", row, "RIGHT", -ns.S.MD, 0)
+	row.label:SetPoint("RIGHT", row.icon, "LEFT", -ns.S.SM, 0)
 
 	row.separator = row:CreateTexture(nil, "ARTWORK")
 	row.separator:SetHeight(1)
@@ -253,7 +260,12 @@ function Menu.Open(entries, opts)
 			measure:SetWidth(0)
 			W.SetTextFont(measure, entry.font)
 			measure:SetText(entry.text or "")
-			width = max(width, measure:GetStringWidth() + LABEL_X + ns.S.MD + ns.S.SM)
+			-- The label's own width, the padding either side of it, and the room
+			-- the trailing mark needs. Reserved whether or not this entry has a
+			-- mark: a menu whose width depends on which of its rows carry icons
+			-- is a menu that changes width when an entry is hidden.
+			width = max(width, measure:GetStringWidth() + LABEL_X + LABEL_ICON_GAP
+				+ ns.SZ.MENU_ICON + ICON_PAD)
 
 			shown[#shown + 1] = row
 			height = height + itemHeight()

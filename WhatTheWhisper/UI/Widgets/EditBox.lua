@@ -31,8 +31,14 @@ local PAD_Y = ns.S.SM + 2
 --   minHeight / maxHeight
 --   onEnter(text) onChange(text) onEscape() onResize(height) onFocus(bool)
 --   radius, fontToken
+--   insetRight   extra room kept clear on the right, for a button drawn inside
+--                the field -- the composer's send arrow
 function Input.New(parent, opts)
 	opts = opts or {}
+	-- Everything on the right edge is measured from here, so a button sitting
+	-- inside the field is a single number rather than four anchors that have to
+	-- be kept in step.
+	local padRight = PAD_X + (opts.insetRight or 0)
 	local container = CreateFrame("Frame", nil, parent)
 	container.opts = opts
 	container.minHeight = opts.minHeight or ns.SZ.COMPOSER_FIELD_H
@@ -59,7 +65,7 @@ function Input.New(parent, opts)
 	if opts.multiline then
 		host = CreateFrame("ScrollFrame", nil, container)
 		host:SetPoint("TOPLEFT", container, "TOPLEFT", PAD_X, -PAD_Y)
-		host:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -PAD_X, PAD_Y)
+		host:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -padRight, PAD_Y)
 		editBox = CreateFrame("EditBox", nil, host)
 		editBox:SetMultiLine(true)
 		editBox:SetWidth(1)
@@ -82,7 +88,7 @@ function Input.New(parent, opts)
 	else
 		editBox = CreateFrame("EditBox", nil, container)
 		editBox:SetPoint("TOPLEFT", container, "TOPLEFT", PAD_X, 0)
-		editBox:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -PAD_X, 0)
+		editBox:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -padRight, 0)
 	end
 
 	container.host = host
@@ -101,7 +107,7 @@ function Input.New(parent, opts)
 	-- and a name plus a realm is long enough that an unbounded font string runs
 	-- straight out of the composer and over whatever is next to it.
 	container.placeholder = W.Text(container, opts.fontToken or "BODY", "textMuted")
-	container.placeholder:SetPoint("RIGHT", container, "RIGHT", -PAD_X, 0)
+	container.placeholder:SetPoint("RIGHT", container, "RIGHT", -padRight, 0)
 	if opts.multiline then
 		container.placeholder:SetPoint("TOPLEFT", container, "TOPLEFT", PAD_X, -PAD_Y)
 		container.placeholder:SetJustifyV("TOP")
@@ -116,7 +122,7 @@ function Input.New(parent, opts)
 	-- it in the mock, and clipped mid-word in the game. Neither is readable.
 	function container:FitPlaceholder()
 		local text = container.placeholderText or ""
-		local room = (container:GetWidth() or 0) - PAD_X * 2
+		local room = (container:GetWidth() or 0) - PAD_X - padRight
 		-- The caret's own inset, where something has shifted the text right to
 		-- make room for a glyph -- the search field's magnifier.
 		local textLeft = select(4, container.editBox:GetPoint(1))

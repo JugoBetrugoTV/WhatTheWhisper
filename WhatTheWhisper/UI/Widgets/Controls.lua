@@ -77,6 +77,7 @@ function Controls.Toggle(parent, opts)
 	t.knob:SetSize(ns.SZ.TOGGLE_KNOB, ns.SZ.TOGGLE_KNOB)
 	t.knob.surface = W.Surface(t.knob, {
 		color = "onAccent", radius = ns.SZ.TOGGLE_KNOB / 2, layer = "ARTWORK",
+		shadow = ns.SZ.TOGGLE_KNOB_SHADOW,
 	})
 	-- The knob's rim inside the track, and the distance it travels. Two pixels
 	-- either side is what makes the shape read as a switch rather than as a pill
@@ -88,13 +89,13 @@ function Controls.Toggle(parent, opts)
 
 	local function paint(instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
-		-- The knob stays light in both states and only the track changes, which
-		-- is what every switch on every platform does: the eye reads the
-		-- coloured half of the track, not the colour of the handle. Making the
-		-- knob change too gave the off state a grey handle on a grey track,
-		-- which is a switch you have to look for.
+		-- The knob is white in both states and only the track changes, which is
+		-- exactly what an iOS switch does: the eye reads the coloured half of
+		-- the track, never the colour of the handle. It used to dim to the
+		-- secondary label colour when off, which on a grey track is a switch you
+		-- have to look for -- and is a state iOS does not have.
 		local trackRole = t.value and "accent" or "trackBg"
-		local knobRole = t.value and "onAccent" or "textSecondary"
+		local knobRole = "onAccent"
 		if not t.__wtwEnabled then
 			trackRole = "trackBg"
 			knobRole = "textDisabled"
@@ -469,6 +470,15 @@ end
 -- was a caption a couple of pixels wider than the space reserved for it.
 local SEGMENT_FONT = "SUBHEAD"
 
+-- The most options this control will ever be asked to show. Past four, segments
+-- are slivers whatever the words are, and a menu is the right control instead.
+--
+-- It is a hard number rather than a guideline because the segments are built
+-- when the control is: a pooled control that grows a frame the first time it is
+-- handed a longer list never settles, and "never settles" is the one thing a
+-- pool exists to prevent.
+Controls.SEGMENT_MAX = 4
+
 -- How wide a row of segments has to be for every caption to fit.
 --
 -- Measured at the font in use, not counted in characters. A rule like "no label
@@ -498,15 +508,28 @@ function Controls.Segmented(parent, opts)
 	seg.options = options
 	seg.segments = {}
 
-	seg.surface = W.Surface(seg, { color = "trackBg", radius = ns.R.PILL })
+	-- A rounded rectangle, not a pill. iOS's segmented control has never been a
+	-- pill: the track is a soft-cornered box and the thumb is the same box one
+	-- rim smaller, and the concentric curves are most of what makes the thumb
+	-- read as sitting inside the track rather than on top of it.
+	seg.surface = W.Surface(seg, { color = "trackBg", radius = ns.R.SM })
 
 	local RIM = ns.SZ.SEGMENT_RIM
 	seg.thumb = CreateFrame("Frame", nil, seg)
 	seg.thumb:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
+	-- Lighter than the track it runs in, and lifted off it -- a raised thing,
+	-- which is the whole read of an iOS segmented control. It used to be `bg3`,
+	-- which is darker than the groove in every dark palette, so the selected
+	-- segment was the one that looked like a hole.
 	seg.thumb.surface = W.Surface(seg.thumb, {
-		color = "bg3", radius = ns.R.PILL, layer = "ARTWORK",
+		color = "thumbBg", radius = ns.R.SM - RIM, layer = "ARTWORK",
+		shadow = ns.SZ.SEGMENT_THUMB_SHADOW,
 	})
 	seg.thumb:SetPoint("LEFT", seg, "LEFT", RIM, 0)
+
+	-- The hairlines between two unselected segments. iOS draws them and hides
+	-- the two beside the thumb, so the thumb never has a line running into it.
+	seg.dividers = {}
 
 	local function segmentWidth()
 		local width = seg:GetWidth() or (ns.SZ.SEGMENT_MIN_W * #options)
@@ -524,6 +547,7 @@ function Controls.Segmented(parent, opts)
 		local duration = instant and 0 or Theme.Duration("FAST")
 		local index = indexOf(seg.value)
 		local width = segmentWidth()
+		local height = seg:GetHeight() or ns.SZ.SEGMENT_H
 		seg.thumb:SetWidth(max(1, width))
 		local target = RIM + (index - 1) * width
 		local current = select(4, seg.thumb:GetPoint(1)) or target
@@ -549,11 +573,30 @@ function Controls.Segmented(parent, opts)
 				-- never have.
 				ns.Text.Ellipsize(button.label, button.fullLabel or "",
 					max(1, width - ns.S.SM))
+				-- Unselected segments are secondary, not muted. iOS sets every
+				-- caption in the label colour and lets the thumb alone say which
+				-- one is chosen; at the muted step the whole control read as
+				-- half disabled, which is a different thing entirely.
 				W.SetTextRole(button.label,
-					(i == index and "textPrimary")
-					or (button.hovered and "textSecondary")
-					or "textMuted")
+					(i == index or button.hovered) and "textPrimary" or "textSecondary")
 			end
+		end
+
+		for i = 2, #options do
+			local rule = seg.dividers[i]
+			if not rule then
+				rule = seg:CreateTexture(nil, "BACKGROUND", nil, 1)
+				seg.dividers[i] = rule
+			end
+			local c = Theme.Get("borderStrong")
+			rule:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+			rule:SetSize(Theme.Border(seg), max(1, height - ns.S.SM * 2))
+			rule:ClearAllPoints()
+			rule:SetPoint("LEFT", seg, "LEFT", RIM + (i - 1) * width, 0)
+			rule:SetShown(i ~= index and i - 1 ~= index)
+		end
+		for i = #options + 1, #seg.dividers do
+			seg.dividers[i]:Hide()
 		end
 	end
 
@@ -561,33 +604,41 @@ function Controls.Segmented(parent, opts)
 	-- frame shows three options in one settings row and two in the next. Growing
 	-- the list reuses what is there and adds to it; shrinking hides the excess
 	-- rather than destroying frames that will be wanted again in a moment.
+	-- Builds segment `i` if it does not exist yet. Called for all of them up
+	-- front; the on-demand path is only reached by a caller that ignores
+	-- SEGMENT_MAX.
+	local function ensureSegment(i)
+		local button = seg.segments[i]
+		if not button then
+			button = CreateFrame("Frame", nil, seg)
+			button:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
+			button:EnableMouse(true)
+			button.label = W.Text(button, SEGMENT_FONT, "textMuted")
+			button.label:SetPoint("CENTER")
+			button.label:SetJustifyH("CENTER")
+			button.label:SetWordWrap(false)
+			button:SetScript("OnEnter", function(self)
+				self.hovered = true
+				paint(true)
+			end)
+			button:SetScript("OnLeave", function(self)
+				self.hovered = nil
+				paint(true)
+			end)
+			button:SetScript("OnMouseUp", function(self)
+				if not self:IsMouseOver() or not self.optionValue then return end
+				seg:SetValue(self.optionValue, true)
+			end)
+			seg.segments[i] = button
+		end
+		return button
+	end
+
 	function seg.SetOptions(_, list)
 		options = list or {}
 		seg.options = options
 		for i = 1, #options do
-			local button = seg.segments[i]
-			if not button then
-				button = CreateFrame("Frame", nil, seg)
-				button:SetHeight(ns.SZ.SEGMENT_H - RIM * 2)
-				button:EnableMouse(true)
-				button.label = W.Text(button, SEGMENT_FONT, "textMuted")
-				button.label:SetPoint("CENTER")
-				button.label:SetJustifyH("CENTER")
-				button.label:SetWordWrap(false)
-				button:SetScript("OnEnter", function(self)
-					self.hovered = true
-					paint(true)
-				end)
-				button:SetScript("OnLeave", function(self)
-					self.hovered = nil
-					paint(true)
-				end)
-				button:SetScript("OnMouseUp", function(self)
-					if not self:IsMouseOver() or not self.optionValue then return end
-					seg:SetValue(self.optionValue, true)
-				end)
-				seg.segments[i] = button
-			end
+			local button = ensureSegment(i)
 			button.optionValue = options[i].value
 			-- Kept whole. The label drawn is fitted to the segment, and fitting
 			-- an already-fitted string shortens it a little more every time the
@@ -620,9 +671,9 @@ function Controls.Segmented(parent, opts)
 	end
 
 	function seg:ApplyTheme()
-		seg.surface:SetRadius(ns.R.PILL)
+		seg.surface:SetRadius(ns.R.SM)
 		seg.surface:ApplyTheme()
-		seg.thumb.surface:SetRadius(ns.R.PILL)
+		seg.thumb.surface:SetRadius(ns.R.SM - RIM)
 		seg.thumb.surface:ApplyTheme()
 		for i = 1, #seg.segments do W.RefreshText(seg.segments[i].label) end
 		paint(true)
@@ -630,6 +681,7 @@ function Controls.Segmented(parent, opts)
 
 
 	seg:HookScript("OnSizeChanged", function() paint(true) end)
+	for i = 1, Controls.SEGMENT_MAX do ensureSegment(i):Hide() end
 	seg:SetOptions(options)
 	seg.value = options[1] and options[1].value
 	paint(true)

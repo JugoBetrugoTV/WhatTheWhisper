@@ -187,6 +187,18 @@ function regionMethods:SetPoint(a, b, c, d, e)
 	assert(type(x) == "number" and type(y) == "number",
 		"anchor offsets must be numbers, got " .. type(x) .. "/" .. type(y))
 	self._points = self._points or {}
+	-- One anchor per point name. The client replaces a point that is already
+	-- set rather than adding a second one, and everything that animates a frame
+	-- by re-anchoring it relies on that: appending instead left the first call's
+	-- offset in place for ever, so a toggle's knob and a segmented control's
+	-- thumb never moved in the mock and no test could see where they were.
+	for i = 1, #self._points do
+		if self._points[i][1] == point then
+			self._points[i] = { point, relTo, relPoint, x, y }
+			invalidate()
+			return
+		end
+	end
 	self._points[#self._points + 1] = { point, relTo, relPoint, x, y }
 	invalidate()
 end

@@ -35,10 +35,14 @@ local function createToast()
 	t:EnableMouse(true)
 	t:Hide()
 
-	-- A raised surface with a shadow under it and no outline. A desktop
-	-- notification is a card floating above the screen, and the thing that says
-	-- "floating" is the shadow -- a border as well makes it a dialog.
-	t.surface = W.Surface(t, { color = "bg3", radius = ns.R.LG, shadow = 16 })
+	-- A raised surface with a shadow under it and no outline. A notification is
+	-- a card floating above the screen, and the thing that says "floating" is
+	-- the shadow -- a border as well makes it a dialog.
+	--
+	-- The sheet radius rather than the panel one. An iOS banner is the roundest
+	-- thing the system draws outside a bubble, and at a panel's radius it read
+	-- as a small window instead of as a notification.
+	t.surface = W.Surface(t, { color = "bg3", radius = ns.R.XL, shadow = 16 })
 
 	t.avatar = ns.Avatar.New(t, ns.SZ.AVATAR_MD)
 	t.avatar:SetPoint("LEFT", t, "LEFT", ns.S.LG, 0)

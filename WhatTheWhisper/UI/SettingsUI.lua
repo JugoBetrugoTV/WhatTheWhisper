@@ -13,7 +13,7 @@ local L = ns.L
 local SettingsUI = {}
 ns.SettingsUI = SettingsUI
 
-local max, min = math.max, math.min
+local max, min, floor = math.max, math.min, math.floor
 
 -- Rows inside a group touch, the way they do in a native settings pane, and are
 -- told apart by a hairline rather than by a gap. Gaps between rows inside a card
@@ -33,8 +33,19 @@ local CARD_GAP = ns.SZ.SETTINGS_GROUP_GAP
 -- can change how big text is. Held at a constant, the column kept its pixels
 -- while the words in it grew, and a dropdown's value ran off its own edge.
 local CONTROL_W_BASE = ns.SZ.SEGMENT_MIN_W * 3 + ns.S.XXL
+local function typeScale()
+	return Theme.FontSize("BODY") / ns.T.BODY
+end
 local function controlWidth()
-	return math.floor(CONTROL_W_BASE * (Theme.FontSize("BODY") / ns.T.BODY) + 0.5)
+	return floor(CONTROL_W_BASE * typeScale() + 0.5)
+end
+
+-- The navigation column holds eleven words and a search box with a phrase in it,
+-- and none of those is the same width at the largest font step as at the
+-- default. A column sized once fits the default and truncates everywhere above
+-- it -- which is exactly where a player who raised the font needs to read.
+local function navWidth()
+	return floor(ns.SZ.SETTINGS_NAV_W * typeScale() + 0.5)
 end
 -- The section label sits above its card, the way settings panes in modern
 -- desktop apps do. Inside the card it competed with the first row's label,
@@ -195,7 +206,10 @@ end
 -- here rather than in the schema because it is a presentation decision: the
 -- schema says "one of these values", and how many of them fit side by side is
 -- not something a settings author should have to think about.
-local SEGMENT_MAX_OPTIONS = 4
+--
+-- The ceiling is the control's own: it builds that many segments when it is
+-- built, so asking it for more would grow a pooled control after the fact.
+local SEGMENT_MAX_OPTIONS = Controls.SEGMENT_MAX
 
 -- Whether this choice is better shown as a row of segments than as a menu.
 --
@@ -210,6 +224,27 @@ local function suitsSegments(spec, width)
 	if type(options) ~= "table" then return false end
 	if #options < 2 or #options > SEGMENT_MAX_OPTIONS then return false end
 	return Controls.SegmentedNaturalWidth(options) <= width
+end
+
+-- The narrowest a label is allowed to be squeezed to before the control beside
+-- it has to stop growing. Below this a setting's name starts truncating, and a
+-- truncated name is a worse trade than a menu.
+local MIN_LABEL_W = 120
+
+-- How wide this row's control gets.
+--
+-- Everything takes the standard column, except a choice that would rather be a
+-- row of segments: that one is allowed as much of the row as it needs, up to
+-- what it can take without crowding the label. Segments are the control iOS
+-- reaches for when there are two or three short answers, and a menu is the
+-- fallback -- so the width question is asked in that order rather than measured
+-- against a column sized for a slider.
+local function controlWidthFor(spec, cardInner)
+	local base = controlWidth()
+	if spec.type ~= "dropdown" then return base end
+	local ceiling = min(cardInner - MIN_LABEL_W - ns.S.LG, floor(cardInner * 0.55))
+	if ceiling <= base or not suitsSegments(spec, ceiling) then return base end
+	return max(base, min(ceiling, math.ceil(Controls.SegmentedNaturalWidth(spec.options))))
 end
 
 function factories.segmented(parent)
@@ -311,12 +346,12 @@ function factories.info(parent)
 	return holder
 end
 
-local function buildControl(spec, parent)
+local function buildControl(spec, parent, width)
 	-- One schema entry, two possible controls. `kind` is what is actually built;
 	-- `spec.type` stays what the schema said, because every other consumer of
 	-- the schema -- search, the audit, the row layout -- reasons about the
 	-- declared type and not about how it happened to be rendered.
-	local width = controlWidth()
+	width = width or controlWidth()
 	local kind = spec.type
 	if kind == "dropdown" and suitsSegments(spec, width) then kind = "segmented" end
 
@@ -406,7 +441,7 @@ local function build()
 
 	-- Navigation column
 	local nav = CreateFrame("Frame", nil, frame)
-	nav:SetWidth(ns.SZ.SETTINGS_NAV_W)
+	nav:SetWidth(navWidth())
 	nav:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
 	nav:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
 	nav.surface = W.Surface(nav, { color = "bg1" })
@@ -572,8 +607,9 @@ function SettingsUI.Refresh()
 				-- printed it twice, the second time with the %d still in it, so
 				-- the row is given over to the value and the label stands down.
 				local readout = spec.type == "info"
-				local labelWidth = max(60, available - CARD_PAD * 2 - controlWidth()
-					- ns.S.LG)
+				local cardInner = available - CARD_PAD * 2
+				local cw = controlWidthFor(spec, cardInner)
+				local labelWidth = max(60, cardInner - cw - ns.S.LG)
 				-- Fitted, not merely bounded. SetWidth on a font string that
 				-- wraps gives it a second line; on one that does not, it lets
 				-- the text run out of the box and over the control beside it.
@@ -589,7 +625,7 @@ function SettingsUI.Refresh()
 				-- A readout spans the row it no longer shares with a label.
 				spec.rowWidth = readout
 					and max(60, available - CARD_PAD * 2) or nil
-				local control = buildControl(spec, card)
+				local control = buildControl(spec, card, cw)
 				row.control = control
 				if control then
 					control:ClearAllPoints()
@@ -733,6 +769,9 @@ end
 
 function SettingsUI.ApplyTheme()
 	if not frame then return end
+	-- Before anything is measured against it: the column's width is a function
+	-- of the font, and the font is what just changed.
+	frame.nav:SetWidth(navWidth())
 	frame.surface:ApplyTheme()
 	frame.header.divider:ApplyTheme()
 	W.RefreshText(frame.header.title)

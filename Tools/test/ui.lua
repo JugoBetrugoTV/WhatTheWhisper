@@ -503,11 +503,39 @@ if composer.emoji and #incoming > 0 then
 				select(1, rect(composer.emoji)), select(1, rect(avatar))))
 	end
 end
-if composer.send and #outgoing > 0 then
-	check("the send button ends on the outgoing bubbles' right edge",
-		math.abs(select(5, rect(composer.send)) - select(5, rect(outgoing[1]))) <= 2.01,
-		("send ends %.2f, bubble ends %.2f"):format(
-			select(5, rect(composer.send)), select(5, rect(outgoing[1]))))
+if composer.input and #outgoing > 0 then
+	check("the composer's field ends on the outgoing bubbles' right edge",
+		math.abs(select(5, rect(composer.input)) - select(5, rect(outgoing[1]))) <= 2.01,
+		("field ends %.2f, bubble ends %.2f"):format(
+			select(5, rect(composer.input)), select(5, rect(outgoing[1]))))
+end
+
+-- The send arrow is drawn inside the field, the way Messages draws it, so it is
+-- contained by the field on every side and the text stops before it rather than
+-- running underneath.
+if composer.send and composer.input then
+	local fl, fb, _, _, fr, ftop = rect(composer.input)
+	local sl, sb, _, _, sr, stop = rect(composer.send)
+	check("the send arrow sits inside the composer's field",
+		sl >= fl - EPS and sr <= fr + EPS and sb >= fb - EPS and stop <= ftop + EPS,
+		("arrow x %.1f..%.1f y %.1f..%.1f in field x %.1f..%.1f y %.1f..%.1f")
+			:format(sl, sr, sb, stop, fl, fr, fb, ftop))
+	check("with the same gap beside it as under it",
+		math.abs((fr - sr) - (sb - fb)) <= EPS,
+		("beside %.2f, under %.2f"):format(fr - sr, sb - fb))
+	local caret = composer.input.editBox
+	if caret then
+		check("and the text in the field stops before it",
+			select(5, rect(caret)) <= sl - EPS,
+			("text ends %.2f, arrow starts %.2f"):format(select(5, rect(caret)), sl))
+	end
+	local placeholder = composer.input.placeholder
+	if placeholder and M.EffectivelyShown(placeholder, window) then
+		check("and so does the placeholder",
+			select(5, rect(placeholder)) <= sl - EPS,
+			("placeholder ends %.2f, arrow starts %.2f"):format(
+				select(5, rect(placeholder)), sl))
+	end
 end
 
 -- ...and both of them are centred on the line of the field between them, not on
@@ -1137,9 +1165,168 @@ do
 	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
 	M.RunFrames(8)
 	check("the menu reopens afterwards", ns.Menu.IsOpen())
+
+	-- The label leads and the mark trails, the way iOS and macOS set a menu.
+	-- Icon-first is the other platform's arrangement and it turns every menu
+	-- into a column of symbols with words after them.
+	local rows = {}
+	for _, row in ipairs(M.Children(menuFrame) or {}) do
+		if M.EffectivelyShown(row, menuFrame) and row.label and row.icon
+			and M.EffectivelyShown(row.label, menuFrame) then
+			rows[#rows + 1] = row
+		end
+	end
+	check("the menu has entries to measure", #rows >= 3, tostring(#rows))
+	local labelLeft, iconRight
+	for i = 1, #rows do
+		local row = rows[i]
+		local ll = select(1, rect(row.label))
+		labelLeft = labelLeft or ll
+		check("every entry's text starts on the same column",
+			math.abs(ll - labelLeft) <= EPS, describe(row.label))
+		if M.EffectivelyShown(row.icon, menuFrame) then
+			local il, ir = select(1, rect(row.icon)), select(5, rect(row.icon))
+			iconRight = iconRight or ir
+			check("the entry's text is read before its mark",
+				select(5, rect(row.label)) <= il + EPS,
+				("text ends %.1f, mark starts %.1f"):format(
+					select(5, rect(row.label)), il))
+			check("and every mark ends on the same column",
+				math.abs(ir - iconRight) <= EPS, describe(row.icon))
+			check("the mark stays inside the panel",
+				ir <= select(5, rect(menuFrame)) + EPS, describe(row.icon))
+		end
+	end
+
 	ns.Menu.Close()
 	M.RunFrames(20)
 	check("and closes again", not ns.Menu.IsOpen())
+end
+
+--------------------------------------------------------------------------------
+-- Controls: the switch and the segmented control
+--------------------------------------------------------------------------------
+
+-- Plain perceived luminance, enough to answer "is this one lighter than that
+-- one". The WCAG version further down is for contrast ratios and is defined
+-- after this section.
+local function luma(c) return 0.2126 * c[1] + 0.7152 * c[2] + 0.0722 * c[3] end
+
+-- Both are shapes with something sliding inside them, and both are read by the
+-- relationship between the two rather than by either on its own. That
+-- relationship is geometry and colour, so it can be measured.
+do
+	local host = CreateFrame("Frame", nil, _G.UIParent)
+	host:SetSize(400, 200)
+	host:SetPoint("CENTER")
+	host:Show()
+
+	local toggle = ns.Controls.Toggle(host, {})
+	toggle:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
+	toggle:Show()
+
+	local segmented = ns.Controls.Segmented(host, {
+		options = {
+			{ value = 1, label = "Square" },
+			{ value = 2, label = "Normal" },
+			{ value = 3, label = "Round" },
+		},
+	})
+	segmented:SetWidth(ns.SZ.SEGMENT_MIN_W * 3)
+	segmented:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -60)
+	segmented:Show()
+	M.RunFrames(4)
+
+	-- The knob rides in the track with the same rim all the way round, in both
+	-- states, and never leaves it.
+	for _, value in ipairs({ false, true }) do
+		toggle:SetValue(value, false)
+		M.RunFrames(4)
+		local tl, tb, _, th, tr, ttop = rect(toggle)
+		local kl, kb, _, kh, kr, ktop = rect(toggle.knob)
+		check(("the knob stays inside the track (%s)"):format(tostring(value)),
+			kl >= tl - EPS and kr <= tr + EPS and kb >= tb - EPS and ktop <= ttop + EPS,
+			("knob x %.1f..%.1f y %.1f..%.1f in track x %.1f..%.1f y %.1f..%.1f")
+				:format(kl, kr, kb, ktop, tl, tr, tb, ttop))
+		check(("and is centred across it (%s)"):format(tostring(value)),
+			math.abs((kb + kh / 2) - (tb + th / 2)) <= EPS,
+			("%.2f vs %.2f"):format(kb + kh / 2, tb + th / 2))
+		check(("with the rim it travels within (%s)"):format(tostring(value)),
+			math.abs((value and (tr - kr) or (kl - tl)) - (th - kh) / 2) <= EPS,
+			("%.2f, want %.2f"):format(value and (tr - kr) or (kl - tl), (th - kh) / 2))
+	end
+	-- White in both states: an iOS switch never dims its handle, and a grey
+	-- handle on a grey track is a switch you have to look for.
+	--
+	-- Read off the drawn rectangle rather than off the role the code asked for,
+	-- because the role is the thing under test.
+	do
+		local function drawn(surface)
+			local fill = surface and surface.rect and surface.rect.fill
+			local c = fill and fill.color
+			return c and { c[1], c[2], c[3], c[4] } or nil
+		end
+		toggle:SetValue(true, false)
+		M.RunFrames(6)
+		local on = drawn(toggle.knob.surface)
+		toggle:SetValue(false, false)
+		M.RunFrames(6)
+		local off = drawn(toggle.knob.surface)
+		check("the knob's colour was measurable", on ~= nil and off ~= nil)
+		if on and off then
+			check("the knob is the same colour switched off as switched on",
+				math.abs(off[1] - on[1]) < 0.01 and math.abs(off[2] - on[2]) < 0.01
+				and math.abs(off[3] - on[3]) < 0.01,
+				("off %.2f %.2f %.2f, on %.2f %.2f %.2f"):format(
+					off[1], off[2], off[3], on[1], on[2], on[3]))
+			check("and it is the lightest thing on the control",
+				luma(off) > luma(drawn(toggle.surface) or { 0, 0, 0, 1 }),
+				("knob %.3f, track %.3f"):format(luma(off),
+					luma(drawn(toggle.surface) or { 0, 0, 0, 1 })))
+		end
+	end
+
+	-- The thumb is a raised thing in a groove, so it is lighter than the groove
+	-- and inset from it on every side. It used to be `bg3`, which is darker than
+	-- the track in every dark palette: the selected segment looked like a hole.
+	for _, index in ipairs({ 1, 2, 3 }) do
+		segmented:SetValue(index, false)
+		M.RunFrames(4)
+		local sl, sb, _, sh, sr, stop = rect(segmented)
+		local hl, hb, _, hh, hr, htop = rect(segmented.thumb)
+		check(("the thumb stays inside the track (%d)"):format(index),
+			hl >= sl - EPS and hr <= sr + EPS and hb >= sb - EPS and htop <= stop + EPS,
+			("thumb x %.1f..%.1f in track x %.1f..%.1f"):format(hl, hr, sl, sr))
+		check(("and keeps the rim above and below it (%d)"):format(index),
+			math.abs((sh - hh) / 2 - ns.SZ.SEGMENT_RIM) <= EPS,
+			("%.2f, want %d"):format((sh - hh) / 2, ns.SZ.SEGMENT_RIM))
+		-- Lighter than the groove it runs in, measured off what is drawn. A
+		-- thumb darker than its track reads as a hole punched in the control.
+		do
+			local function drawn(surface)
+				local fill = surface and surface.rect and surface.rect.fill
+				local c = fill and fill.color
+				return c and { c[1], c[2], c[3], c[4] } or nil
+			end
+			local thumb, track = drawn(segmented.thumb.surface), drawn(segmented.surface)
+			check(("the thumb is lighter than its track (%d)"):format(index),
+				thumb ~= nil and track ~= nil and luma(thumb) > luma(track),
+				thumb and track
+					and ("thumb %.3f, track %.3f"):format(luma(thumb), luma(track))
+					or "no colour drawn")
+		end
+
+		local caption = segmented.segments[index] and segmented.segments[index].label
+		if caption and M.EffectivelyShown(caption, host) then
+			local cl, cr = select(1, rect(caption)), select(5, rect(caption))
+			check(("the chosen caption sits on its thumb (%d)"):format(index),
+				cl >= hl - EPS and cr <= hr + EPS,
+				("caption %.1f..%.1f, thumb %.1f..%.1f"):format(cl, cr, hl, hr))
+		end
+	end
+	segmented:Hide()
+	toggle:Hide()
+	host:Hide()
 end
 
 -- Copy and export. There is no clipboard API in the client, so the entire
@@ -1316,6 +1503,9 @@ for _, id in ipairs(ns.Skins.order) do
 		-- has to be visible before anyone knows there is a control there. Using
 		-- the hover tint for it left an off switch with no switch in it.
 		{ "trackBg", "bg3", "the groove of a slider or switch" },
+		-- ...and the thumb running in that groove has to separate from the
+		-- groove, or the selected segment is the one you cannot find.
+		{ "thumbBg", "trackBg", "the thumb of a segmented control" },
 	}) do
 		local bg = over(ns.Theme.Get(pair[2]), { 0, 0, 0, 1 })
 		local surface = over(ns.Theme.Get(pair[1]), bg)
@@ -1323,6 +1513,17 @@ for _, id in ipairs(ns.Skins.order) do
 		check(("%s: %s separates from what is behind it"):format(id, pair[3]),
 			separation >= 1.35,
 			("%s on %s is only %.2f:1"):format(pair[1], pair[2], separation))
+	end
+
+	-- ...and it has to separate upwards. A thumb darker than its track reads as
+	-- a hole punched in the control rather than as a raised thing sitting in it,
+	-- which is what `bg3` gave in every dark palette.
+	do
+		local track = over(ns.Theme.Get("trackBg"), { 0, 0, 0, 1 })
+		local thumb = over(ns.Theme.Get("thumbBg"), track)
+		check(("%s: the segmented thumb is lighter than its track"):format(id),
+			luminance(thumb) > luminance(track),
+			("thumb %.3f, track %.3f"):format(luminance(thumb), luminance(track)))
 	end
 
 	-- Which tab you are on must be visible in every skin. The raised fill alone

@@ -64,6 +64,14 @@ function Composer.New(parent, opts)
 		-- Draw.RoundedRect clamps the radius to half the shorter side, so this
 		-- relaxes into a rounded rectangle on its own as the field grows.
 		radius = ns.R.PILL,
+		-- The one field in the addon that is drawn with a line around it.
+		-- Everywhere else a filled shape on a darker panel is unmistakably a
+		-- field and an outline is the clearest tell that something was drawn
+		-- with a game toolkit -- but the Messages composer is stroked, and it is
+		-- the field the eye goes to first.
+		border = "borderStrong",
+		-- Room kept clear for the send arrow, which is drawn inside the field.
+		insetRight = ns.SZ.SEND_BTN,
 		onEnter = function() c:Submit() end,
 		onChange = function(value) c:OnTextChanged(value) end,
 		onResize = function() c:Relayout() end,
@@ -72,8 +80,12 @@ function Composer.New(parent, opts)
 		end,
 	})
 	c.input:SetPoint("LEFT", c.emoji, "RIGHT", ns.S.SM, 0)
-	c.input:SetPoint("RIGHT", c.send, "LEFT", -ns.S.SM, 0)
+	c.input:SetPoint("RIGHT", c, "RIGHT", -RIGHT_MARGIN, 0)
 	c.input:SetPoint("BOTTOM", c, "BOTTOM", 0, PAD)
+	-- The send arrow is drawn over the field, so it has to be told to sit above
+	-- it: siblings built in either order end up on the same frame level, and
+	-- which of them wins is not something to leave to creation order.
+	c.send:SetFrameLevel((c.input:GetFrameLevel() or 1) + 2)
 
 	-- Above the field, right aligned with it, and the composer grows to make
 	-- room for it rather than overlapping whatever is above. It used to be
@@ -89,18 +101,25 @@ function Composer.New(parent, opts)
 	return c
 end
 
--- Centres the two buttons on the first line of the field, not on the middle of
--- it: once a message wraps, the field grows upward and the buttons stay with the
--- line being typed, which is where the hand already is.
+-- Both buttons sit on the last line of the field, not on the middle of it: once
+-- a message wraps, the field grows upward and they stay with the line being
+-- typed, which is where the hand already is.
+--
+-- The emoji button is outside the field on the left and the send arrow is inside
+-- it on the right, which is how Messages arranges the two. The arrow being
+-- inside is what makes the field read as the thing you are working in rather
+-- than as one control in a row of three.
 function C:PositionButtons(fieldHeight)
 	local line = math.min(fieldHeight, self.input:SingleLineHeight())
 	local function lift(size) return PAD + (line - size) / 2 end
 	self.emoji:ClearAllPoints()
 	self.emoji:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT",
 		self.margins.left, lift(ns.SZ.ICON_BTN))
+	-- The same gap under the arrow as beside it, so it sits in the field's
+	-- corner rather than on its edge.
+	local inset = math.max(2, (line - ns.SZ.SEND_BTN) / 2)
 	self.send:ClearAllPoints()
-	self.send:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT",
-		-self.margins.right, lift(ns.SZ.SEND_BTN))
+	self.send:SetPoint("BOTTOMRIGHT", self.input, "BOTTOMRIGHT", -inset, inset)
 end
 
 function C:Relayout()

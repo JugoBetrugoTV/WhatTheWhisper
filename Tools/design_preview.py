@@ -49,6 +49,27 @@ def track_colour(colours):
     ) + (raised[3] if len(raised) > 3 else 255,)
 
 
+# And the raised thing running in that groove -- a segmented control's thumb.
+# Derived exactly the way Theme.lua derives it: lightened until it clears the
+# groove by a fixed luminance, which lands on systemGray2 in a dark palette and
+# on white in a light one.
+THUMB_DELTA = 0.10 * 255
+THUMB_STEP = 0.10
+
+
+def thumb_colour(track):
+    def lum(c):
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+    out = list(track[:3])
+    floor = lum(track) + THUMB_DELTA
+    for _ in range(10):
+        if lum(out) >= floor:
+            break
+        out = [v + (255 - v) * THUMB_STEP for v in out]
+    return tuple(int(round(v)) for v in out) + (track[3] if len(track) > 3 else 255,)
+
+
 def font(size, bold=False):
     return ImageFont.truetype(FONT_PATH, int(size * SCALE))
 
@@ -158,6 +179,7 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
     skin = tokens["skins"][skin_id]
     c = {k: rgba(v) for k, v in skin["colors"].items()}
     c["trackBg"] = track_colour(c)
+    c["thumbBg"] = thumb_colour(c["trackBg"])
     raw = skin["colors"]
     m = skin["metrics"]
     radius = lambda base: base * m.get("radiusScale", 1)
@@ -466,25 +488,37 @@ def render(skin_id, layout="hybrid", width=None, height=None, path=None):
                 ty += T["BODY"] + tokens["LINE_SPACING"]
 
     # ---------------------------------------------------------------- composer
+    # No rule above the composer: its own surface is already a shade off the
+    # thread, and a line as well is the belt-and-braces look.
     cv.rect(content_x, canvas_bottom, content_w, composer_h, c["composerBg"])
-    cv.hline(content_x, canvas_bottom, content_w, c["borderSubtle"])
     pad_c = S["MD"]
     ebtn = SZ["ICON_BTN"]
-    ey = canvas_bottom + composer_h - pad_c - 3 - ebtn
-    cv.icon("smiley", content_x + pad_c + (ebtn - 16) / 2, ey + (ebtn - 16) / 2, 16,
-            c["textSecondary"])
-    send = SZ["SEND_BTN"]
-    sx = content_x + content_w - pad_c - send
-    sy = canvas_bottom + composer_h - pad_c - 2 - send
-    # The send button is inactive until the field has content.
-    cv.circle(sx + send / 2, sy + send / 2, send / 2, fill=c["hover"])
-    cv.icon("arrow_up", sx + (send - 18) / 2, sy + (send - 18) / 2, 18, c["textDisabled"])
-    fx = content_x + pad_c + ebtn + S["SM"]
-    fw = sx - S["SM"] - fx
+    # The composer shares the thread's column, so the field ends exactly where
+    # the outgoing bubbles do.
+    fx = content_x + pad + ebtn + S["SM"]
+    fw = content_x + content_w - pad - SZ["SCROLLBAR_HIT"] - fx
     fh = SZ["COMPOSER_FIELD_H"]
     fy = canvas_bottom + composer_h - pad_c - fh
-    cv.rrect(fx, fy, fw, fh, radius(R["MD"]), fill=c["inputBg"], outline=c["borderSubtle"], width=1)
+    # A stroked pill: the one field in the addon drawn with a line around it,
+    # because the Messages composer is stroked and it is the field the eye goes
+    # to first.
+    cv.rrect(fx, fy, fw, fh, fh / 2, fill=c["inputBg"], outline=c["borderStrong"], width=1)
     cv.text(fx + S["MD"], fy + fh / 2, "Message Thrall…", T["BODY"], c["textMuted"])
+
+    glyph = SZ["ICON_GLYPH"]
+    ey = fy + (fh - ebtn) / 2
+    cv.icon("smiley", content_x + pad + (ebtn - glyph) / 2, ey + (ebtn - glyph) / 2,
+            glyph, c["textSecondary"])
+
+    # The send arrow lives inside the field, in its corner, with the same gap
+    # beside it as under it.
+    send = SZ["SEND_BTN"]
+    inset = max(2, (fh - send) / 2)
+    sx, sy = fx + fw - inset - send, fy + inset
+    # Inactive until the field has content.
+    cv.circle(sx + send / 2, sy + send / 2, send / 2, fill=c["hover"])
+    big = SZ["ICON_GLYPH_LG"]
+    cv.icon("arrow_up", sx + (send - big) / 2, sy + (send - big) / 2, big, c["textDisabled"])
 
     out = path or os.path.join("/tmp", "wtw_%s.png" % skin_id)
     flat = Image.new("RGB", cv.img.size, (16, 18, 22))
@@ -504,6 +538,7 @@ def render_settings(skin_id="midnight", path=None):
     skin = tokens["skins"][skin_id]
     c = {k: rgba(v) for k, v in skin["colors"].items()}
     c["trackBg"] = track_colour(c)
+    c["thumbBg"] = thumb_colour(c["trackBg"])
     m = skin["metrics"]
     radius = lambda base: base * m.get("radiusScale", 1)
 
@@ -547,14 +582,22 @@ def render_settings(skin_id="midnight", path=None):
     view_w = W - nav_w
     available = min(SZ["SETTINGS_MAX_CONTENT"], view_w - S["XXL"] * 2)
     left = nav_w + max(S["XL"], (view_w - available) / 2)
-    control_w = 190
+    # The control column, exactly as SettingsUI derives it. A choice that fits
+    # as a row of segments is allowed to take more than the column, because
+    # segments are the control iOS reaches for and a menu is the fallback.
+    control_w = SZ["SEGMENT_MIN_W"] * 3 + S["XXL"]
     card_pad = S["LG"]
+    row_h = SZ["SETTINGS_ROW_H"]
+
+    def segment_width(options):
+        widest = max(cv.measure(o, T["SUBHEAD"]) for o in options)
+        return (widest + S["MD"]) * len(options) + SZ["SEGMENT_RIM"] * 2
 
     cards = [
         ("Skin", [
             ("Skin", None, "dropdown", "Midnight"),
             ("Background opacity", None, "slider", "97%"),
-            ("Corner radius", None, "dropdown", "Normal"),
+            ("Corner radius", None, "segmented", ["Square", "Normal", "Round"], 1),
             ("Drop shadows", None, "toggle", True),
         ]),
         ("Font", [
@@ -562,7 +605,7 @@ def render_settings(skin_id="midnight", path=None):
             ("Font size", None, "slider", "+0"),
         ]),
         ("Conversations", [
-            ("Density", None, "dropdown", "Comfortable"),
+            ("Density", None, "segmented", ["Comfortable", "Compact"], 0),
             ("Use class colours", None, "toggle", True),
             ("Show avatars", None, "toggle", True),
             ("Avatar style", "Portrait when in range, class icon otherwise.",
@@ -573,39 +616,69 @@ def render_settings(skin_id="midnight", path=None):
     y = head_h + S["XL"]
     for title, rows in cards:
         heights = []
-        for label, caption, kind, value in rows:
-            h = 34
+        for row in rows:
+            caption = row[1]
+            h = row_h
             if caption:
-                h = max(h, 20 + T["MICRO"] + 8)
+                h = max(h, T["BODY"] + S["XS"] / 2 + T["SMALL"] + S["MD"] * 2)
             heights.append(h)
-        card_h = card_pad * 2 + sum(heights) + S["SM"] * (len(rows) - 1)
-        cv.text(left + 2, y + 11, title, T["SMALL"], c["textMuted"])
-        y += 22
+        card_h = S["XS"] * 2 + sum(heights)
+        cv.text(left + 2, y + T["SMALL"] / 2, title, T["SMALL"], c["textMuted"])
+        y += T["SMALL"] + S["SM"]
         cv.rrect(left, y, available, card_h, radius(R["LG"]), fill=c["bg3"],
                  outline=c["borderSubtle"], width=1)
 
-        ry = y + card_pad
-        for i, (label, caption, kind, value) in enumerate(rows):
+        ry = y + S["XS"]
+        for i, row in enumerate(rows):
+            label, caption, kind, value = row[0], row[1], row[2], row[3]
             h = heights[i]
-            cv.text(left + card_pad, ry + 8, label, T["SMALL"], c["textPrimary"])
+            block = T["BODY"] + (S["XS"] / 2 + T["SMALL"] if caption else 0)
+            top = ry + (h - block) / 2
+            cv.text(left + card_pad, top + T["BODY"] / 2, label, T["BODY"], c["textPrimary"])
             if caption:
-                cv.text(left + card_pad, ry + 8 + T["SMALL"] + 4, caption, T["MICRO"],
-                        c["textMuted"])
-            cx = left + available - card_pad - control_w
+                cv.text(left + card_pad, top + T["BODY"] + S["XS"] / 2 + T["SMALL"] / 2,
+                        caption, T["SMALL"], c["textMuted"])
+            right = left + available - card_pad
+            cx = right - control_w
             cy = ry + h / 2
             if kind == "toggle":
                 tw, th, knob = SZ["TOGGLE_W"], SZ["TOGGLE_H"], SZ["TOGGLE_KNOB"]
-                tx = left + available - card_pad - tw
+                tx = right - tw
                 cv.rrect(tx, cy - th / 2, tw, th, th / 2,
                          fill=c["accent"] if value else c["trackBg"])
-                kx = tx + (tw - knob - 2 if value else 2)
-                cv.circle(kx + knob / 2, cy, knob / 2,
-                          fill=c["onAccent"] if value else c["textSecondary"])
+                rim = (th - knob) / 2
+                kx = tx + (tw - knob - rim if value else rim)
+                # White in both states, the way an iOS switch is: the eye reads
+                # the coloured half of the track, never the handle.
+                cv.circle(kx + knob / 2, cy, knob / 2, fill=c["onAccent"])
+            elif kind == "segmented":
+                seg_w = max(control_w, min(available - card_pad * 2 - 120 - S["LG"],
+                                           segment_width(value)))
+                sh = SZ["SEGMENT_H"]
+                rim = SZ["SEGMENT_RIM"]
+                sx = right - seg_w
+                # A rounded box, not a pill, and the selected segment is the
+                # lighter of the two -- a raised thing sitting in a groove.
+                cv.rrect(sx, cy - sh / 2, seg_w, sh, radius(R["SM"]), fill=c["trackBg"])
+                each = (seg_w - rim * 2) / len(value)
+                cv.rrect(sx + rim + row[4] * each, cy - sh / 2 + rim, each, sh - rim * 2,
+                         radius(R["SM"]) - rim, fill=c["thumbBg"])
+                for n, option in enumerate(value):
+                    if n and n != row[4] and n - 1 != row[4]:
+                        cv.vline(sx + rim + n * each, cy - sh / 2 + S["SM"],
+                                 sh - S["SM"] * 2, c["borderStrong"])
+                    cv.text(sx + rim + (n + 0.5) * each, cy, option, T["SUBHEAD"],
+                            c["textPrimary"] if n == row[4] else c["textSecondary"],
+                            anchor="mm")
             elif kind == "dropdown":
-                cv.rrect(cx, cy - 15, control_w, 30, radius(R["MD"]), fill=c["inputBg"],
-                         outline=c["borderSubtle"], width=1)
-                cv.text(cx + S["MD"], cy, value, T["SMALL"], c["textPrimary"])
-                cv.icon("chevron_down", cx + control_w - S["SM"] - 14, cy - 7, 14, c["textMuted"])
+                # A filled shape, no outline: interaction is a change of
+                # surface everywhere in this addon, and a line around a control
+                # is the clearest tell that it was drawn with a game toolkit.
+                cv.rrect(cx, cy - 15, control_w, 30, radius(R["MD"]), fill=c["inputBg"])
+                cv.text(cx + S["MD"], cy, value, T["SUBHEAD"], c["textPrimary"])
+                glyph = SZ["ICON_GLYPH_SM"]
+                cv.icon("chevron_down", cx + control_w - S["SM"] - glyph, cy - glyph / 2,
+                        glyph, c["textSecondary"])
             else:
                 track = control_w - 46
                 cv.rrect(cx + SZ["SLIDER_THUMB"] / 2, cy - 2, track - SZ["SLIDER_THUMB"], 4, 2,
@@ -614,8 +687,11 @@ def render_settings(skin_id="midnight", path=None):
                          (track - SZ["SLIDER_THUMB"]) * 0.75, 4, 2, fill=c["accent"])
                 cv.circle(cx + SZ["SLIDER_THUMB"] / 2 + (track - SZ["SLIDER_THUMB"]) * 0.75, cy,
                           SZ["SLIDER_THUMB"] / 2, fill=c["textPrimary"])
-                cv.text(cx + control_w, cy, value, T["SMALL"], c["textSecondary"], anchor="rm")
-            ry += h + S["SM"]
+                cv.text(cx + control_w, cy, value, T["SUBHEAD"], c["textSecondary"], anchor="rm")
+            ry += h
+            # The hairline between two rows, inset to the label column.
+            if i < len(rows) - 1:
+                cv.hline(left + card_pad, ry, available - card_pad * 2, c["borderSubtle"])
         y += card_h + S["XL"]
 
     out = path or "/tmp/wtw_settings_%s.png" % skin_id

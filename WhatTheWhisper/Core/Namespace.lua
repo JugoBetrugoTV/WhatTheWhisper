@@ -210,12 +210,19 @@ ns.SZ = {
 	TOGGLE_W          = 51,
 	TOGGLE_H          = 31,
 	TOGGLE_KNOB       = 27,
+	-- The knob's drop shadow. An iOS switch's handle is a physical thing resting
+	-- in a groove, and the shadow is the only part of it that says so.
+	TOGGLE_KNOB_SHADOW = 5,
 
 	-- A segmented control: a track with one raised thumb sliding between equal
 	-- segments. SEGMENT_RIM is the gap between the thumb and the track's edge,
 	-- and it is what makes the thumb read as sitting *in* the track.
 	SEGMENT_H         = 32,
 	SEGMENT_RIM       = 2,
+	-- The thumb's drop shadow. Small: it says "raised", it does not say
+	-- "floating". iOS gives the selected segment a shadow you would not notice
+	-- until it is taken away, at which point the control goes flat.
+	SEGMENT_THUMB_SHADOW = 6,
 	SEGMENT_MIN_W     = 56,
 
 	SLIDER_TRACK      = 4,
