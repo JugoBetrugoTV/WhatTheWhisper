@@ -1204,6 +1204,41 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- The toast: a card floating over the game
+--------------------------------------------------------------------------------
+
+-- The one surface drawn at the sheet radius, which is round enough that things
+-- anchored a fixed margin from its edge start on the curve. The remaining-time
+-- hairline rides inside the bottom corners, and a bar that pokes out of them
+-- reads as a rendering fault rather than as a timer.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	ns.Toast.DismissAll()
+	M.RunFrames(10)
+	ns.Toast.Show(conv, conv.messages[#conv.messages], false)
+	M.RunFrames(2)
+	local toast = ns.Toast.Active()[1]
+	check("a toast was shown to measure", toast ~= nil)
+	if toast then
+		local tl, tb, _, _, tr = rect(toast)
+		local bl, bb, _, bh = rect(toast.progress)
+		local corner = ns.Theme.Radius(ns.R.XL)
+		check("the remaining-time bar starts clear of the toast's corner",
+			bl - tl >= corner - EPS,
+			("inset %.2f, corner %.2f"):format(bl - tl, corner))
+		check("and ends clear of the other one",
+			tr - (bl + select(3, rect(toast.progress))) >= corner - EPS,
+			("inset %.2f, corner %.2f"):format(
+				tr - (bl + select(3, rect(toast.progress))), corner))
+		check("and rides inside the bottom edge rather than on it",
+			bb > tb + EPS and bb + bh < tb + select(4, rect(toast)) - EPS,
+			("bar y %.1f..%.1f in toast y %.1f.."):format(bb, bb + bh, tb))
+	end
+	ns.Toast.DismissAll()
+	M.RunFrames(10)
+end
+
+--------------------------------------------------------------------------------
 -- Controls: the switch and the segmented control
 --------------------------------------------------------------------------------
 

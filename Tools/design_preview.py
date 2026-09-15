@@ -699,3 +699,91 @@ def render_settings(skin_id="midnight", path=None):
     flat.paste(cv.img, (0, 0), cv.img)
     flat.save(out)
     return out
+
+
+def render_overlays(skin_id="midnight", path=None):
+    """The three things that float above the window: a menu, a toast, a tooltip.
+
+    They are reviewed together because they are the only surfaces in the addon
+    that are read against whatever happens to be behind them, and the thing that
+    has to hold across all three is that a raised panel says "raised" the same
+    way every time.
+    """
+    skin = tokens["skins"][skin_id]
+    c = {k: rgba(v) for k, v in skin["colors"].items()}
+    c["trackBg"] = track_colour(c)
+    c["thumbBg"] = thumb_colour(c["trackBg"])
+    m = skin["metrics"]
+    radius = lambda base: base * m.get("radiusScale", 1)
+
+    W_, H_ = 760, 420
+    cv = Canvas(W_, H_, c["bg2"])
+
+    # --- the context menu: label first, mark last ---------------------------
+    entries = [("Open conversation", "message"), ("Pin", "pin_filled"),
+               ("Mute", "bell_off"), None, ("Copy name", "copy"),
+               ("Export…", "export"), None, ("Clear history", "trash")]
+    item_h = max(SZ["MENU_ITEM_H"], T["BODY"] + S["MD"])
+    sep_h = S["MD"]
+    inset = S["XS"]
+    label_x = S["MD"] + inset
+    icon_pad = S["MD"] + inset
+    widest = max(cv.measure(e[0], T["BODY"]) for e in entries if e)
+    menu_w = max(SZ["MENU_MIN_W"],
+                 widest + label_x + S["LG"] + SZ["MENU_ICON"] + icon_pad)
+    menu_h = S["SM"] * 2 + sum(item_h if e else sep_h for e in entries)
+    mx, my = S["XXL"], S["XXL"]
+    cv.rrect(mx, my, menu_w, menu_h, radius(R["LG"]), fill=c["bg3"],
+             outline=c["borderSubtle"], width=1)
+    ry = my + S["SM"]
+    for entry in entries:
+        if entry is None:
+            cv.hline(mx + S["SM"], ry + sep_h / 2, menu_w - S["SM"] * 2, c["borderSubtle"])
+            ry += sep_h
+            continue
+        label, icon = entry
+        danger = label == "Clear history"
+        fg = c["danger"] if danger else c["textPrimary"]
+        cv.text(mx + label_x, ry + item_h / 2, label, T["BODY"], fg)
+        cv.icon(icon, mx + menu_w - icon_pad - SZ["MENU_ICON"],
+                ry + (item_h - SZ["MENU_ICON"]) / 2, SZ["MENU_ICON"],
+                c["danger"] if danger else c["textSecondary"])
+        ry += item_h
+
+    # --- the toast ----------------------------------------------------------
+    tw, th = SZ["TOAST_W"], SZ["TOAST_H"]
+    tx, ty = W_ - tw - S["XXL"], S["XXL"]
+    cv.rrect(tx, ty, tw, th, radius(R["XL"]), fill=c["bg3"])
+    av = SZ["AVATAR_MD"]
+    cv.circle(tx + S["LG"] + av / 2, ty + th / 2, av / 2, fill=(0, 112, 222, 255))
+    cv.text(tx + S["LG"] + av / 2, ty + th / 2 + 1, "T", T["BODY"],
+            (255, 255, 255, 240), anchor="mm")
+    text_left = tx + S["LG"] + av + S["MD"]
+    name_y = ty + th / 2 - T["BODY"] / 2 - 1
+    cv.text(text_left, name_y, "Thrall", T["BODY"], c["textPrimary"])
+    cv.text(tx + tw - S["LG"], name_y, "22:41", T["MICRO"], c["textMuted"], anchor="rm")
+    cv.text(text_left, name_y + T["BODY"] / 2 + S["XS"] / 2 + T["SUBHEAD"] / 2,
+            "Yo kommst du Raid?", T["SUBHEAD"], c["textSecondary"],
+            maxw=tx + tw - S["LG"] - text_left)
+    # Inset by the corner it has to clear, not by a fixed margin.
+    bar_x = max(S["MD"], radius(R["XL"]))
+    cv.rrect(tx + bar_x, ty + th - SZ["TOAST_PROGRESS_INSET"] - SZ["TOAST_PROGRESS_H"],
+             (tw - bar_x * 2) * 0.62, SZ["TOAST_PROGRESS_H"], 1, fill=c["accent"])
+
+    # --- the tooltip --------------------------------------------------------
+    tip = "Not delivered"
+    sub = "Thrall is not online"
+    tip_w = max(cv.measure(tip, T["SMALL"]), cv.measure(sub, T["MICRO"])) + S["MD"] * 2
+    tip_h = T["SMALL"] + S["XS"] + T["MICRO"] + S["SM"] * 2
+    px, py = W_ - tip_w - S["XXL"], H_ - tip_h - S["XXL"]
+    cv.rrect(px, py, tip_w, tip_h, radius(R["MD"]), fill=c["bg3"],
+             outline=c["borderSubtle"], width=1)
+    cv.text(px + S["MD"], py + S["SM"] + T["SMALL"] / 2, tip, T["SMALL"], c["textPrimary"])
+    cv.text(px + S["MD"], py + S["SM"] + T["SMALL"] + S["XS"] + T["MICRO"] / 2, sub,
+            T["MICRO"], c["textMuted"])
+
+    out = path or "/tmp/wtw_overlays_%s.png" % skin_id
+    flat = Image.new("RGB", cv.img.size, (16, 18, 22))
+    flat.paste(cv.img, (0, 0), cv.img)
+    flat.save(out)
+    return out

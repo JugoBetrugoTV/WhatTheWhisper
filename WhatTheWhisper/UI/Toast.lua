@@ -61,10 +61,14 @@ local function createToast()
 	t.body = W.Text(t, "SUBHEAD", "textSecondary")
 	t.body:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -ns.S.XS / 2)
 
-	-- Hairline progress bar showing the remaining time.
+	-- Hairline progress bar showing the remaining time. It rides inside the
+	-- bottom corners, so its inset is the corner rather than a fixed margin:
+	-- at the sheet radius a bar set S.MD from the edge starts on the curve and
+	-- reads as sticking out of the card.
 	t.progress = CreateFrame("Frame", nil, t)
 	t.progress:SetHeight(ns.SZ.TOAST_PROGRESS_H)
-	t.progress:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", ns.S.MD, ns.SZ.TOAST_PROGRESS_INSET)
+	t.progress:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT",
+		Toast.ProgressInsetX(), ns.SZ.TOAST_PROGRESS_INSET)
 	t.progress.surface = W.Surface(t.progress, { color = "accent", radius = 1, layer = "OVERLAY" })
 
 	t:SetScript("OnEnter", function(self)
@@ -123,11 +127,17 @@ end
 -- Timer
 --------------------------------------------------------------------------------
 
+-- How far in from each side the bar has to start to clear the bottom corners.
+-- The radius is skin-scaled, so this is asked rather than written down.
+function Toast.ProgressInsetX()
+	return math.max(ns.S.MD, Theme.Radius(ns.R.XL))
+end
+
 function Toast.StartTimer(t, duration)
 	duration = duration or settings().duration or 5
 	t.timerToken = (t.timerToken or 0) + 1
 	local token = t.timerToken
-	local width = ns.SZ.TOAST_W - ns.S.MD * 2
+	local width = ns.SZ.TOAST_W - Toast.ProgressInsetX() * 2
 	t.progress:SetWidth(width)
 	Anim.To(t.progress, duration, width, 0, function(v)
 		t.progress:SetWidth(math.max(1, v))
@@ -237,6 +247,13 @@ function Toast.ActiveCount()
 	return #active
 end
 
+-- The toasts currently on screen, newest last. Read by the UI audit, which has
+-- to measure a real one rather than a freshly built stand-in: what it is
+-- checking is where things land after Relayout has had its say.
+function Toast.Active()
+	return active
+end
+
 function Toast.PoolStats()
 	if not pool then return 0, 0, 0 end
 	return pool:Stats()
@@ -251,6 +268,9 @@ function Toast.ApplyTheme()
 	local function refresh(t)
 		t.surface:ApplyTheme()
 		t.progress.surface:ApplyTheme()
+		-- The corner it has to clear is a function of the skin.
+		t.progress:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT",
+			Toast.ProgressInsetX(), ns.SZ.TOAST_PROGRESS_INSET)
 		t.avatar:ApplyTheme()
 		W.RefreshText(t.name)
 		W.RefreshText(t.time)
