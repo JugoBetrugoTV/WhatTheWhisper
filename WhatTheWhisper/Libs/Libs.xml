@@ -1,0 +1,48 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<!--
+		Embedded libraries, in dependency order.
+
+		WhatTheWhisper ships its own copies so that unzipping the addon folder is
+		the whole installation: there is no Dependencies line and nothing else to
+		download. The files under here are byte for byte upstream Ace3 and are
+		never patched, because another addon may end up using whichever copy
+		loads first, so a local change here would silently become their code too.
+		Anything WhatTheWhisper specific lives in Core/ instead.
+
+		Sharing is the point, not a hazard: every file below registers through
+		LibStub's MAJOR/MINOR mechanism, so if another addon already loaded a
+		newer revision of a library, that one keeps its place and ours is
+		skipped; if ours is newer, it upgrades theirs in place and existing
+		consumers keep working. That is why the order below matters and why
+		nothing here is namespaced.
+
+		Order:
+		  1. LibStub            the registry everything else registers with
+		  2. CallbackHandler    needed by AceEvent and AceDB
+		  3. AceAddon           the addon object; no further dependencies
+		  4. AceConsole         slash commands; LibStub only
+		  5. AceEvent           needs CallbackHandler
+		  6. AceDB              needs CallbackHandler
+
+		Only these six are embedded, because only these six are used.
+		AceLocale is deliberately absent: it discards every locale that is not
+		the client's at load time, which makes a language picker impossible, so
+		Core/Locale carries the strings instead.
+		LibSharedMedia-3.0 is deliberately absent: it is queried with
+		LibStub("LibSharedMedia-3.0", true) and used only if some other addon
+		provides it, so embedding it would add weight for an integration that is
+		optional by design.
+
+		Note for anyone editing this comment: a double hyphen is not legal
+		inside an XML comment. One in here once made the whole file unparsable,
+		which loaded none of the libraries and broke every file in the addon.
+		Tools/test/check_structure.py now parses every XML file the way the
+		client does, so that cannot ship again.
+	-->
+	<Script file="LibStub\LibStub.lua"/>
+	<Include file="CallbackHandler-1.0\CallbackHandler-1.0.xml"/>
+	<Include file="AceAddon-3.0\AceAddon-3.0.xml"/>
+	<Include file="AceConsole-3.0\AceConsole-3.0.xml"/>
+	<Include file="AceEvent-3.0\AceEvent-3.0.xml"/>
+	<Include file="AceDB-3.0\AceDB-3.0.xml"/>
+</Ui>

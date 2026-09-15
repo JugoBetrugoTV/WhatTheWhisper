@@ -1,0 +1,24 @@
+{
+  "files": {
+    "AceAddon-3.0/AceAddon-3.0.lua": "9aaec858b04820b597155b040dd76ef0d6e8e4f0707e54630001bcfe68497307",
+    "AceAddon-3.0/AceAddon-3.0.xml": "611d8d8150de656a7ac5311a4bfe63a1e57a8cf48d636d399a6a821ef6238f98",
+    "AceConsole-3.0/AceConsole-3.0.lua": "3372abc50efcfa4f643bf7c2f3254de19327d28e2040997d672f94d1845a5499",
+    "AceConsole-3.0/AceConsole-3.0.xml": "047fceb9632ac6c99e80ccf12115b5104851ceac3cbd02ab665cdef1644b5a79",
+    "AceDB-3.0/AceDB-3.0.lua": "9d6659c3de31c931a249c5ce35839939e43c07e5118c1660c30b4a5234e586ce",
+    "AceDB-3.0/AceDB-3.0.xml": "db086e63b8af39bd4857394119324573868a8bf5815d4c6f3d1af1027cba0625",
+    "AceEvent-3.0/AceEvent-3.0.lua": "928729c0edae955407778463d345baa0e59fc8f6f6ad53877b6243e0f225da4e",
+    "AceEvent-3.0/AceEvent-3.0.xml": "365d75a5b296df4d5bef6512cd4fd6ca2ed63b1878df06e528b336d3203dc7c5",
+    "CallbackHandler-1.0/CallbackHandler-1.0.lua": "e37ca6e5cd4e39c69d600468c8fe2a425b8a4d50023d9903fa3dc7aeeae1561f",
+    "CallbackHandler-1.0/CallbackHandler-1.0.xml": "893bd83f5eb818a93a5c8bec4ed37edf2493a9fa655acbcb0cdde02bea5448e5",
+    "LibStub/LibStub.lua": "26401bc42c26d1d1b6f7ad9410aa464edcbe4d32d74ebadeeecd8c0110236f7d"
+  },
+  "note": "SHA-256 of every embedded library file as shipped by upstream Ace3, plus the revision each one registers with LibStub. Regenerate with Tools/gen_lib_manifest.py only when deliberately updating a library.",
+  "versions": {
+    "AceAddon-3.0": 13,
+    "AceConsole-3.0": 7,
+    "AceDB-3.0": 33,
+    "AceEvent-3.0": 4,
+    "CallbackHandler-1.0": 8,
+    "LibStub": 2
+  }
+}
