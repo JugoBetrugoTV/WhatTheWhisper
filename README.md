@@ -4,8 +4,9 @@ A messenger for World of Warcraft whispers. Every player you talk to gets their
 own thread, with history, search, notifications, detachable windows and a look
 that is built rather than borrowed from Blizzard's frame art.
 
-Runs on **Retail 12.1.0**, **MoP Classic 5.5.4**, **TBC Anniversary 2.5.6** and
-**Classic Era 1.15.9** — the same feature set and the same design on all four.
+Runs on **Retail 12.1.0**, **WoW Forever 1.60.1**, **MoP Classic 5.5.4**,
+**TBC Anniversary 2.5.6** and **Classic Era 1.15.9** — the same feature set and
+the same design on all five.
 
 ---
 
@@ -17,10 +18,18 @@ installation — there is nothing else to download.
 ```
 Interface/AddOns/
     WhatTheWhisper/
-        WhatTheWhisper.toc
+        WhatTheWhisper_Mainline.toc   <- Retail
+        WhatTheWhisper_Camelot.toc    <- Forever
+        WhatTheWhisper_Mists.toc      <- MoP Classic
+        WhatTheWhisper_TBC.toc        <- TBC Anniversary
+        WhatTheWhisper_Vanilla.toc    <- Classic Era
         Libs/             <- LibStub and the five Ace3 libraries it uses
         Core/  Modules/  UI/  Skins/  Art/
 ```
+
+One manifest per client, and the client picks its own — the folder is the same
+on all of them, so there is nothing to choose at install time. All five load the
+same file list; only the interface number differs.
 
 `/wtw` opens the messenger. `/wtw help` lists the rest.
 
@@ -98,7 +107,7 @@ Stated plainly, because the alternative is pretending:
   no dot at all rather than a grey one that implies something.
 - **Level and faction** come from the same sources, plus the race in the chat
   event's GUID. Anything unknown is left out instead of guessed.
-- **No emoji font.** None of the four clients ship emoji glyphs, so the addon
+- **No emoji font.** None of these clients ship emoji glyphs, so the addon
   carries its own atlas and renders it through inline texture markup. What goes
   over the wire is always plain text (`:)`, `:fire:`, `{rt1}`), so the person on
   the other end sees something sensible with or without this addon.
@@ -161,8 +170,11 @@ runs syntax checks, luacheck, atlas and locale consistency, and then loads the
 addon into a WoW API mock and drives it: login, chat traffic, sending, delivery
 reconciliation, every skin, every option permutation, popouts, Exposé, combat
 and logout — with an assertion that virtualisation still holds at 2 000
-messages. It runs against four client profiles with the API surface each one
-actually has, so a Retail-only call fails the Classic run.
+messages. It runs against seven client profiles with the API surface each one
+actually has, so a Retail-only call fails the Classic run. Those surfaces are
+read out of Blizzard's own generated API documentation at the tag for each
+shipping build rather than assumed, because Classic receives APIs by backport
+and guessing from "when Retail got it" has already been wrong once.
 
 ```sh
 python3 Tools/gen_icons.py      # Art/Icons.tga  + UI/IconAtlas.lua

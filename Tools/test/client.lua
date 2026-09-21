@@ -10,8 +10,8 @@
 --
 -- PROVENANCE. Every entry below was checked against Blizzard's own generated API
 -- documentation in Gethe/wow-ui-source at the tags for the exact shipping
--- builds this addon supports -- 12.1.0, 5.5.4, 2.5.6 and 1.15.9 -- by looking
--- for the function's Name and Namespace in
+-- builds this addon supports -- 12.1.0, 5.5.4, 2.5.6, 1.15.9 and 1.60.1 -- by
+-- looking for the function's Name and Namespace in
 -- Interface/AddOns/Blizzard_APIDocumentationGenerated. Nothing here is inferred
 -- from when Retail first received an API: Classic gets them by backport, which
 -- is precisely how the previous version of this file came to be wrong.
@@ -22,12 +22,24 @@ local M = _G.WOWMOCK
 
 
 local PROFILES = {
-	-- The four shipping clients. Their API surface is very nearly identical: the
+	-- The shipping clients. Their API surface is very nearly identical: the
 	-- modern namespaces, the chat-line APIs, the secret-value APIs and the
 	-- restriction APIs are all present on every one of them, verified at the
 	-- tags above. The addon compartment is the only thing on this list that
 	-- really is Retail-only.
 	retail  = { build = { "12.1.0", "60000", "Sep 06 2026", 120100 }, project = 1 },
+
+	-- World of Warcraft: Forever, which Blizzard's own source calls Camelot.
+	-- Build 1.60.1.69893, interface 16001.
+	--
+	-- The project ID is deliberately WOW_PROJECT_MAINLINE here, because that is
+	-- what the client is expected to answer: Forever loads the mainline family
+	-- of Blizzard_BNet, whose first line is
+	--   WOW_PROJECT_ID = WOW_PROJECT_ID or WOW_PROJECT_MAINLINE
+	-- So this profile is also the test that Compat reads the interface number
+	-- before the project ID. Set the ID to 2 and it would still have to say
+	-- "forever"; let Compat ask the ID first and this profile says "retail".
+	forever = { build = { "1.60.1", "69893", "Sep 15 2026", 16001 }, project = 1 },
 	mop     = { build = { "5.5.4", "60000", "Sep 06 2026", 50504 }, project = 19,
 		noCompartment = true },
 	tbc     = { build = { "2.5.6", "60000", "Sep 06 2026", 20506 }, project = 5,
@@ -174,6 +186,21 @@ end
 
 Client.CONTRACT = {
 	retail  = shipping({ "AddonCompartmentFrame" }),
+	-- Every name in SHIPPING is in the 1.60.1 generated documentation: all nine
+	-- C_ChatInfo entries, the three C_BattleNet ones, C_FriendList, C_PartyInfo
+	-- and C_Secrets.HasSecretRestrictions. Forever is the current engine with
+	-- Vanilla's world on it, not an old client.
+	--
+	-- The addon compartment is the one thing this contract will not claim either
+	-- way. Blizzard_Minimap loads it with [AllowLoadGameType mainline], and
+	-- whether Forever is inside that family for that line cannot be read off the
+	-- source with confidence: the same TOC writes "[AllowLoadGameType mainline]
+	-- [ExcludeLoadGameType camelot]" elsewhere, which says it is, and
+	-- Blizzard_ChatFrameBase writes "[AllowLoadGameType mainline, camelot]",
+	-- which says it is not. The addon asks _G.AddonCompartmentFrame at runtime
+	-- and behaves either way, so the honest contract is silence rather than a
+	-- guess dressed up as a finding.
+	forever = shipping(),
 	-- No reference to the addon compartment anywhere in their interface source.
 	mop     = shipping(nil, { "AddonCompartmentFrame" }),
 	tbc     = shipping(nil, { "AddonCompartmentFrame" }),

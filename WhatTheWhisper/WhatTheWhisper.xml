@@ -1,7 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 	<!--
-		Single load manifest shared by all four client TOCs, so the file list can
-		never drift between Retail, MoP Classic, TBC and Classic Era.
+		Single load manifest shared by every client TOC, so the file list can
+		never drift between Retail, Forever, MoP Classic, TBC and Classic Era.
 		Order matters: each file may reference anything loaded above it at file
 		scope, and nothing below it.
 	-->
@@ -11,6 +11,7 @@
 	<Script file="Core\Debug.lua"/>
 	<Script file="Core\Compat\Compat.lua"/>
 	<Script file="Core\Compat\Retail.lua"/>
+	<Script file="Core\Compat\Forever.lua"/>
 	<Script file="Core\Compat\Mists.lua"/>
 	<Script file="Core\Compat\TBC.lua"/>
 	<Script file="Core\Compat\Classic.lua"/>

@@ -88,6 +88,56 @@ for toc in tocs:
             err("%s is missing %s" % (toc, key))
 notes.append("%d TOC files" % len(tocs))
 
+# A TOC's suffix is how the client picks the file; its Interface line is how the
+# client decides whether to trust it. Those two have to agree, and nothing said
+# so until a Forever manifest was copied from the Classic Era one: the client
+# would have loaded WhatTheWhisper_Camelot.toc and then marked the addon out of
+# date, which is a failure that looks nothing like a wrong number in a file.
+#
+# The ranges are the client lines themselves: Retail is 1xxxxx, Forever is 1.60+
+# (16xxx-19xxx), MoP Classic 5.x, TBC 2.x, Classic Era 1.13-1.15.
+TOC_SUFFIX_INTERFACE = {
+    "Mainline": (100000, 999999),
+    "Camelot": (16000, 19999),
+    "Mists": (50000, 59999),
+    "TBC": (20000, 29999),
+    "Vanilla": (11300, 11599),
+}
+seen_interface = {}
+for toc in tocs:
+    text = open(os.path.join(ADDON, toc), encoding="utf-8").read()
+    stem = os.path.splitext(toc)[0]
+    suffix = stem.split("_", 1)[1] if "_" in stem else None
+    if suffix is None:
+        # The unsuffixed fallback manifest serves whatever the client is, so
+        # there is no range to hold it to.
+        continue
+    if suffix not in TOC_SUFFIX_INTERFACE:
+        err("%s has a suffix no client claims: %s" % (toc, suffix))
+        continue
+    stated = re.search(r'^## Interface:\s*(\d+)', text, re.M)
+    if not stated:
+        err("%s has no readable Interface number" % toc)
+        continue
+    value = int(stated.group(1))
+    low, high = TOC_SUFFIX_INTERFACE[suffix]
+    if not low <= value <= high:
+        err("%s is the %s manifest but states interface %d, which is not a %s "
+            "build (%d-%d)" % (toc, suffix, value, suffix, low, high))
+    if value in seen_interface:
+        err("%s and %s both state interface %d; one of them is a copy nobody "
+            "finished" % (seen_interface[value], toc, value))
+    seen_interface[value] = toc
+    flavor = re.search(r'^## X-Flavor:\s*(\S+)', text, re.M)
+    if flavor and flavor.group(1) != suffix:
+        err("%s says X-Flavor %s but is named for %s"
+            % (toc, flavor.group(1), suffix))
+if len(seen_interface) < 4:
+    err("only %d suffixed manifests checked; the client line coverage has "
+        "shrunk" % len(seen_interface))
+notes.append("%d client manifests, each stating an interface its client accepts"
+             % len(seen_interface))
+
 # --------------------------------------------------------------- textures ----
 # Texture paths are built from ns.ART, which is Interface\AddOns\<folder>\Art\.
 art_dir = os.path.join(ADDON, "Art")

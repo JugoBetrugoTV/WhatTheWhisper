@@ -28,8 +28,25 @@ tocVersion = tonumber(tocVersion) or 0
 -- fallback for anything that predates it or ships it inconsistently.
 local projectID = _G.WOW_PROJECT_ID
 
+-- Forever -- "Camelot" in Blizzard's own interface source -- is the one flavour
+-- the project ID cannot be trusted for, so it is asked about first.
+--
+-- Its files sit in the mainline family: Blizzard_BNet ships only a Mainline
+-- directory and loads it with [AllowLoadGameType mainline], and that file opens
+-- with `WOW_PROJECT_ID = WOW_PROJECT_ID or WOW_PROJECT_MAINLINE`. So a client
+-- that is emphatically not Retail can answer WOW_PROJECT_MAINLINE to the
+-- question every other flavour answers honestly, and asking the ID first would
+-- have named Forever "Retail" and given it Retail's thirteen classes.
+--
+-- The interface number has no such ambiguity. 1.60.x is Forever and nothing
+-- else: Classic Era is 1.13-1.15 (11300-11599) and TBC starts at 20000, so the
+-- whole 16xxx-19xxx range belongs to this client line and to no other.
+local FOREVER_FLOOR, FOREVER_CEILING = 16000, 20000
+
 local flavor
-if projectID and _G.WOW_PROJECT_MAINLINE and projectID == _G.WOW_PROJECT_MAINLINE then
+if tocVersion >= FOREVER_FLOOR and tocVersion < FOREVER_CEILING then
+	flavor = "forever"
+elseif projectID and _G.WOW_PROJECT_MAINLINE and projectID == _G.WOW_PROJECT_MAINLINE then
 	flavor = "retail"
 elseif projectID and _G.WOW_PROJECT_CLASSIC and projectID == _G.WOW_PROJECT_CLASSIC then
 	flavor = "classic"
@@ -59,14 +76,17 @@ Compat.buildVersion = buildVersion
 Compat.buildNumber  = tonumber(buildNumber) or 0
 
 Compat.isRetail     = (flavor == "retail")
+Compat.isForever    = (flavor == "forever")
 Compat.isClassicEra = (flavor == "classic")
 Compat.isTBC        = (flavor == "tbc")
 Compat.isWrath      = (flavor == "wrath")
 Compat.isCata       = (flavor == "cata")
 Compat.isMoP        = (flavor == "mop")
 -- "Modern" means the 9.0+ Lua API shape (C_ namespaces widely available).
-Compat.isModern     = Compat.isRetail or Compat.isMoP or Compat.isCata
-Compat.isClassicLike = not Compat.isRetail
+-- Forever is modern by engine and Vanilla by content, which is the whole point
+-- of it: the API surface is the current one, the world has nine classes.
+Compat.isModern     = Compat.isRetail or Compat.isForever or Compat.isMoP or Compat.isCata
+Compat.isClassicLike = not (Compat.isRetail or Compat.isForever)
 
 --------------------------------------------------------------------------------
 -- Capability probes
@@ -1009,7 +1029,15 @@ function Compat.SavedVariablesFolder()
 	local flavourFolder = ({
 		retail = "_retail_", mop = "_classic_", cata = "_classic_",
 		wrath = "_classic_", tbc = "_classic_era_", classic = "_classic_era_",
-	})[Compat.flavor] or "_retail_"
+	})[Compat.flavor]
+	-- Forever's install folder is not something this addon can know: the client
+	-- is still in beta under a borrowed product code, and the name it ships
+	-- under is Blizzard's to choose. Naming the wrong folder in an export dialog
+	-- sends a player hunting through a directory that is not there, so the
+	-- unknown case says it is unknown instead.
+	if not flavourFolder then
+		return "World of Warcraft\\<version>\\WTF\\Account\\<account>\\SavedVariables"
+	end
 	return "World of Warcraft\\" .. flavourFolder
 		.. "\\WTF\\Account\\<account>\\SavedVariables"
 end

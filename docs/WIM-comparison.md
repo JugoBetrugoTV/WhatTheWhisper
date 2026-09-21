@@ -33,8 +33,8 @@ All of them. The restriction APIs (`InChatMessagingLockdown`,
 (`GetChatLineText`, `GetChatLineSenderName`, `GetChatLineSenderGUID`,
 `IsValidChatLine`, `IsChatLineCensored`, `UncensorChatLine`), the
 `issecretvalue` / `hasanysecretvalues` globals and `C_Secrets` are present on
-12.1.0, 5.5.4, 2.5.6 and 1.15.9 alike -- verified against the generated API
-documentation in Gethe/wow-ui-source at each of those tags. So none of this is
+12.1.0, 1.60.1, 5.5.4, 2.5.6 and 1.15.9 alike -- verified against the generated
+API documentation in Gethe/wow-ui-source at each of those tags. So none of this is
 behind a version check, and the test suite exercises the whole restricted-content
 path on every supported client rather than only on Retail.
 

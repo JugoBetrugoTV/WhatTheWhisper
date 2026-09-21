@@ -23,7 +23,7 @@ No magic numbers are allowed anywhere else in the codebase.
 4. **Every interactive element has five states**: rest, hover, pressed, selected, disabled.
    A control without a hover state is an unfinished control.
 5. **Motion is feedback, never decoration.** 100–260 ms, ease-out. Nothing loops forever.
-6. **Identical on all four clients.** No feature or visual may exist on Retail only.
+6. **Identical on every client.** No feature or visual may exist on Retail only.
 
 ---
 
@@ -518,6 +518,16 @@ The visual system uses only: `SetColorTexture`, `SetGradient`, `SetTexCoord`,
 `CreateMaskTexture` + `AddMaskTexture`, `SetRotation`, `SetClipsChildren`, AnimationGroups,
 `SetHyperlinksEnabled`. Each is feature-detected in `Core/Compat` with a documented
 fallback, so **Classic Era looks identical to Retail** rather than degrading to a grey box.
+
+Which client it is on is decided once, in `Core/Compat/Compat.lua`, and only ever decides
+names and world data — the class count, the `/who` throttle, the folder a player is told
+to look in. Never a capability: those are probed, because Blizzard backports into Classic
+without warning and a version test is a guess with a date on it.
+
+Forever is the flavour that proves the rule. Its interface files sit in the mainline
+family, so `Blizzard_BNet` runs `WOW_PROJECT_ID = WOW_PROJECT_ID or WOW_PROJECT_MAINLINE`
+there and the client answers "Retail" to the question every other flavour answers
+honestly. The interface number has no such ambiguity, so it is read first.
 
 | Capability | Detection | Fallback |
 |-----------|-----------|----------|

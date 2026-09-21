@@ -55,6 +55,34 @@ local Harness = dofile(ROOT .. "Tools/test/harness.lua")
 local ns = Harness.Load()
 local CM, Compat = ns.ConversationManager, ns.Compat
 
+--------------------------------------------------------------------------------
+-- ...and the addon worked out which one it is
+--------------------------------------------------------------------------------
+
+-- Everything below this line is a test of behaviour on a named client, and all
+-- of it is worthless if the addon is quietly wrong about which client it is on.
+-- Nothing asked before now: the suites ran green for months against a Compat
+-- that could have been calling every one of them Retail.
+--
+-- It matters most for Forever, which is the one flavour that lies. Its files
+-- sit in the mainline family, so it answers WOW_PROJECT_MAINLINE to the
+-- question, and an addon that asks the project ID first calls it Retail and
+-- hands it thirteen classes. The profile in client.lua sets that ID on purpose,
+-- so this line is the test.
+local EXPECTED_FLAVOR = {
+	retail = "retail", modern = "retail", forever = "forever",
+	mop = "mop", tbc = "tbc", classic = "classic",
+	-- The artificial poor client is a 1.15.9 build: Classic Era with things
+	-- taken away, not a flavour of its own.
+	fallback = "classic",
+}
+eq("the addon knows which client it is on", Compat.flavor, EXPECTED_FLAVOR[FLAVOUR])
+check("and has a name for it", (Compat.flavorName or "") ~= "", Compat.flavorName)
+check("that is not the unknown-client placeholder",
+	not (Compat.flavorName or ""):find("Unknown", 1, true)
+		or FLAVOUR == "wrath" or FLAVOUR == "cata",
+	Compat.flavorName)
+
 M.loggedIn = true
 M.FireEvent("ADDON_LOADED", "WhatTheWhisper")
 M.FireEvent("PLAYER_LOGIN")
