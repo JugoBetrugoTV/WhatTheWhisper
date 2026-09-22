@@ -87,6 +87,14 @@ local function ensureTable(owner, key)
 	return value ~= nil
 end
 
+-- Whether a stored timestamp is one the client's own date() can work with.
+-- Deliberately not ns.Format.UsableTime: that one repairs a bad value into 0 for
+-- display, and repair here means dropping the row rather than silently dating it
+-- to 1970.
+local function usableTime(ts)
+	return type(ts) == "number" and date("*t", ts) ~= nil
+end
+
 function Migrations.Repair(history)
 	local repaired = 0
 	if ensureTable(history, "chars") then repaired = repaired + 1 end
@@ -106,11 +114,18 @@ function Migrations.Repair(history)
 				else
 					-- Drop entries that are not message tuples; a single bad row
 					-- would otherwise break every render of that thread.
+					--
+					-- "A number" is not enough for the timestamp. An infinity is
+					-- a number, and it survived this check and then took out the
+					-- first render of the thread on the line that turns a
+					-- timestamp into a date -- which is the exact failure the
+					-- comment above promises to prevent. So the test is whether
+					-- the calendar can hold it, which is what usableTime asks.
 					local write = 1
 					local list = record.msgs
 					for i = 1, #list do
 						local entry = list[i]
-						if type(entry) == "table" and type(entry[ns.MSG_TS]) == "number"
+						if type(entry) == "table" and usableTime(entry[ns.MSG_TS])
 							and type(entry[ns.MSG_TEXT]) == "string" then
 							list[write] = entry
 							write = write + 1

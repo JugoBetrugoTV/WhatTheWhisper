@@ -75,6 +75,7 @@ suite "minimap button"        Tools/test/minimap.lua
 suite "ui geometry"           Tools/test/ui.lua
 suite "font scale"            Tools/test/fontscale.lua
 suite "every action"          Tools/test/actions.lua
+suite "every switch"          Tools/test/effects.lua
 suite "logout shutdown"       Tools/test/shutdown.lua
 suite "random session"        Tools/test/session.lua
 

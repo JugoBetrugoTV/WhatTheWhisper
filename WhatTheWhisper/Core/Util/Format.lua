@@ -29,7 +29,30 @@ end
 -- Clock
 --------------------------------------------------------------------------------
 
+-- A timestamp date() can actually work with.
+--
+-- date() answers nil rather than raising for a value no calendar can hold, so
+-- without this every function below either hands a nil to something expecting a
+-- string or indexes one as a table -- which is what dayStart did, and it took
+-- the whole thread's render with it.
+--
+-- The way that happens is a damaged saved-variables file: an infinity is still a
+-- number, so it passed the type check in Migrations.Repair. That check is
+-- stricter now, and this is the floor under it, because timestamps also arrive
+-- from the client and from history written by other versions.
+-- nil stays nil: "there is no timestamp" is a different answer from "there is
+-- one and it is nonsense", and the callers below already say something sensible
+-- about the first.
+local function usable(ts)
+	if ts == nil then return nil end
+	ts = tonumber(ts)
+	if not ts or date("*t", ts) == nil then return 0 end
+	return ts
+end
+Format.UsableTime = usable
+
 function Format.Clock(ts)
+	ts = usable(ts)
 	if not ts then return "" end
 	if opt("appearance.clock24", true) then
 		return date("%H:%M", ts)
@@ -40,6 +63,7 @@ function Format.Clock(ts)
 end
 
 function Format.ClockSeconds(ts)
+	ts = usable(ts)
 	if not ts then return "" end
 	if opt("appearance.clock24", true) then
 		return date("%H:%M:%S", ts)
@@ -54,7 +78,7 @@ end
 
 -- Midnight of the day containing `ts`, in local time.
 local function dayStart(ts)
-	local t = date("*t", ts)
+	local t = date("*t", usable(ts))
 	t.hour, t.min, t.sec = 0, 0, 0
 	return time(t)
 end
@@ -70,7 +94,7 @@ local WEEKDAY_GLOBALS = {
 }
 
 local function weekdayName(ts)
-	local wday = tonumber(date("%w", ts)) or 0
+	local wday = tonumber(date("%w", usable(ts))) or 0
 	local name = WEEKDAY_GLOBALS[wday + 1]
 	if name and name ~= "" then return name end
 	return date("%A", ts)
@@ -78,6 +102,7 @@ end
 Format.WeekdayName = weekdayName
 
 function Format.ShortDate(ts)
+	ts = usable(ts)
 	local style = opt("appearance.dateFormat", "auto")
 	if style == "dmy" then return date("%d.%m.%Y", ts) end
 	if style == "mdy" then return date("%m/%d/%Y", ts) end
@@ -93,6 +118,7 @@ end
 
 -- Header used by the date separators in a conversation.
 function Format.DayLabel(ts)
+	ts = usable(ts)
 	local today = dayStart(time())
 	local that = dayStart(ts)
 	if that == today then return L["Today"] end
@@ -107,6 +133,7 @@ end
 -- beside a name and a badge, so anything older than a week collapses to day and
 -- month, and only a different year carries a (two digit) year.
 function Format.CompactDate(ts)
+	ts = usable(ts)
 	local style = opt("appearance.dateFormat", "auto")
 	local sameYear = date("%Y", ts) == date("%Y")
 	if style == "iso" then
@@ -120,6 +147,7 @@ function Format.CompactDate(ts)
 end
 
 function Format.ListStamp(ts)
+	ts = usable(ts)
 	if not ts or ts == 0 then return "" end
 	local today = dayStart(time())
 	local that = dayStart(ts)
@@ -157,5 +185,6 @@ function Format.Duration(seconds)
 end
 
 function Format.ExportStamp(ts)
+	ts = usable(ts)
 	return date("%Y-%m-%d %H:%M:%S", ts or time())
 end

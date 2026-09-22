@@ -594,8 +594,19 @@ function fsMethods:SetJustifyV(v) self._justifyV = v end
 function fsMethods:SetWordWrap(v) self._wordWrap = (v ~= false) end
 function fsMethods:SetNonSpaceWrap() end
 function fsMethods:SetSpacing(v) self._spacing = v end
-function fsMethods:SetTextColor() end
-function fsMethods:GetTextColor() return 1, 1, 1, 1 end
+-- Recorded rather than dropped. The client keeps the colour and so must this:
+-- with a no-op here every test that wanted to know what colour a string was
+-- drawn in had to ask which *role* it was given instead, which is a test of the
+-- intention rather than of the result. A string set to the wrong colour by hand
+-- was invisible to the whole suite.
+function fsMethods:SetTextColor(r, g, b, a)
+	self._textColor = { r or 1, g or 1, b or 1, a == nil and 1 or a }
+end
+function fsMethods:GetTextColor()
+	local c = self._textColor
+	if not c then return 1, 1, 1, 1 end
+	return c[1], c[2], c[3], c[4]
+end
 function fsMethods:SetMaxLines() end
 function fsMethods:SetShadowOffset() end
 function fsMethods:SetShadowColor() end
@@ -916,7 +927,14 @@ function frameMethods:SetFontObject(fo) self._font = fo end
 function frameMethods:SetTextInsets() end
 function frameMethods:SetMaxLetters() end
 function frameMethods:SetCountInvisibleLetters() end
-function frameMethods:SetTextColor() end
+function frameMethods:SetTextColor(r, g, b, a)
+	self._textColor = { r or 1, g or 1, b or 1, a == nil and 1 or a }
+end
+function frameMethods:GetTextColor()
+	local c = self._textColor
+	if not c then return 1, 1, 1, 1 end
+	return c[1], c[2], c[3], c[4]
+end
 function frameMethods:SetSpacing() end
 function frameMethods:SetText(v)
 	self._text = v or ""

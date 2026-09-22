@@ -21,6 +21,10 @@ _G.UnitRace = function() return "Human","Human" end
 _G.UnitFactionGroup = function() return "Alliance","Alliance" end
 _G.UnitSex = function() return 2 end
 _G.GetCurrentRegion = function() return 3 end
+-- Optionally on a named client, so the poorer ones get driven by chaos too and
+-- not only by the deliberate scripts in flavour.lua.
+local FLAVOUR = arg and arg[3]
+if FLAVOUR then dofile(ROOT .. "Tools/test/client.lua").Setup(FLAVOUR) end
 local ns = dofile(ROOT .. "Tools/test/harness.lua").Load()
 local CM = ns.ConversationManager
 M.loggedIn = true
@@ -29,6 +33,10 @@ M.FireEvent("PLAYER_LOGIN")
 
 local soft = {}
 ns.SoftError = function(c, e) soft[#soft+1] = c .. ": " .. tostring(e) end
+
+-- Frames are pooled, so a session that ends with far more of them than it
+-- started with is a session that leaked one.
+local framesAtStart
 
 local ARG_SEED = tonumber(arg and arg[1])
 local STEPS = tonumber(arg and arg[2]) or 250
@@ -47,6 +55,7 @@ end
 
 ns.UI.Show()
 M.RunFrames(6)
+framesAtStart = #M.frames
 
 local failures = {}
 local function violation(what, detail)
@@ -270,6 +279,13 @@ for _, seed in ipairs(SEEDS) do
 	M.RunFrames(4)
 
 	local label = ("seed %d survives %d steps"):format(seed, STEPS)
+	-- A pooled interface reaches a steady size and stays there. Room is left for
+	-- the pools that only fill when a feature is first used -- a popout, the
+	-- emoji picker, the settings window -- but not for unbounded growth.
+	local grew = #M.frames - framesAtStart
+	check(label .. ": the frame count settled",
+		grew < 900, ("%d new frames since the session began"):format(grew))
+	framesAtStart = #M.frames
 	check(label .. ": no error escaped",
 		#M.errors == errorsBefore, M.errors[#M.errors])
 	check(label .. ": nothing was logged",

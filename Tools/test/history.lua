@@ -270,6 +270,17 @@ local damaged = {
 				BadRecord = "not a table",
 				BadMessages = { msgs = "not a table" },
 				BadRow = { msgs = { { base, 0, "gut", 1 }, "kaputt", { nil, 0, "auch kaputt" } } },
+				-- A timestamp no calendar can hold. These are numbers, so they
+				-- passed a type check and then took out the first render of the
+				-- thread on the line that turns a timestamp into a date -- the
+				-- exact failure this repair pass exists to prevent.
+				BadClock = { msgs = {
+					{ base, 0, "gut", 1 },
+					{ 1 / 0, 0, "unendlich", 1 },
+					{ -1 / 0, 0, "minus unendlich", 1 },
+					{ 0 / 0, 0, "keine Zahl", 1 },
+					{ base + 1, 0, "auch gut", 1 },
+				} },
 			},
 		},
 		BadStore = 42,
@@ -284,6 +295,25 @@ eq("bad rows dropped, good rows kept",
 	#damaged.chars["Testchar-Blackrock"].conv.BadRow.msgs, 1)
 eq("good record survived untouched",
 	#damaged.chars["Testchar-Blackrock"].conv.Good.msgs, 2)
+do
+	local kept = damaged.chars["Testchar-Blackrock"].conv.BadClock.msgs
+	eq("rows with an impossible clock are dropped", #kept, 2)
+	for i = 1, #kept do
+		check("and every surviving row has a date the client can render",
+			os.date("*t", kept[i][ns.MSG_TS]) ~= nil, tostring(kept[i][ns.MSG_TS]))
+	end
+end
+-- ...and the formatter does not depend on that having happened, because a
+-- timestamp also arrives from the client and from history another version wrote.
+for _, ts in ipairs({ 1 / 0, -1 / 0, 0 / 0, 2 ^ 40, -1 }) do
+	for _, fn in ipairs({ "Clock", "DayLabel", "ListStamp", "ShortDate",
+		"CompactDate", "ExportStamp", "ClockSeconds" }) do
+		local ok, out = pcall(ns.Format[fn], ts)
+		check(("Format.%s survives %s"):format(fn, tostring(ts)),
+			ok and type(out) == "string", tostring(out))
+	end
+end
+check("and so does IsSameDay", pcall(ns.Format.IsSameDay, 1 / 0, 0 / 0))
 eq("bad character store replaced", type(damaged.chars.BadStore), "table")
 problems = audit(damaged, "repaired")
 check("repaired data is serialisable", #problems == 0, table.concat(problems, "; "))
