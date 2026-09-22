@@ -7,6 +7,19 @@ _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 _G.GetTime = function() return 100 end
 ns.SoftError = function() end
 ns.Guard = function(_, f, ...) return pcall(f, ...) end
+-- Namespace.lua's setting reader, which the modules loaded here use the same way
+-- they use Guard. Kept faithful to the real one: it walks the path and stops at
+-- the first level that is not a table, because the whole point of it is that a
+-- section can be missing while the profile above it is not.
+ns.Setting = function(path, fallback)
+	local node = ns.db and ns.db.profile
+	for key in string.gmatch(path, "[^%.]+") do
+		if type(node) ~= "table" then return fallback end
+		node = node[key]
+	end
+	if node ~= nil then return node end
+	return fallback
+end
 
 local function load(path) assert(loadfile(ROOT .. "WhatTheWhisper/" .. path))("WhatTheWhisper", ns) end
 load("Core/Util/Text.lua")

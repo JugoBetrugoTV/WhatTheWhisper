@@ -112,9 +112,7 @@ end
 ns.LocaleIsUsable = usable
 
 local function activeCode()
-	local db = ns.db
-	local chosen = db and db.profile and db.profile.appearance
-		and db.profile.appearance.locale
+	local chosen = ns.Setting("appearance.locale")
 	if chosen and chosen ~= "auto" and usable(chosen) then return chosen end
 	if usable(clientLocale) then return clientLocale end
 	return BASE

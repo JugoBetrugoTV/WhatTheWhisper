@@ -109,7 +109,7 @@ end
 --------------------------------------------------------------------------------
 
 local function settings()
-	return ns.db.profile.notifications
+	return ns.Setting("notifications")
 end
 
 function Toast.Relayout()

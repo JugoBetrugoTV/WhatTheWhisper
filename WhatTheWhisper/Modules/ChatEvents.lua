@@ -309,7 +309,7 @@ local function onWhisperInform(text, target, _, _, _, _, _, _, _, _, _, guid)
 	local msg = CM.AddMessage(id, ns.DIR_OUT, text, ns.MSG_WHISPER, replayTimestamp,
 		ns.SEND_OK)
 	if not msg then return false end
-	if ns.db.profile.messages.openOnSend then
+	if ns.Setting("messages.openOnSend") then
 		aftermath("UI.EnsureConversationOpen", ns.UI.EnsureConversationOpen, id, true)
 	end
 	return true
@@ -464,7 +464,7 @@ end
 function ChatEvents.OnComposeWhisper(target)
 	local db = ns.db
 	if not db or not db.profile or not db.profile.enabled then return end
-	if not db.profile.messages.openOnCompose then return end
+	if not ns.Setting("messages.openOnCompose") then return end
 	if not target or target == "" then return end
 
 	local id = Compat.NormalizeName(ns.Text.UpperFirst(target))
@@ -605,7 +605,7 @@ local function shouldHide()
 	-- Failsafe: if the addon has been erroring, it stops taking whispers out of
 	-- the chat frame. Better a duplicate than a message the player never sees.
 	if ns.Debug.IsDegraded() then return false end
-	return db.profile.messages.hideFromChatFrame
+	return ns.Setting("messages.hideFromChatFrame")
 end
 
 -- The client passes the frame and the event before the payload.

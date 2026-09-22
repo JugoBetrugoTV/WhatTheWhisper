@@ -36,7 +36,7 @@ end
 
 -- Moves `win` to the nearest edge alignment within SNAP_DISTANCE.
 local function applySnap(win)
-	if not ns.db.profile.layout.snap then return end
+	if not ns.Setting("layout.snap") then return end
 	local left, right = win:GetLeft(), win:GetRight()
 	local top, bottom = win:GetTop(), win:GetBottom()
 	if not left or not top then return end
@@ -127,7 +127,7 @@ local function create(conv)
 
 	-- The header doubles as the drag handle.
 	W.MakeWindowHandle(win.view.header, {
-		canMove = function() return not (win.locked or ns.db.profile.layout.locked) end,
+		canMove = function() return not (win.locked or ns.Setting("layout.locked")) end,
 		onStartMove = function()
 			win:StartMoving()
 			win.moving = true
@@ -147,7 +147,7 @@ local function create(conv)
 	win.grip:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -2, 2)
 	win.grip:EnableMouse(true)
 	win.grip:SetScript("OnMouseDown", function()
-		if win.locked or ns.db.profile.layout.locked then return end
+		if win.locked or ns.Setting("layout.locked") then return end
 		win:StartSizing("BOTTOMRIGHT")
 		win.sizing = true
 	end)
@@ -172,8 +172,17 @@ function P:StoreKey()
 	return self.convID
 end
 
+-- The popout store, or nil once AceDB has stripped the profile at logout.
+-- A section that is read *and written* cannot go through ns.Setting: that would
+-- hand back the shipped defaults table, and writing a window position into the
+-- addon's own defaults is worse than not saving it.
+local function popoutStore()
+	return ns.db and ns.db.profile and ns.db.profile.popouts
+end
+
 function P:SaveGeometry()
-	local store = ns.db.profile.popouts
+	local store = popoutStore()
+	if not store then return end
 	local left, top = self:GetLeft(), self:GetTop()
 	if not left or not top then return end
 	self:ClearAllPoints()
@@ -187,7 +196,8 @@ function P:SaveGeometry()
 end
 
 function P:RestoreGeometry()
-	local saved = ns.db.profile.popouts[self:StoreKey()]
+	local store = popoutStore()
+	local saved = store and store[self:StoreKey()]
 	local width = (saved and saved.width) or ns.SZ.POPOUT_W
 	local height = (saved and saved.height) or ns.SZ.POPOUT_H
 	self:SetSize(max(width, ns.SZ.POPOUT_MIN_W), max(height, ns.SZ.POPOUT_MIN_H))

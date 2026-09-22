@@ -223,7 +223,8 @@ local function build()
 			local mx, my = minimapFrame:GetCenter()
 			if not mx then return end
 			local angle = math.deg(math.atan2(cy - my, cx - mx))
-			ns.db.profile.advanced.minimap.angle = angle
+			local store = ns.db and ns.db.profile and ns.db.profile.advanced
+			if store and store.minimap then store.minimap.angle = angle end
 			positionAt(angle)
 		end)
 	end)
@@ -267,7 +268,7 @@ end
 
 function MinimapButton.Update()
 	if not ns.db then return end
-	local hide = ns.db.profile.advanced.minimap.hide
+	local hide = ns.Setting("advanced.minimap.hide")
 	if hide then
 		if button then
 			Anim.Attention(button.badge, false)
@@ -275,17 +276,17 @@ function MinimapButton.Update()
 		end
 		-- Hiding the minimap button is exactly when the compartment entry
 		-- becomes the way in, so it keeps counting.
-		refreshCompartment(ns.db.profile.notifications.badge and CM.TotalUnread() or 0)
+		refreshCompartment(ns.Setting("notifications.badge") and CM.TotalUnread() or 0)
 		return
 	end
 	if not build() then return end
 	-- Re-asserted on every update: another addon loading later can change the
 	-- minimap's own strata out from under us, and the button has to follow.
 	MinimapButton.Raise()
-	positionAt(ns.db.profile.advanced.minimap.angle or 205)
+	positionAt(ns.Setting("advanced.minimap.angle") or 205)
 
 	local waiting = unreadConversations()
-	local count = ns.db.profile.notifications.badge and CM.TotalUnread() or 0
+	local count = ns.Setting("notifications.badge") and CM.TotalUnread() or 0
 	button.badge:SetCount(count)
 	-- Breathing, not flashing. Something is waiting; it is not an emergency.
 	Anim.Attention(button.badge, count > 0)

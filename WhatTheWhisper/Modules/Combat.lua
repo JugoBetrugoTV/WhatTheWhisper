@@ -19,7 +19,7 @@ local inCombat = false
 local savedState
 
 local function settings()
-	return (ns.db and ns.db.profile and ns.db.profile.combat) or ns.defaults.profile.combat
+	return ns.Setting("combat")
 end
 
 function Combat.InCombat()

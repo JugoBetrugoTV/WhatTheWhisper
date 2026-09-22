@@ -382,16 +382,15 @@ function V:ToggleProfile(force)
 	local show = force
 	if show == nil then show = not self.profile:IsShown() end
 	local db = ns.db
-	if db and db.profile then db.profile.layout.showProfile = show and true or false end
+	local store = db and db.profile and db.profile.layout
+	if store then store.showProfile = show and true or false end
 	self:ApplyProfileState()
 end
 
 -- Reads the setting rather than a local, so the checkbox in the settings window
 -- and the header button are the same switch rather than two that disagree.
 function V:ApplyProfileState()
-	local db = ns.db
-	local wanted = db and db.profile and db.profile.layout.showProfile
-	if wanted == nil then wanted = ns.defaults.profile.layout.showProfile end
+	local wanted = ns.Setting("layout.showProfile")
 	local show = wanted and self.conv ~= nil
 	self.profile:SetShown(show)
 	self.header.info:SetSelectedState(wanted and true or false)

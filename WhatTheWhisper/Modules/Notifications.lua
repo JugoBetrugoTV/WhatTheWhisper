@@ -13,13 +13,11 @@ local Notifications = {}
 ns.Notifications = Notifications
 
 local function settings()
-	return (ns.db and ns.db.profile and ns.db.profile.notifications)
-		or ns.defaults.profile.notifications
+	return ns.Setting("notifications")
 end
 
 local function messageSettings()
-	return (ns.db and ns.db.profile and ns.db.profile.messages)
-		or ns.defaults.profile.messages
+	return ns.Setting("messages")
 end
 
 --------------------------------------------------------------------------------

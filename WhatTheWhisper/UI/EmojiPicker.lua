@@ -118,7 +118,7 @@ end
 
 local function itemsFor(categoryID)
 	if categoryID == "recent" then
-		local recent = ns.db.profile.emoticons.recent
+		local recent = ns.Setting("emoticons.recent")
 		if #recent == 0 then
 			-- An empty Recent tab is a dead end; show the smileys instead.
 			return Emoticons.CATEGORIES[1].items

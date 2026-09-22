@@ -384,6 +384,47 @@ function ns.SoftError(context, err)
 	end
 end
 
+-- Reads one setting by path, falling back to the value the addon ships with.
+--
+-- This exists because "the profile is there" does not mean "the section is
+-- there". AceDB strips every value that equals its default out of the profile
+-- during PLAYER_LOGOUT, so that the SavedVariables file holds only what the
+-- player actually changed -- and handler order at logout is not defined, so any
+-- code still reading settings while that happens finds `db.profile` intact and
+-- `db.profile.appearance` gone.
+--
+-- A guard of the shape `db and db.profile and db.profile.animations.level` looks
+-- careful and is one link short: it survives the missing database and throws on
+-- the missing section. Five of them did, once per logout, into the error counter
+-- that decides whether the addon stops hiding whispers from the chat frame.
+--
+-- Two files had already worked this out and written their own local version.
+-- This is that helper, in one place, so the next caller inherits it instead of
+-- rediscovering it.
+--
+-- READS ONLY. What comes back may be the addon's own defaults table rather than
+-- the player's profile, so writing into it would edit the defaults for every
+-- profile at once. A section that is written to takes the real table and checks
+-- it is there -- see PopoutWindow's popoutStore for the shape.
+function ns.Setting(path, fallback)
+	local node = ns.db and ns.db.profile
+	for key in string.gmatch(path, "[^%.]+") do
+		if type(node) ~= "table" then node = nil break end
+		node = node[key]
+	end
+	-- `nil` and `false` are different answers: a switch that is off is an answer.
+	if node ~= nil then return node end
+	if fallback ~= nil then return fallback end
+	-- The shipped default, read the same way, so no caller has to repeat a value
+	-- that already lives in Defaults.lua and can drift from it.
+	node = ns.defaults and ns.defaults.profile
+	for key in string.gmatch(path, "[^%.]+") do
+		if type(node) ~= "table" then return nil end
+		node = node[key]
+	end
+	return node
+end
+
 -- pcall wrapper used around every UI callback that is reachable from a game event.
 function ns.Guard(context, fn, ...)
 	local ok, err = pcall(fn, ...)

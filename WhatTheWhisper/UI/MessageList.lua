@@ -312,7 +312,7 @@ end
 
 local function startsNewGroup(prev, msg)
 	if not prev then return true end
-	if not ns.db.profile.appearance.grouping then return true end
+	if not ns.Setting("appearance.grouping") then return true end
 	if prev[MSG_DIR] ~= msg[MSG_DIR] then return true end
 	if prev[MSG_KIND] ~= msg[MSG_KIND] then return true end
 	if (msg[MSG_TS] or 0) - (prev[MSG_TS] or 0) > ns.GROUP_WINDOW then return true end
@@ -325,7 +325,7 @@ end
 -- separators" puts a day in it, and a marker is only worth a line when at least
 -- one of them has something to contribute.
 local function stampParts(prev, msg)
-	local ap = ns.db.profile.appearance
+	local ap = ns.Setting("appearance")
 	local newDay = not prev or not Format.IsSameDay(prev[MSG_TS] or 0, msg[MSG_TS] or 0)
 	-- Long enough since the last message that the conversation reads as having
 	-- been picked up again rather than continued.
@@ -419,7 +419,7 @@ end
 function ML:AppendReceipt()
 	self.heightBeforeReceipt = self.totalHeight
 	self.receiptEntry = nil
-	if not ns.db.profile.messages.deliveryStatus then return end
+	if not ns.Setting("messages.deliveryStatus") then return end
 
 	local entry = self.lastBubbleEntry
 	if not entry or entry.dir ~= ns.DIR_OUT then return end
@@ -601,7 +601,7 @@ function ML:RenderBubble(entry)
 
 	local m = measure(msg, self.maxContentW)
 	local fillRole, textRole = bubbleColors(entry.dir)
-	local ap = ns.db.profile.appearance
+	local ap = ns.Setting("appearance")
 
 	f:SetSize(m.bubbleW, m.bubbleH)
 	-- Both dimensions, not just the width. An unsized font string reports
@@ -662,7 +662,7 @@ function ML:RenderBubble(entry)
 	-- four messages back would be silent.
 	local status = msg[MSG_STATUS]
 	local failed = entry.dir == ns.DIR_OUT and status == ns.SEND_FAILED
-		and ns.db.profile.messages.deliveryStatus == true
+		and ns.Setting("messages.deliveryStatus") == true
 	if failed then
 		Draw.SetIcon(f.status, "failed")
 		local c = Theme.Get("danger")
@@ -801,7 +801,7 @@ function ML:UpdateEmptyState()
 	if not conv then
 		self.emptyTitle:SetText(L["Pick a conversation"])
 		self.emptyBody:SetText(L["Your whispers are kept here, one thread per player."])
-	elseif ns.db.profile.history.retention == "off" then
+	elseif ns.Setting("history.retention") == "off" then
 		self.emptyTitle:SetText(L["History is off"])
 		self.emptyBody:SetText(L["Enable it in Settings > History to keep messages."])
 	else

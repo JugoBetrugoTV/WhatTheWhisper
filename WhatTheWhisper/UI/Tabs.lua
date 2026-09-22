@@ -254,7 +254,7 @@ function T:PaintTab(tab, conv, width)
 	Text.Ellipsize(tab.label, CM.DisplayName(conv), max(20, width - reserved))
 	tab.UpdateVisualState(true)
 
-	if unread and ns.db.profile.layout.tabBlink and not tab.active and not conv.muted then
+	if unread and ns.Setting("layout.tabBlink") and not tab.active and not conv.muted then
 		Anim.Pulse(tab.dot, 0.3)
 	end
 end

@@ -74,6 +74,9 @@ suite "presence and profile"  Tools/test/presence.lua
 suite "minimap button"        Tools/test/minimap.lua
 suite "ui geometry"           Tools/test/ui.lua
 suite "font scale"            Tools/test/fontscale.lua
+suite "every action"          Tools/test/actions.lua
+suite "logout shutdown"       Tools/test/shutdown.lua
+suite "random session"        Tools/test/session.lua
 
 echo "== languages =="
 for client in enUS koKR zhCN zhTW; do

@@ -123,7 +123,7 @@ local function processChunk(chunk, style, size, colorEscape)
 	if not asciiSorted then buildSorted() end
 	local out, pos, last = nil, 1, 1
 	local length = #chunk
-	local markersOn = ns.db.profile.emoticons.raidMarkers
+	local markersOn = ns.Setting("emoticons.raidMarkers")
 
 	while pos <= length do
 		local matched, matchLen
@@ -192,8 +192,8 @@ end
 -- links, textures or colour codes.
 function Emoticons.Process(text, size)
 	if not text or text == "" then return text end
-	local style = ns.db.profile.emoticons.style
-	local markers = ns.db.profile.emoticons.raidMarkers
+	local style = ns.Setting("emoticons.style")
+	local markers = ns.Setting("emoticons.raidMarkers")
 	if style == "text" and not markers then return text end
 	if not find(text, "[:;=<>%^%-{xXzZ8B]") then return text end
 
@@ -216,7 +216,7 @@ function Emoticons.InsertText(name)
 end
 
 function Emoticons.RememberRecent(name)
-	local recent = ns.db.profile.emoticons.recent
+	local recent = ns.Setting("emoticons.recent")
 	for i = #recent, 1, -1 do
 		if recent[i] == name then table.remove(recent, i) end
 	end

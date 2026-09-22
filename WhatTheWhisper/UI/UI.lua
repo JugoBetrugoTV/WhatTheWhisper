@@ -110,9 +110,9 @@ end
 function UI.EnsureConversationOpen(id, focus)
 	if not CM.Get(id) then return end
 	if not tabIndex(id) then
-		if ns.db.profile.layout.tabAutoOpen or focus then
+		if ns.Setting("layout.tabAutoOpen") or focus then
 			tabOrder[#tabOrder + 1] = id
-			local limit = ns.db.profile.layout.maxTabs or 8
+			local limit = ns.Setting("layout.maxTabs") or 8
 			-- Retire the least recently active tab rather than growing forever.
 			while #tabOrder > limit do
 				local victim, victimIndex
@@ -162,12 +162,12 @@ function UI.CloseConversation(id)
 end
 
 function UI.ScheduleTabSweep()
-	local minutes = ns.db.profile.layout.tabAutoClose or 0
+	local minutes = ns.Setting("layout.tabAutoClose") or 0
 	if minutes <= 0 or tabSweepScheduled then return end
 	tabSweepScheduled = true
 	Anim.After(60, function()
 		tabSweepScheduled = false
-		local limit = (ns.db.profile.layout.tabAutoClose or 0) * 60
+		local limit = (ns.Setting("layout.tabAutoClose") or 0) * 60
 		if limit <= 0 then return end
 		local now = Compat.GetServerTime()
 		for i = #tabOrder, 1, -1 do
@@ -463,7 +463,7 @@ function UI.RefreshLayout()
 	local window = existing()
 	if not window then return end
 	window:Relayout()
-	window:SetSidebarWidth(ns.db.profile.layout.sidebarWidth or ns.SZ.SIDEBAR_W)
+	window:SetSidebarWidth(ns.Setting("layout.sidebarWidth") or ns.SZ.SIDEBAR_W)
 	window.tabs:Refresh()
 	-- The details panel is a layout setting like any other, so the checkbox in
 	-- the settings window and the header button move the same thing.
@@ -529,7 +529,7 @@ function UI.Init()
 	Bus.Register(EV.CONVERSATION_ADDED, "UI", function(conv)
 		local window = existing()
 		if window then window.sidebar:Refresh() end
-		if ns.db.profile.layout.tabAutoOpen then UI.EnsureConversationOpen(conv.id, false) end
+		if ns.Setting("layout.tabAutoOpen") then UI.EnsureConversationOpen(conv.id, false) end
 	end)
 
 	Bus.Register(EV.CONVERSATION_REMOVED, "UI", function(id)

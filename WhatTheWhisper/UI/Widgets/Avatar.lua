@@ -112,7 +112,7 @@ function Avatar:SetConversation(conv)
 		return
 	end
 
-	local ap = ns.db.profile.appearance
+	local ap = ns.Setting("appearance")
 	local style = ap.avatarStyle
 	local classFile = conv.class
 

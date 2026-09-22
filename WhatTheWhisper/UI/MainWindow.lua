@@ -97,7 +97,7 @@ function MainWindow.Get()
 	title.expose:Hide()
 
 	W.MakeWindowHandle(title, {
-		canMove = function() return not ns.db.profile.layout.locked end,
+		canMove = function() return not ns.Setting("layout.locked") end,
 		onStartMove = function()
 			frame:StartMoving()
 			frame.moving = true
@@ -115,7 +115,7 @@ function MainWindow.Get()
 	frame.sidebar = ns.Sidebar.New(frame)
 	frame.sidebar:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, 0)
 	frame.sidebar:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
-	frame.sidebar:SetWidth(ns.db and ns.db.profile.layout.sidebarWidth or ns.SZ.SIDEBAR_W)
+	frame.sidebar:SetWidth(ns.Setting("layout.sidebarWidth") or ns.SZ.SIDEBAR_W)
 
 	-- Straddles the boundary so half the grab area is over each panel, and sits
 	-- above both so the handle wins the cursor there. Neither panel is inset for
@@ -139,7 +139,8 @@ function MainWindow.Get()
 		if not self.dragging then return end
 		self.dragging = false
 		self:SetScript("OnUpdate", nil)
-		ns.db.profile.layout.sidebarWidth = frame.sidebar:GetWidth()
+		local store = ns.db and ns.db.profile and ns.db.profile.layout
+		if store then store.sidebarWidth = frame.sidebar:GetWidth() end
 	end
 	frame.splitter:SetScript("OnMouseUp", endSplit)
 	frame.splitter:SetScript("OnHide", endSplit)
@@ -161,7 +162,7 @@ function MainWindow.Get()
 	frame.gripIcon:SetPoint("CENTER")
 	frame.gripIcon:SetAlpha(0.5)
 	frame.grip:SetScript("OnMouseDown", function()
-		if ns.db.profile.layout.locked then return end
+		if ns.Setting("layout.locked") then return end
 		frame:StartSizing("BOTTOMRIGHT")
 		frame.sizing = true
 	end)
@@ -223,7 +224,7 @@ function M:SetSidebarWidth(width)
 end
 
 function M:Relayout()
-	local mode = (ns.db and ns.db.profile.layout.mode) or "sidebar"
+	local mode = ns.Setting("layout.mode") or "sidebar"
 
 	local showSidebar = (mode ~= "tabbed")
 	local showTabs = (mode ~= "sidebar")
@@ -270,24 +271,34 @@ end
 -- Geometry persistence
 --------------------------------------------------------------------------------
 
+-- The layout section, or nil once AceDB has stripped it -- which it does at
+-- PLAYER_LOGOUT, before this addon's own logout handler has necessarily run.
+-- Writing a window position into a table that is being serialised this instant
+-- is both impossible and pointless, so the savers stand down rather than throw.
+local function layoutStore()
+	return ns.db and ns.db.profile and ns.db.profile.layout
+end
+
 function M:SavePosition()
-	if not ns.db.profile.layout.remember then return end
+	local store = layoutStore()
+	if not store or not store.remember then return end
 	local left, top = self:GetLeft(), self:GetTop()
 	if not left or not top then return end
 	self:ClearAllPoints()
 	self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-	ns.db.profile.layout.point = { left = left, top = top }
+	store.point = { left = left, top = top }
 end
 
 function M:SaveGeometry()
 	self:SavePosition()
-	if not ns.db.profile.layout.remember then return end
-	ns.db.profile.layout.width = self:GetWidth()
-	ns.db.profile.layout.height = self:GetHeight()
+	local store = layoutStore()
+	if not store or not store.remember then return end
+	store.width = self:GetWidth()
+	store.height = self:GetHeight()
 end
 
 function M:RestoreGeometry()
-	local layout = ns.db.profile.layout
+	local layout = ns.Setting("layout")
 	self:SetSize(
 		min(max(layout.width or ns.SZ.WINDOW_W, ns.SZ.WINDOW_MIN_W), ns.SZ.WINDOW_MAX_W),
 		min(max(layout.height or ns.SZ.WINDOW_H, ns.SZ.WINDOW_MIN_H), ns.SZ.WINDOW_MAX_H))
@@ -304,10 +315,12 @@ function M:RestoreGeometry()
 end
 
 function M:ResetGeometry()
-	ns.db.profile.layout.point = nil
-	ns.db.profile.layout.width = ns.SZ.WINDOW_W
-	ns.db.profile.layout.height = ns.SZ.WINDOW_H
-	ns.db.profile.layout.sidebarWidth = ns.SZ.SIDEBAR_W
+	local store = layoutStore()
+	if not store then return end
+	store.point = nil
+	store.width = ns.SZ.WINDOW_W
+	store.height = ns.SZ.WINDOW_H
+	store.sidebarWidth = ns.SZ.SIDEBAR_W
 	self:RestoreGeometry()
 	self:Relayout()
 end

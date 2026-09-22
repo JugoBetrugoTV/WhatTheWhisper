@@ -370,10 +370,7 @@ end
 -- -- unless they have asked it not to. That setting had a checkbox and no
 -- effect: the mark was cleared unconditionally, so switching it off did nothing.
 local function markReadIfWanted(id)
-	local db = ns.db
-	local wanted = db and db.profile and db.profile.messages.markReadOnFocus
-	if wanted == nil then wanted = ns.defaults.profile.messages.markReadOnFocus end
-	if wanted then CM.MarkRead(id) end
+	if ns.Setting("messages.markReadOnFocus") then CM.MarkRead(id) end
 end
 
 function CM.Select(id, silent)
@@ -537,12 +534,14 @@ function CM.GetAlias(id)
 end
 
 function CM.SetAlias(id, alias)
-	local db = ns.db
-	if not db or not db.profile or not id then return end
+	-- The real table, not ns.Setting's answer: this one is written to, and
+	-- ns.Setting hands back the shipped defaults when the section is gone.
+	local store = ns.db and ns.db.profile and ns.db.profile.aliases
+	if not store or not id then return end
 	alias = alias and ns.Text.Trim(alias) or nil
 	if alias == "" then alias = nil end
-	if db.profile.aliases[id] == alias then return end
-	db.profile.aliases[id] = alias
+	if store[id] == alias then return end
+	store[id] = alias
 	local conv = CM.Get(id)
 	if conv then ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv) end
 end
@@ -561,7 +560,7 @@ function CM.DisplayName(conv)
 	if alias then return alias end
 	if conv.isBN then return conv.name or conv.id end
 	local base = Compat.ShortName(conv.id)
-	local mode = (ns.db and ns.db.profile.messages.showRealm) or "cross"
+	local mode = ns.Setting("messages.showRealm") or "cross"
 	if mode == "never" then return base end
 	local realm = Compat.RealmOf(conv.id)
 	if not realm then return base end

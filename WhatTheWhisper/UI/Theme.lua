@@ -45,10 +45,12 @@ local measureHost
 -- Settings access
 --------------------------------------------------------------------------------
 
+-- This returned nil rather than the defaults for a profile whose appearance
+-- section had been stripped -- the `if db.profile` was true and the section
+-- under it was gone, so the fallback below it never ran. That is every logout:
+-- see ns.Setting.
 local function appearance()
-	local db = ns.db
-	if db and db.profile then return db.profile.appearance end
-	return ns.defaults.profile.appearance
+	return ns.Setting("appearance")
 end
 
 --------------------------------------------------------------------------------
@@ -177,9 +179,7 @@ end
 --------------------------------------------------------------------------------
 
 function Theme.MotionScale()
-	local db = ns.db
-	local level = (db and db.profile and db.profile.animations.level) or "normal"
-	return ns.MOTION_SCALE[level] or 1
+	return ns.MOTION_SCALE[ns.Setting("animations.level")] or 1
 end
 
 function Theme.Duration(token)
@@ -191,8 +191,7 @@ function Theme.AnimationsEnabled()
 end
 
 function Theme.IsFancy()
-	local db = ns.db
-	return db and db.profile and db.profile.animations.level == "fancy"
+	return ns.Setting("animations.level") == "fancy"
 end
 
 --------------------------------------------------------------------------------
@@ -269,10 +268,10 @@ function Theme.Refresh()
 		Theme.c.thumbBg = thumb
 	end
 
-	-- user link colour override
-	local db = ns.db
-	if db and db.profile and db.profile.links and db.profile.links.color then
-		local lc = db.profile.links.color
+	-- User link colour override. The default is nil -- meaning "whatever the
+	-- skin says" -- so an unset one reads as nothing here and the skin keeps it.
+	local lc = ns.Setting("links.color")
+	if lc then
 		Theme.c.link = { lc[1] or 0, lc[2] or 0, lc[3] or 0, 1 }
 	end
 

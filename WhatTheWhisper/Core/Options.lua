@@ -415,7 +415,8 @@ function Options.BuildSchema()
 							buttonText = L["Reset window positions"],
 							onClick = function()
 								ns.MainWindow.Get():ResetGeometry()
-								wipe(ns.db.profile.popouts)
+								local store = ns.db and ns.db.profile and ns.db.profile.popouts
+								if store then wipe(store) end
 								ns.Popout.CloseAll()
 							end,
 						},

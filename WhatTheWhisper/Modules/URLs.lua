@@ -93,8 +93,7 @@ end
 -- Wraps every link in the message with a clickable hyperlink. Escape sequences
 -- that are already in the text (item links, textures, colours) are untouched.
 function URLs.Process(text, colorEscape)
-	local db = ns.db
-	if db and db.profile and not db.profile.links.detect then return text end
+	if not ns.Setting("links.detect") then return text end
 	if not text or text == "" then return text end
 	if not find(text, "%.") and not find(text, "://") then return text end
 	colorEscape = colorEscape or ns.Color.ToEscape(ns.Theme.Get("link"))

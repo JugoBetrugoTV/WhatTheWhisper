@@ -89,7 +89,7 @@ function Scroll.New(parent, opts)
 	--------------------------------------------------------------------- input
 	viewport:SetScript("OnMouseWheel", function(_, delta)
 		local step = WHEEL_STEP * (IsShiftKeyDown() and 3 or 1)
-		sa:ScrollBy(-delta * step, ns.db.profile.animations.smoothScroll)
+		sa:ScrollBy(-delta * step, ns.Setting("animations.smoothScroll"))
 		sa:FlashBar()
 	end)
 

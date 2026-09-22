@@ -29,7 +29,7 @@ Sounds.LIBRARY = {
 }
 
 local function settings()
-	return (ns.db and ns.db.profile and ns.db.profile.sounds) or ns.defaults.profile.sounds
+	return ns.Setting("sounds")
 end
 
 --------------------------------------------------------------------------------

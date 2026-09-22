@@ -26,8 +26,7 @@ local ringSize = 0
 local RING_LIMIT = 200
 
 function Debug.IsEnabled()
-	local db = ns.db
-	return db and db.profile and db.profile.advanced.debug or false
+	return ns.Setting("advanced.debug") and true or false
 end
 
 -- Records into a small ring buffer always, prints only when debug is on. The
@@ -53,8 +52,10 @@ end
 
 function Debug.Toggle(enabled)
 	if enabled == nil then enabled = not Debug.IsEnabled() end
-	ns.db.profile.advanced.debug = enabled and true or false
-	return ns.db.profile.advanced.debug
+	local store = ns.db and ns.db.profile and ns.db.profile.advanced
+	if not store then return Debug.IsEnabled() end
+	store.debug = enabled and true or false
+	return store.debug
 end
 
 --------------------------------------------------------------------------------

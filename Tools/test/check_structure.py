@@ -476,7 +476,54 @@ for rel in declared:
     bypasses += 1
 notes.append("%d files checked for client calls that belong behind Compat" % bypasses)
 
-# --- DESIGN.md's metrics table must be the code's metrics -------------------
+# --- settings are read through ns.Setting, not indexed two levels deep ------
+#
+# AceDB strips every value that equals its default out of the profile at
+# PLAYER_LOGOUT, so `db.profile` outlives the sections under it and the addon
+# keeps running for a while in that state. A read of the shape
+# `db.profile.animations.level` throws there, and a guard that stops at
+# `db.profile` does not help -- it survives the missing database and falls over
+# on the missing section. Twenty of them did.
+#
+# ns.Setting walks the whole path and falls back to the shipped default, so the
+# rule is simply: do not index two levels below the profile by hand. Writes are
+# exempt, because a write has to reach the real table; they take the store and
+# check it is there, which the reader cannot do.
+PROFILE_READ = re.compile(
+    r'(?<![\w.])(?:ns\.)?db\.profile'          # db.profile / ns.db.profile
+    r'((?:\.[A-Za-z_]\w*)+)'                   # .section.key...
+    r'\s*(?!=[^=])'                             # not the target of an assignment
+)
+setting_offenders = 0
+for rel in declared:
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    # The helper itself, and the two files that legitimately hold a store.
+    if rel == "Core/Namespace.lua":
+        continue
+    for line_no, line in enumerate(body.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("--"):
+            continue
+        for match in PROFILE_READ.finditer(line):
+            path = match.group(1)
+            depth = path.count(".")
+            if depth < 2:
+                continue        # db.profile.section is a whole section: fine
+            after = line[match.end():].lstrip()
+            if after.startswith("=") and not after.startswith("=="):
+                continue        # a write, which needs the real table
+            # A read guarded all the way down is fine too.
+            parent = "db.profile" + path.rsplit(".", 1)[0]
+            if parent + " and" in line or parent + " then" in line:
+                continue
+            err("%s:%d reads db.profile%s by hand; use ns.Setting(\"%s\") so a "
+                "stripped profile falls back to the default instead of throwing"
+                % (rel, line_no, path, path.lstrip(".")))
+            setting_offenders += 1
+notes.append("%d files checked for settings read past a section that can be gone"
+             % len(declared))
+
+# --- DESIGN.md's metrics table must be the code's metrics ------------------
 #
 # The table in section 1.2 is the design contract, and a contract that drifts is
 # worse than none: every number in it was wrong by the time anybody looked,
