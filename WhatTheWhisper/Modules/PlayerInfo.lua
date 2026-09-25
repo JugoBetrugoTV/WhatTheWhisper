@@ -164,44 +164,64 @@ PlayerInfo.PRESENCE_TTL = PRESENCE_TTL
 -- Roster scanning
 --------------------------------------------------------------------------------
 
+-- Writes one roster row into a cached entry and says whether anything a player
+-- could see changed: the class, the level, or the answer to "online?". The time
+-- of the sighting always moves, and so can which roster it came from -- someone
+-- in the guild and on the friends list is seen by both -- but on their own
+-- neither is news.
+local function note(key, e, class, level, online, source)
+	local wasOnline = PlayerInfo.IsOnline(key)
+	local changed = (class and e.class ~= class) or (level and e.level ~= level)
+	e.class = class or e.class
+	e.level = level or e.level
+	e.online = online
+	e.presenceAt = time()
+	e.presenceSource = source
+	return changed or PlayerInfo.IsOnline(key) ~= wasOnline
+end
+
+-- Both rosters are rescanned whole on every update, and in a large guild that
+-- update arrives every few seconds -- another addon asking for the roster is
+-- enough. Announcing each scan redrew the sidebar, the header and the details
+-- panel every time whether or not anyone in them had changed, so only a scan
+-- that changed something is announced.
 local function scanGuild()
 	local n = Compat.GetNumGuildMembers()
 	if n == 0 then return end
+	local changed = false
 	for i = 1, n do
 		local name, level, classFile, online = Compat.GetGuildRosterInfo(i)
 		if name then
-			local full = Compat.NormalizeName(name)
-			local e = cache[full]
+			local key = Compat.NormalizeName(name)
+			local e = cache[key]
 			if e then
-				e.class = classFile or e.class
-				e.level = level or e.level
-				e.online = online
-				e.presenceAt = time()
-				e.presenceSource = "guild"
+				if e.source ~= "guild" then changed = true end
 				e.source = "guild"
+				if note(key, e, classFile, level, online, "guild") then changed = true end
 			end
 		end
 	end
-	ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil)
+	if changed then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
 end
 
 local function scanFriends()
 	local n = Compat.GetNumFriends()
+	local changed = false
 	for i = 1, n do
 		local name, level, _, connected = Compat.GetFriendInfo(i)
 		if name then
-			local full = Compat.NormalizeName(name)
-			local e = cache[full]
+			local key = Compat.NormalizeName(name)
+			local e = cache[key]
 			if e then
-				e.level = level or e.level
-				e.online = connected
-				e.presenceAt = time()
-				e.presenceSource = "friend"
-				e.source = e.source or "friend"
+				if not e.source then
+					e.source = "friend"
+					changed = true
+				end
+				if note(key, e, nil, level, connected, "friend") then changed = true end
 			end
 		end
 	end
-	ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil)
+	if changed then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
 end
 
 PlayerInfo.ScanGuild = scanGuild

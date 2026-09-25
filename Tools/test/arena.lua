@@ -1262,6 +1262,46 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- One poll at a time
+--------------------------------------------------------------------------------
+
+-- Stopping the poll used to clear only the flag that said one was scheduled,
+-- not the timer already on its way. A clean slate followed by a new held line
+-- then started a second chain beside the first, and from there on every held
+-- line was polled twice as often -- for the rest of the session, one more chain
+-- for every clean slate.
+do
+	reset()
+	enterArena()
+	local withheld = { text = true, sender = true }
+	local first = lineID()
+	M.validLines[first] = true
+	fire("CHAT_MSG_WHISPER", whisperArgs("eins", "Alpha", "G-A", first, withheld))
+	eq("one held", ns.Deferred.Count(), 1)
+	for _ = 1, 3 do
+		ns.Deferred.Clear()
+		local line = lineID()
+		M.validLines[line] = true
+		fire("CHAT_MSG_WHISPER", whisperArgs("noch eins", "Bravo", "G-B", line, withheld))
+	end
+	local flushes = 0
+	local flush = ns.Deferred.Flush
+	ns.Deferred.Flush = function(...) flushes = flushes + 1 return flush(...) end
+	for _ = 1, 5 do M.RunTimers(1) end
+	ns.Deferred.Flush = flush
+	eq("after three clean slates it still polls once per tick", flushes, 5)
+	ns.Deferred.Clear()
+	for _ = 1, 3 do M.RunTimers(1) end
+	flushes = 0
+	ns.Deferred.Flush = function(...) flushes = flushes + 1 return flush(...) end
+	M.RunTimers(3)
+	ns.Deferred.Flush = flush
+	eq("and with nothing held it does not poll at all", flushes, 0)
+	leaveArena()
+	noErrors("polling stays single")
+end
+
+--------------------------------------------------------------------------------
 -- A reload in the middle
 --------------------------------------------------------------------------------
 

@@ -625,6 +625,37 @@ check("a Battle.net thread has a status dot too", avatar.status:IsShown())
 eq("and no invented level or class line", PI.StatusLine(bn.id, true), nil)
 
 --------------------------------------------------------------------------------
+-- A roster update that changes nothing
+--------------------------------------------------------------------------------
+
+-- In a large guild GUILD_ROSTER_UPDATE arrives every few seconds -- any addon
+-- asking for the roster is enough -- and every scan was announced, which
+-- redrew the sidebar, the header and the details panel whether or not anybody
+-- in them had changed.
+do
+	local key = "Muradin-Blackrock"
+	CM.GetOrCreate(key)
+	PI.Set(key, { class = "WARRIOR" })
+	local announced = 0
+	ns.Bus.Register(ns.EV.PLAYER_INFO_UPDATED, "test.roster", function() announced = announced + 1 end)
+	M.guildRoster = { { name = key, level = 70, class = "WARRIOR", online = true } }
+	M.FireEvent("GUILD_ROSTER_UPDATE")
+	eq("a roster that says something new is announced", announced, 1)
+	eq("and the guildmate reads as online", PI.IsOnline(key), true)
+	for _ = 1, 5 do M.FireEvent("GUILD_ROSTER_UPDATE") end
+	eq("the same roster again is not", announced, 1)
+	M.guildRoster[1].online = false
+	M.FireEvent("GUILD_ROSTER_UPDATE")
+	eq("a guildmate logging off is", announced, 2)
+	eq("and reads as offline", PI.IsOnline(key), false)
+	M.guildRoster[1].level = 71
+	M.FireEvent("GUILD_ROSTER_UPDATE")
+	eq("so is a level", announced, 3)
+	ns.Bus.Unregister(ns.EV.PLAYER_INFO_UPDATED, "test.roster")
+	M.guildRoster = nil
+end
+
+--------------------------------------------------------------------------------
 
 eq("nothing errored", #M.errors, 0,
 	table.concat(M.errors, "\n      ", 1, math.min(#M.errors, 6)))

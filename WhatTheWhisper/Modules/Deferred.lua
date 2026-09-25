@@ -47,6 +47,7 @@ local RECOVERY_ATTEMPTS = 40
 local held = {}
 local dispatch
 local ticker
+local generation = 0
 local dropped = 0
 
 --------------------------------------------------------------------------------
@@ -234,10 +235,19 @@ end
 -- list of situations and would go stale the next time Blizzard adds one. It
 -- re-arms itself only while something is waiting, so an idle session does no
 -- work at all.
+--
+-- A timer cannot be taken back once it is scheduled, so each one carries the
+-- generation it was started in and does nothing if that is no longer current.
+-- Stop used to clear only the flag; the timer already on its way still fired and
+-- re-armed, and the next Start began a second chain beside it -- one more for
+-- every clean slate, each polling for the rest of the session.
 function Deferred.Start()
 	if ticker or #held == 0 then return end
+	generation = generation + 1
+	local mine = generation
 	ticker = true
 	local function tick()
+		if mine ~= generation then return end
 		ticker = nil
 		ns.Guard("Deferred.Flush", Deferred.Flush)
 		Deferred.Start()
@@ -247,6 +257,7 @@ end
 
 function Deferred.Stop()
 	ticker = nil
+	generation = generation + 1
 end
 
 -- Everything, whether or not the client is ready. Used when the player asks for
