@@ -23,7 +23,6 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	panel.OnRefresh = function() end
 	if _G.Settings and _G.Settings.RegisterCanvasLayoutCategory then
 		local category = _G.Settings.RegisterCanvasLayoutCategory(panel, title)
-		category.ID = title
 		_G.Settings.RegisterAddOnCategory(category)
 		Compat.optionsCategory = category
 		panel:SetScript("OnShow", onOpen)
@@ -32,13 +31,6 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	return false
 end
 
-function Compat.OpenOptionsPanel()
-	if _G.Settings and _G.Settings.OpenToCategory and Compat.optionsCategory then
-		_G.Settings.OpenToCategory(Compat.optionsCategory.ID or Compat.optionsCategory:GetID())
-		return true
-	end
-	return false
-end
 
 -- /who results are a table on every client that has C_FriendList, but Retail is
 -- also the one that throttles them hardest; the Search module honours that.

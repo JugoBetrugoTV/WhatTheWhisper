@@ -38,17 +38,6 @@ function Color.ToEscape(c)
 		floor(min(max(c[3], 0), 1) * 255 + 0.5))
 end
 
-function Color.ToHex(c)
-	return format("%02x%02x%02x",
-		floor(min(max(c[1], 0), 1) * 255 + 0.5),
-		floor(min(max(c[2], 0), 1) * 255 + 0.5),
-		floor(min(max(c[3], 0), 1) * 255 + 0.5))
-end
-
-function Color.WithAlpha(c, a)
-	return { c[1], c[2], c[3], a }
-end
-
 function Color.Mix(a, b, t)
 	t = min(max(t or 0, 0), 1)
 	return {
@@ -64,12 +53,6 @@ local BLACK = { 0, 0, 0, 1 }
 
 function Color.Lighten(c, amount)
 	local out = Color.Mix(c, WHITE, amount)
-	out[4] = c[4] or 1
-	return out
-end
-
-function Color.Darken(c, amount)
-	local out = Color.Mix(c, BLACK, amount)
 	out[4] = c[4] or 1
 	return out
 end
@@ -97,12 +80,6 @@ function Color.EnsureContrast(fg, bg, minDelta)
 	end
 	out[4] = fg[4] or 1
 	return out
-end
-
-function Color.Equal(a, b)
-	if a == b then return true end
-	if not a or not b then return false end
-	return a[1] == b[1] and a[2] == b[2] and a[3] == b[3] and (a[4] or 1) == (b[4] or 1)
 end
 
 function Color.Copy(c)

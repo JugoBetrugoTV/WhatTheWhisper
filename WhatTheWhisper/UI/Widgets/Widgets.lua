@@ -476,7 +476,3 @@ function W.MakeWindowHandle(handle, opts)
 	handle:SetScript("OnMouseUp", stop)
 	handle:HookScript("OnHide", stop)
 end
-
-function W.ClampSize(frame, minW, minH, maxW, maxH)
-	ns.Compat.SetResizeBounds(frame, minW, minH, maxW, maxH)
-end

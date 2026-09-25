@@ -8,7 +8,7 @@
 -- differences.
 
 local _, ns = ...
-local Compat, Pixel = ns.Compat, ns.Pixel
+local Compat = ns.Compat
 
 local Draw = {}
 ns.Draw = Draw
@@ -38,20 +38,9 @@ local QUADRANT = {
 -- Plain textures
 --------------------------------------------------------------------------------
 
-function Draw.Texture(parent, layer, subLevel)
-	local tex = parent:CreateTexture(nil, layer or "ARTWORK", nil, subLevel)
-	return tex
-end
-
 function Draw.Solid(parent, layer, subLevel, r, g, b, a)
 	local tex = parent:CreateTexture(nil, layer or "BACKGROUND", nil, subLevel)
 	tex:SetColorTexture(r or 0, g or 0, b or 0, a == nil and 1 or a)
-	return tex
-end
-
-function Draw.Fill(parent, layer, subLevel, r, g, b, a)
-	local tex = Draw.Solid(parent, layer, subLevel, r, g, b, a)
-	tex:SetAllPoints(parent)
 	return tex
 end
 
@@ -63,28 +52,6 @@ function Draw.Hairline(parent, layer, subLevel)
 	-- audit uses it to prove no boundary ends up with two borders drawn on it.
 	tex.__wtwHairline = true
 	return tex
-end
-
-function Draw.SetHairlineH(tex, parent, yOffset, insetLeft, insetRight, thickness)
-	local t = thickness or Pixel.Size(parent)
-	tex:ClearAllPoints()
-	tex:SetPoint("TOPLEFT", parent, "TOPLEFT", insetLeft or 0, yOffset or 0)
-	tex:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(insetRight or 0), yOffset or 0)
-	tex:SetHeight(t)
-end
-
-function Draw.SetHairlineV(tex, parent, xOffset, insetTop, insetBottom, thickness)
-	local t = thickness or Pixel.Size(parent)
-	tex:ClearAllPoints()
-	tex:SetPoint("TOPLEFT", parent, "TOPLEFT", xOffset or 0, -(insetTop or 0))
-	tex:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", xOffset or 0, insetBottom or 0)
-	tex:SetWidth(t)
-end
-
-function Draw.Gradient(tex, orientation, c1, c2)
-	Compat.SetGradient(tex, orientation,
-		c1[1], c1[2], c1[3], c1[4] or 1,
-		c2[1], c2[2], c2[3], c2[4] or 1)
 end
 
 --------------------------------------------------------------------------------

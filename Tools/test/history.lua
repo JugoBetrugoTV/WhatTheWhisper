@@ -307,7 +307,7 @@ end
 -- timestamp also arrives from the client and from history another version wrote.
 for _, ts in ipairs({ 1 / 0, -1 / 0, 0 / 0, 2 ^ 40, -1 }) do
 	for _, fn in ipairs({ "Clock", "DayLabel", "ListStamp", "ShortDate",
-		"CompactDate", "ExportStamp", "ClockSeconds" }) do
+		"CompactDate", "ExportStamp" }) do
 		local ok, out = pcall(ns.Format[fn], ts)
 		check(("Format.%s survives %s"):format(fn, tostring(ts)),
 			ok and type(out) == "string", tostring(out))

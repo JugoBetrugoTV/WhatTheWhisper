@@ -62,16 +62,6 @@ function Format.Clock(ts)
 	return format("%d:%s %s", h, date("%M", ts), date("%p", ts))
 end
 
-function Format.ClockSeconds(ts)
-	ts = usable(ts)
-	if not ts then return "" end
-	if opt("appearance.clock24", true) then
-		return date("%H:%M:%S", ts)
-	end
-	local h = tonumber(date("%I", ts)) or 12
-	return format("%d:%s:%s %s", h, date("%M", ts), date("%S", ts), date("%p", ts))
-end
-
 --------------------------------------------------------------------------------
 -- Dates
 --------------------------------------------------------------------------------
@@ -168,12 +158,6 @@ function Format.Bytes(n)
 	if n < 1024 then return format("%d B", n) end
 	if n < 1024 * 1024 then return format("%.1f KB", n / 1024) end
 	return format("%.1f MB", n / (1024 * 1024))
-end
-
-function Format.Count(n)
-	if n < 1000 then return tostring(n) end
-	if n < 10000 then return format("%.1fk", n / 1000) end
-	return format("%dk", floor(n / 1000))
 end
 
 function Format.Duration(seconds)

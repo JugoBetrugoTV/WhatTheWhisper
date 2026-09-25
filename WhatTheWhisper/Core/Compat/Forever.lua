@@ -28,7 +28,6 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	Compat.optionsPanel = panel
 	if _G.Settings and _G.Settings.RegisterCanvasLayoutCategory then
 		local category = _G.Settings.RegisterCanvasLayoutCategory(panel, title)
-		category.ID = title
 		_G.Settings.RegisterAddOnCategory(category)
 		Compat.optionsCategory = category
 		panel:SetScript("OnShow", onOpen)
@@ -42,18 +41,6 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	return false
 end
 
-function Compat.OpenOptionsPanel()
-	if _G.Settings and _G.Settings.OpenToCategory and Compat.optionsCategory then
-		_G.Settings.OpenToCategory(Compat.optionsCategory.ID or Compat.optionsCategory:GetID())
-		return true
-	end
-	if _G.InterfaceOptionsFrame_OpenToCategory and Compat.optionsPanel then
-		_G.InterfaceOptionsFrame_OpenToCategory(Compat.optionsPanel)
-		_G.InterfaceOptionsFrame_OpenToCategory(Compat.optionsPanel)
-		return true
-	end
-	return false
-end
 
 -- Vanilla's /who throttle, because it is Vanilla's server.
 Compat.whoThrottle = 10

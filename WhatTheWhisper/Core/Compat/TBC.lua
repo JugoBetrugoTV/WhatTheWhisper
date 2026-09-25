@@ -23,15 +23,5 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	return false
 end
 
-function Compat.OpenOptionsPanel()
-	if _G.InterfaceOptionsFrame_OpenToCategory and Compat.optionsPanel then
-		-- Calling twice is the long-standing workaround for the first call
-		-- landing on the wrong category.
-		_G.InterfaceOptionsFrame_OpenToCategory(Compat.optionsPanel)
-		_G.InterfaceOptionsFrame_OpenToCategory(Compat.optionsPanel)
-		return true
-	end
-	return false
-end
 
 Compat.whoThrottle = 5

@@ -137,23 +137,6 @@ ns.Debug.Log("compat",
 -- Drawing helpers that differ between clients
 --------------------------------------------------------------------------------
 
-if hasNewGradient then
-	local CreateColor = _G.CreateColor
-	function Compat.SetGradient(tex, orientation, r1, g1, b1, a1, r2, g2, b2, a2)
-		tex:SetGradient(orientation, CreateColor(r1, g1, b1, a1), CreateColor(r2, g2, b2, a2))
-	end
-elseif hasOldGradient then
-	function Compat.SetGradient(tex, orientation, r1, g1, b1, a1, r2, g2, b2, a2)
-		tex:SetGradientAlpha(orientation, r1, g1, b1, a1, r2, g2, b2, a2)
-	end
-else
-	-- No gradient support at all: fall back to the average of the two stops so a
-	-- surface still gets a sensible fill instead of disappearing.
-	function Compat.SetGradient(tex, _, r1, g1, b1, a1, r2, g2, b2, a2)
-		tex:SetColorTexture((r1 + r2) / 2, (g1 + g2) / 2, (b1 + b2) / 2, (a1 + a2) / 2)
-	end
-end
-
 function Compat.SetClipsChildren(frame, enabled)
 	if Compat.hasClipsChildren then
 		frame:SetClipsChildren(enabled and true or false)
