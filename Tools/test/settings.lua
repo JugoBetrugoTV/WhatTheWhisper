@@ -297,6 +297,25 @@ ns.Options.Set("messages.showRealm", "never")
 eq("showRealm never drops it",
 	ns.ConversationManager.DisplayName(ns.ConversationManager.Get("Thrall-Blackrock")),
 	"Thrall")
+-- And what is on screen follows it. The header and the composer's placeholder
+-- both name the thread; the placeholder was only written when the thread
+-- changed, so it kept whichever form of the name it was first given.
+do
+	ns.UI.Show()
+	ns.ConversationManager.Select("Thrall-Blackrock")
+	M.RunFrames(2)
+	local view = ns.MainWindow.Existing().view
+	local placeholder = view.composer.input.placeholder
+	ns.Options.Set("messages.showRealm", "always")
+	M.RunFrames(2)
+	check("the composer's placeholder shows the realm when asked to",
+		placeholder:GetText():find("Thrall%-Blackrock") ~= nil, placeholder:GetText())
+	ns.Options.Set("messages.showRealm", "never")
+	M.RunFrames(2)
+	check("and drops it when asked to",
+		placeholder:GetText():find("Blackrock") == nil, placeholder:GetText())
+	eq("as does the header", view.header.name:GetText(), "Thrall")
+end
 ns.Options.Set("messages.showRealm", "cross")
 
 ns.Options.Set("appearance.clock24", false)

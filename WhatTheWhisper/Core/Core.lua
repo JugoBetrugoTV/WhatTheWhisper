@@ -22,14 +22,7 @@ local Compat = ns.Compat
 function addon:OnInitialize()
 	ns.db = AceDB:New("WhatTheWhisperDB", ns.defaults, true)
 
-	local function onProfile()
-		ns.Theme.Refresh()
-		ns.History.ApplyRetention()
-		ns.UI.RefreshLayout()
-		ns.UI.RefreshAll()
-		ns.Minimap.Update()
-		if ns.SettingsUI.IsShown() then ns.SettingsUI.Refresh() end
-	end
+	local function onProfile() ns.Options.ApplyAll() end
 	ns.db.RegisterCallback(self, "OnProfileChanged", onProfile)
 	ns.db.RegisterCallback(self, "OnProfileCopied", onProfile)
 	ns.db.RegisterCallback(self, "OnProfileReset", onProfile)

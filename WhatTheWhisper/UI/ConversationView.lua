@@ -496,6 +496,7 @@ end
 function V:OnConversationUpdated(conv)
 	if conv ~= self.conv then return end
 	self:RefreshHeader()
+	self.composer:RefreshPlaceholder()
 end
 
 function V:Focus()

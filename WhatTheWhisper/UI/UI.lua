@@ -349,11 +349,17 @@ function UI.ConfirmResetSettings()
 		L["Every option goes back to its default. Message history is not touched."],
 		L["Reset"],
 		function()
-			ns.db:ResetProfile()
-			Theme.Refresh()
-			UI.RefreshLayout()
-			UI.RefreshAll()
-			if ns.SettingsUI.IsShown() then ns.SettingsUI.Refresh() end
+			-- Nicknames are kept in the profile, but they are something the
+			-- player wrote about a person, not an option -- and this dialog has
+			-- just promised to leave the conversations alone. A reset used to
+			-- take every nickname with it.
+			local aliases = ns.db.profile.aliases
+			-- Without callbacks, so the whole profile is applied once, from
+			-- here, after the nicknames are back -- by the same function the
+			-- profile handler uses, so the two cannot drift apart.
+			ns.db:ResetProfile(nil, true)
+			if type(aliases) == "table" then ns.db.profile.aliases = aliases end
+			ns.Options.ApplyAll()
 		end, true)
 end
 

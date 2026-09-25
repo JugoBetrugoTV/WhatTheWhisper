@@ -64,6 +64,7 @@ suite "history"               Tools/test/history.lua
 suite "leaks and churn"       Tools/test/perf.lua
 suite "combat lockdown"       Tools/test/combat.lua
 suite "settings"              Tools/test/settings.lua
+suite "profiles"              Tools/test/profiles.lua
 suite "commands and debug"    Tools/test/commands.lua
 suite "search"                Tools/test/search.lua
 suite "modern API only"       Tools/test/modern.lua

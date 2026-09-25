@@ -190,7 +190,17 @@ function Button.Text(parent, opts)
 	end
 	btn:SetText(opts.text or "")
 
-	return finish(btn, opts)
+	finish(btn, opts)
+	-- The width is measured from the label, and a theme change re-sets the label
+	-- in the new type size. Keeping the old width left a button sized for the
+	-- font it was last given text in: at a larger font the label ran past its
+	-- edges, and back at a smaller one the button stayed wide.
+	local applyTheme = btn.ApplyTheme
+	function btn:ApplyTheme()
+		applyTheme(self)
+		btn:SetText(btn.label:GetText() or "")
+	end
+	return btn
 end
 
 --------------------------------------------------------------------------------

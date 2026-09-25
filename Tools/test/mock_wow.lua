@@ -399,7 +399,18 @@ end
 function regionMethods:Show() setShown(self, true) end
 function regionMethods:Hide() setShown(self, false) end
 function regionMethods:IsShown() return self._shown ~= false end
-function regionMethods:IsVisible() return self._shown ~= false end
+-- Shown, and every parent up the chain shown too -- the client's meaning. It
+-- used to answer IsShown's question, so a label inside a hidden, pooled frame
+-- counted as on screen, and code that skips work for hidden frames was never
+-- exercised on the path where it skips.
+function regionMethods:IsVisible()
+	local node, hops = self, 0
+	while node and hops < 64 do
+		if node._shown == false then return false end
+		node, hops = node._parent, hops + 1
+	end
+	return true
+end
 function regionMethods:SetShown(v) setShown(self, v) end
 function regionMethods:SetAlpha(a) self._alpha = a end
 function regionMethods:GetAlpha() return self._alpha or 1 end
@@ -1142,6 +1153,37 @@ end
 
 -- Advances time and ticks every shown frame's OnUpdate, so animation code is
 -- exercised and tweens actually finish instead of sitting in the queue.
+-- The client's layout pass: every visible frame whose size has changed since the
+-- last pass gets OnSizeChanged, before anything is drawn. The mock never fired
+-- it at all, so anything that re-lays itself out from that handler -- every
+-- rounded surface in this addon -- was only ever laid out when the code happened
+-- to call Layout by hand, and a stale shape looked like a bug in the addon.
+-- Repeated until nothing changes, because one frame's new layout can resize
+-- another.
+local function layoutPass()
+	for _ = 1, 8 do
+		local changed = false
+		for i = 1, #M.frames do
+			local frame = M.frames[i]
+			local script = frame._scripts and frame._scripts.OnSizeChanged
+			if script and frame:IsVisible() then
+				local w, h = frame:GetWidth() or 0, frame:GetHeight() or 0
+				-- A frame that has never been laid out counts as 0x0: its first
+				-- real size is a change, as it is in the client.
+				local last = frame._lastSize or { 0, 0 }
+				if math.abs(last[1] - w) > 0.01 or math.abs(last[2] - h) > 0.01 then
+					frame._lastSize = { w, h }
+					changed = true
+					local ok, err = pcall(script, frame, w, h)
+					if not ok then M.errors[#M.errors + 1] = "OnSizeChanged: " .. tostring(err) end
+				end
+			end
+		end
+		if not changed then return end
+	end
+end
+M.LayoutPass = layoutPass
+
 function M.RunFrames(count, dt)
 	dt = dt or 0.05
 	for _ = 1, count or 20 do
@@ -1150,13 +1192,19 @@ function M.RunFrames(count, dt)
 		for i = 1, #M.frames do snapshot[i] = M.frames[i] end
 		for i = 1, #snapshot do
 			local frame = snapshot[i]
-			local script = frame._shown ~= false and frame._scripts and frame._scripts.OnUpdate
-			if script then
+			-- Visible, not merely shown: the client does not run OnUpdate for a
+			-- frame whose parent is hidden, so a ticker parented to a closed
+			-- window stops -- and the mock has to stop it too, or code that
+			-- depends on one ticking in the background passes here and hangs
+			-- in the game.
+			local script = frame._scripts and frame._scripts.OnUpdate
+			if script and frame:IsVisible() then
 				local ok, err = pcall(script, frame, dt)
 				if not ok then M.errors[#M.errors + 1] = "OnUpdate: " .. tostring(err) end
 			end
 		end
 		M.RunTimers(1)
+		layoutPass()
 	end
 end
 

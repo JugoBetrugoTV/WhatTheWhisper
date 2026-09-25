@@ -137,21 +137,32 @@ function C:Relayout()
 	end
 end
 
+-- The placeholder names the thread, and that name changes under it: a nickname
+-- given or taken away, the realm setting, the language. It used to be written
+-- only when the thread changed, so "Message <old nickname>..." stayed in the
+-- field after the nickname was gone.
+function C:RefreshPlaceholder()
+	local conv = self.conv
+	if conv then
+		self.input:SetPlaceholder(L["Message %s..."]:format(
+			ns.ConversationManager.DisplayName(conv)))
+	else
+		self.input:SetPlaceholder(L["Type a message..."])
+	end
+end
+
 function C:SetConversation(conv)
-	if self.conv == conv then return end
+	if self.conv == conv then
+		self:RefreshPlaceholder()
+		return
+	end
 	-- Keep the half-typed message with the thread it belongs to.
 	if self.conv then
 		ns.ConversationManager.SetDraft(self.conv.id, self.input:GetText())
 	end
 	self.conv = conv
-	if conv then
-		self.input:SetPlaceholder(L["Message %s..."]:format(
-			ns.ConversationManager.DisplayName(conv)))
-		self.input:SetText(conv.draft or "")
-	else
-		self.input:SetPlaceholder(L["Type a message..."])
-		self.input:SetText("")
-	end
+	self:RefreshPlaceholder()
+	self.input:SetText(conv and conv.draft or "")
 	self:OnTextChanged(self.input:GetText())
 	self:SetShown(conv ~= nil)
 end
@@ -214,15 +225,7 @@ end
 function C:Relocalize()
 	W.SetTooltip(self.emoji, L["Emoji"])
 	W.SetTooltip(self.send, L["Send"])
-	-- SetConversation early-outs on the thread it is already showing, so the
-	-- placeholder is re-derived here rather than by pretending the thread moved.
-	local conv = self.conv
-	if conv then
-		self.input:SetPlaceholder(L["Message %s..."]:format(
-			ns.ConversationManager.DisplayName(conv)))
-	else
-		self.input:SetPlaceholder(L["Type a message..."])
-	end
+	self:RefreshPlaceholder()
 	self:OnTextChanged(self.input:GetText())
 end
 

@@ -97,6 +97,31 @@ function Options.Apply(path)
 	if group then ns.Guard("Options.Apply", group) end
 end
 
+-- Every side effect at once, in the order the language needs: typeface, then
+-- what is measured in it, then what is laid out from those measurements, then
+-- the words. A profile switch, copy or reset replaces every setting underneath
+-- the addon without going through Set, so this is what it has to run -- the
+-- profile handler used to redo a hand-picked half of APPLY and left the rest
+-- drawn with the old profile's values: labels in the old language, bubbles
+-- measured for the old emoticon style, toasts in the old corner.
+local APPLY_ALL = {
+	function() ns.Theme.Refresh() end,
+	function() ns.MessageList.InvalidateMetrics() end,
+	function() ns.History.ApplyRetention() end,
+	function() ns.History.Prune() end,
+	function() ns.UI.RefreshLayout() end,
+	function() ns.UI.RefreshAll() end,
+	function() ns.UI.Relocalize() end,
+	function() ns.Toast.Relayout() end,
+	function() ns.Minimap.Update() end,
+	function() if ns.SettingsUI.IsShown() then ns.SettingsUI.Refresh() end end,
+}
+
+function Options.ApplyAll()
+	-- Each step on its own: one that fails must not leave the rest undone.
+	for i = 1, #APPLY_ALL do ns.Guard("Options.ApplyAll", APPLY_ALL[i]) end
+end
+
 --------------------------------------------------------------------------------
 -- Option lists
 --------------------------------------------------------------------------------
