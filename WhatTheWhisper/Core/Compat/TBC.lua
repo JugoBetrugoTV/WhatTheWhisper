@@ -22,6 +22,3 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	end
 	return false
 end
-
-
-Compat.whoThrottle = 5

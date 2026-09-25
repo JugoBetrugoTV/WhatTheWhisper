@@ -167,7 +167,7 @@ Icons.REPLACEABLE = {
 	person = {
 		size = "MENU_ICON",
 		note = "head and shoulders",
-		use = "Target this player; nickname actions",
+		use = "Nickname actions",
 	},
 	invite = {
 		size = "MENU_ICON",

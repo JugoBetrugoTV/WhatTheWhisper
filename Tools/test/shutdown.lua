@@ -87,7 +87,8 @@ local CALLS = {
 	{ "Search.FilterConversations", function() return ns.Search.FilterConversations("he") end },
 	{ "Emoticons.Process", function() return ns.Emoticons.Process(":)", 14) end },
 	{ "URLs.Process", function() return ns.URLs.Process("see https://a.example/b") end },
-	{ "PlayerInfo.LookUp", function() return ns.PlayerInfo.LookUp(id) end },
+	{ "ProfileLinks.For", function() return ns.ProfileLinks.For(id) end },
+	{ "UI.ShowProfileLinks", function() return ns.UI.ShowProfileLinks(id) end },
 	{ "frames tick", function() M.RunFrames(10) end },
 }
 

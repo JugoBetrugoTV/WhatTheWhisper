@@ -419,7 +419,7 @@ local function onFriendPresence(text)
 	name = name:gsub("|H.-|h", ""):gsub("|h", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
 	name = name:gsub("^%[", ""):gsub("%]$", "")
 	if name == "" then return end
-	local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
+	local id = Compat.PlayerID(name)
 	if not id or not CM.Get(id) then return end
 	PlayerInfo.Set(id, { online = online, presenceSource = "friend" })
 	Debug.Log("events", "%s is now %s", id, online and "online" or "offline")
@@ -433,7 +433,7 @@ local function onSystem(text)
 	local name = text:match(notFoundPattern)
 	if not name then return end
 	name = name:gsub("^['\"]", ""):gsub("['\"%.]$", "")
-	local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
+	local id = Compat.PlayerID(name)
 	if not id then return end
 	local conv = CM.Get(id)
 	if not conv then return end
@@ -467,7 +467,7 @@ function ChatEvents.OnComposeWhisper(target)
 	if not ns.Setting("messages.openOnCompose") then return end
 	if not target or target == "" then return end
 
-	local id = Compat.NormalizeName(ns.Text.UpperFirst(target))
+	local id = Compat.PlayerID(target)
 	Debug.Log("events", "composing a whisper to %s", id)
 	CM.GetOrCreate(id)
 	ns.UI.Show()

@@ -5,8 +5,9 @@
 -- pools its rows, closes on any outside click or Escape, and styles destructive
 -- entries differently.
 --
--- One special case: "Target" cannot be done from insecure Lua at all, so that
--- entry is backed by a real SecureActionButton with a /target macro. Attributes
+-- One special case: an entry whose action the client only allows from secure
+-- code -- adding a friend -- is backed by a real SecureActionButton running the
+-- client's own slash command as a macro (`secureMacro`). Attributes
 -- are only ever written outside combat; inside combat the entry is disabled with
 -- an explanation instead of silently doing nothing, and the secure button is
 -- taken down by the secure environment itself (see ensureSecureButton).
@@ -119,7 +120,7 @@ local function resetItem(_, row)
 end
 
 --------------------------------------------------------------------------------
--- Secure "Target" support
+-- Secure macro entries
 --------------------------------------------------------------------------------
 
 -- The secure button sits on a host of its own, and neither of them is tied to
@@ -143,7 +144,7 @@ local function ensureSecureButton()
 		if newstate == "on" then self:Hide() end
 	]])
 	RegisterStateDriver(secureHost, "combat", "[combat] on; off")
-	secureButton = CreateFrame("Button", "WhatTheWhisperSecureTarget", secureHost,
+	secureButton = CreateFrame("Button", "WhatTheWhisperSecureAction", secureHost,
 		"SecureActionButtonTemplate")
 	secureButton:RegisterForClicks("AnyUp")
 	secureButton:SetAllPoints(secureHost)

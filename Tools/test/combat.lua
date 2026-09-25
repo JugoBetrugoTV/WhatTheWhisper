@@ -155,7 +155,7 @@ ns.Popout.CloseAll()
 clearProblems()
 
 --------------------------------------------------------------------------------
--- The one genuinely protected feature
+-- The one genuinely protected feature: adding a friend, through /friend
 --------------------------------------------------------------------------------
 
 local conv = CM.Get("Thrall-Blackrock")
@@ -163,13 +163,13 @@ local conv = CM.Get("Thrall-Blackrock")
 -- Out of combat the secure macro is attached and armed.
 ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
 M.RunFrames(2)
-local secure = _G.WhatTheWhisperSecureTarget
+local secure = _G.WhatTheWhisperSecureAction
 check("the secure target button exists", secure ~= nil)
-eq("its macro targets the right player",
-	secure and secure:GetAttribute("macrotext"), "/target Thrall-Blackrock")
+eq("its macro names the right player",
+	secure and secure:GetAttribute("macrotext"), "/friend Thrall")
 check("attaching it out of combat is clean", #clearProblems() == 0)
 
--- It has to sit exactly over the Target entry: it is placed by coordinates now,
+-- It has to sit exactly over the Add friend entry: it is placed by coordinates now,
 -- not anchored, so a wrong conversion would leave a click area beside the row.
 local function targetRow()
 	local menu = _G.WhatTheWhisperContextMenu
@@ -183,11 +183,11 @@ end
 do
 	local row = targetRow()
 	local host = secure and secure:GetParent()
-	check("the Target entry is in the menu", row ~= nil)
+	check("the Add friend entry is in the menu", row ~= nil)
 	if row and host then
 		local k = row:GetEffectiveScale() / host:GetEffectiveScale()
 		local function near(a, b) return a and b and math.abs(a - b) < 0.01 end
-		check("the click area covers the Target entry exactly",
+		check("the click area covers the Add friend entry exactly",
 			near(host:GetLeft(), row:GetLeft() * k) and near(host:GetBottom(), row:GetBottom() * k)
 			and near(host:GetWidth(), row:GetWidth() * k) and near(host:GetHeight(), row:GetHeight() * k),
 			("host %s,%s %sx%s  row %s,%s %sx%s"):format(host:GetLeft(), host:GetBottom(),
@@ -222,11 +222,11 @@ leaveCombat()
 ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
 M.RunFrames(2)
 eq("the macro is armed again after combat",
-	_G.WhatTheWhisperSecureTarget:GetAttribute("macrotext"), "/target Thrall-Blackrock")
+	_G.WhatTheWhisperSecureAction:GetAttribute("macrotext"), "/friend Thrall")
 ns.Menu.Close()
 check("re-arming after combat is clean", #clearProblems() == 0)
 
--- The case that actually happens: the menu is open with Target armed, and a
+-- The case that actually happens: the menu is open with the button armed, and a
 -- mob notices you. Combat starts with a live secure button on the screen, and
 -- the addon is no longer allowed to hide it, move it, or hide anything it is
 -- parented to or anchored to -- so whatever takes it away has to be the secure
@@ -234,7 +234,7 @@ check("re-arming after combat is clean", #clearProblems() == 0)
 do
 	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
 	M.RunFrames(2)
-	local secureButton = _G.WhatTheWhisperSecureTarget
+	local secureButton = _G.WhatTheWhisperSecureAction
 	local host = secureButton and secureButton:GetParent()
 	check("the target overlay is up before combat", host ~= nil and host:IsShown())
 	clearProblems()
@@ -242,12 +242,12 @@ do
 	local row = targetRow()
 	M.SetCombat(true)
 	M.RunFrames(3)
-	check("the open menu's Target entry greys out when combat starts",
+	check("the open menu's Add friend entry greys out when combat starts",
 		row ~= nil and row.__wtwEnabled == false and row.label.__wtwRole == "textDisabled",
 		row and tostring(row.label.__wtwRole))
 	check("combat starting takes the target overlay down on its own",
 		host ~= nil and not host:IsShown(),
-		"a live secure button left over a closed menu targets whoever it last named")
+		"a live secure button left over a closed menu acts on whoever it last named")
 	check("and that touched nothing protected from addon code", #clearProblems() == 0)
 
 	ns.Menu.Close()
@@ -270,7 +270,7 @@ do
 	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
 	M.RunFrames(2)
 	check("and the next menu out of combat arms it again",
-		host:IsShown() and secureButton:GetAttribute("macrotext") == "/target Thrall-Blackrock",
+		host:IsShown() and secureButton:GetAttribute("macrotext") == "/friend Thrall",
 		tostring(secureButton:GetAttribute("macrotext")))
 	ns.Menu.Close()
 	check("all of that out of combat is clean", #clearProblems() == 0)

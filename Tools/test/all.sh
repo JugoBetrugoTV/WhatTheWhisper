@@ -68,6 +68,8 @@ suite "profiles"              Tools/test/profiles.lua
 suite "commands and debug"    Tools/test/commands.lua
 suite "search"                Tools/test/search.lua
 suite "modern API only"       Tools/test/modern.lua
+suite "forever names"         Tools/test/forever.lua
+suite "profile links"         Tools/test/links.lua
 suite "icons: drop-in"        Tools/test/icons.lua
 suite "icons: blind client"   Tools/test/icons.lua blind
 suite "restricted content"    Tools/test/arena.lua

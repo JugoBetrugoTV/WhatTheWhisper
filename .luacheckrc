@@ -38,7 +38,7 @@ read_globals = {
 	-- units and social
 	"UnitName", "UnitClass", "UnitLevel", "UnitExists", "UnitIsPlayer", "UnitRace",
 	"UnitFactionGroup", "UnitSex", "IsInInstance", "IsInRaid", "IsInGroup",
-	"GetNumGroupMembers", "InCombatLockdown", "IsShiftKeyDown", "IsControlKeyDown",
+	"GetNumGroupMembers", "InCombatLockdown", "RegisterStateDriver", "IsShiftKeyDown", "IsControlKeyDown",
 	"IsAltKeyDown", "GetPlayerInfoByGUID", "Ambiguate", "SetPortraitTexture",
 	"C_FriendList", "C_PartyInfo", "C_BattleNet", "C_GuildInfo", "C_ClassColor",
 	"C_CreatureInfo", "C_Timer", "C_AddOns",

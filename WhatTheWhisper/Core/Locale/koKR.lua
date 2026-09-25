@@ -23,8 +23,6 @@ ns.RegisterLocale("koKR", {
 	["BattleTag"] = true,
 	["Character"] = "캐릭터",
 	["not known"] = "알 수 없음",
-	["Looking up..."] = "조회 중...",
-	["Try again in a moment"] = "잠시 후 다시 시도하세요",
 	["New conversation"] = "새 대화",
 	["Settings"] = "설정",
 	["All windows"] = "모든 창",
@@ -105,7 +103,6 @@ ns.RegisterLocale("koKR", {
 	["Pin conversation"] = "대화 고정",
 	["Unpin conversation"] = "대화 고정 해제",
 	["Close conversation"] = "대화 닫기",
-	["Target"] = "대상 지정",
 	["Look up"] = "조회",
 	["Mark as read"] = "읽음으로 표시",
 	["Mark as unread"] = "읽지 않음으로 표시",
@@ -164,9 +161,6 @@ ns.RegisterLocale("koKR", {
 	["Enable WhatTheWhisper"] = "WhatTheWhisper 사용",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"귓속말을 기본 대화창 대신 메신저로 보냅니다.",
-	["Hide whispers from chat frames"] = "대화창에서 귓속말 숨기기",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"귓속말은 그대로 도착하며, 대화창에 표시되지 않을 뿐입니다.",
 	["Open on new whisper"] = "새 귓속말이 오면 열기",
 	["Show the messenger automatically when someone whispers you."] =
 		"누군가 귓속말을 보내면 메신저를 저절로 엽니다.",
@@ -399,4 +393,18 @@ ns.RegisterLocale("koKR", {
 	["Open when you start a whisper"] = "귓속말을 시작할 때 열기",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"기본 대화창에 /w를 입력하면 그 대화가 여기에서 열립니다.",
+	["A character here has a first and a second name, both letters only."] = "이곳의 캐릭터는 이름과 성을 가지며, 둘 다 글자로만 이루어집니다.",
+	["There are no public profile sites for this version of the game yet."] = "이 게임 버전에는 아직 공개 프로필 사이트가 없습니다.",
+	["The profile sites do not cover this region."] = "프로필 사이트가 이 지역을 지원하지 않습니다.",
+	["This realm's name cannot be turned into a web address here."] = "이 서버 이름은 여기서 웹 주소로 바꿀 수 없습니다.",
+	["Click an address, then press Ctrl+C to copy it."] = "주소를 클릭한 다음 Ctrl+C를 눌러 복사하세요.",
+	["Remove friend"] = "친구 삭제",
+	["Unignore"] = "차단 해제",
+	["Show whispers"] = "귓속말 표시",
+	["Messenger only"] = "메신저에만",
+	["Messenger and chat"] = "메신저와 대화창",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "받은 귓속말과 보낸 귓속말 모두에 적용됩니다. 어느 쪽이든 사라지는 것은 없습니다.",
+	["New whispers open"] = "새 귓속말 열기",
+	["In the messenger"] = "메신저에서",
+	["In their own window"] = "별도 창에서",
 })

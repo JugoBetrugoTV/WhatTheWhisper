@@ -57,7 +57,7 @@ nothing in this set does.
 | `animations.tga` | Settings category: Animations | 22px | 64 x 64 | yes | 6px | circular arrow | not needed | 1 place |
 | `appearance.tga` | Settings category: Appearance | 22px | 64 x 64 | yes | 6px | eye, or a paint drop | not needed | 1 place |
 | `bell.tga` | Unmute, in the conversation menu | 22px | 64 x 64 | yes | 6px | plain bell | not needed | 2 places |
-| `block.tga` | Ignore this player | 20px | 64 x 64 | yes | 5px | circle with a diagonal bar | not needed | 1 place |
+| `block.tga` | Ignore this player | 20px | 64 x 64 | yes | 5px | circle with a diagonal bar | not needed | 2 places |
 | `bullet.tga` | The default menu and settings-category mark, when nothing better fits | 20px | 64 x 64 | yes | 5px | a small filled dot | not needed | 3 places |
 | `chat.tga` | Whisper someone; empty-state illustration | 22px | 64 x 64 | yes | 6px | plain speech bubble | not needed | 6 places |
 | `close.tga` | Close buttons: window, popout, dialogs, clearing a search | 22px | 64 x 64 | yes | 6px | a thin X, equal-armed | not needed | 10 places |
@@ -80,7 +80,7 @@ nothing in this set does.
 | `more.tga` | The overflow menu in the conversation header and tab strip | 22px | 64 x 64 | yes | 6px | three horizontal dots | not needed | 2 places |
 | `mute.tga` | Muted conversation marker, and the mute action | 18px | 64 x 64 | yes | 5px | bell with a slash | not needed | 2 places |
 | `newchat.tga` | Start a new conversation, top right of the sidebar | 22px | 64 x 64 | yes | 6px | speech bubble with a plus | not needed | 1 place |
-| `person.tga` | Target this player; nickname actions | 20px | 64 x 64 | yes | 5px | head and shoulders | not needed | 2 places |
+| `person.tga` | Nickname actions | 20px | 64 x 64 | yes | 5px | head and shoulders | not needed | 1 place |
 | `pin.tga` | Pinned conversation marker, and the pin action | 18px | 64 x 64 | yes | 5px | push-pin, filled | not needed | 4 places |
 | `popout.tga` | Detach this conversation into its own window | 22px | 64 x 64 | yes | 6px | square with an arrow leaving it | not needed | 2 places |
 | `reveal.tga` | Show a message the game has hidden | 20px | 64 x 64 | yes | 5px | an open eye | not needed | 1 place |
@@ -89,7 +89,7 @@ nothing in this set does.
 | `sent.tga` | Delivery line: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
 | `settings.tga` | Opens the settings window; the Appearance-level settings category | 22px | 64 x 64 | yes | 6px | two horizontal sliders | not needed | 3 places |
 | `sounds.tga` | Settings category: Sounds | 22px | 64 x 64 | yes | 6px | speaker with one wave | not needed | 1 place |
-| `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 1 place |
+| `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 2 places |
 | `trash.tga` | Clear or delete a conversation | 20px | 64 x 64 | yes | 5px | waste bin with a lid | not needed | 1 place |
 | `unpin.tga` | Unpin, in the conversation menu | 20px | 64 x 64 | yes | 5px | push-pin, outline only | not needed | 2 places |
 | `up.tga` | Previous search match | 19px | 64 x 64 | yes | 5px | chevron pointing up | not needed | 1 place |

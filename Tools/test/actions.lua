@@ -231,11 +231,69 @@ do
 end
 
 do
-	-- Look up, invite, add friend: the ones that talk to the client.
-	for _, name in ipairs({ "Look up", "Invite to group", "Add friend" }) do
-		local entry = findEntry(ns.UI.BuildConversationMenu(conv()), name)
-		if entry and entry.onClick then perform(name, entry.onClick) end
+	-- The ones that talk to the client -- and each has to get past the client,
+	-- which is what the report said none of them did.
+	local invited = {}
+	local realInvite = _G.C_PartyInfo and _G.C_PartyInfo.InviteUnit
+	_G.C_PartyInfo = _G.C_PartyInfo or {}
+	_G.C_PartyInfo.InviteUnit = function(name) invited[#invited + 1] = name end
+	local invite = findEntry(ns.UI.BuildConversationMenu(conv()), "Invite to group")
+	check("Invite to group is offered", invite ~= nil and invite.onClick ~= nil)
+	if invite then perform("Invite to group", invite.onClick) end
+	eq("the invite reaches the client, addressed as the client addresses them",
+		invited[1], "Thrall")
+	_G.C_PartyInfo.InviteUnit = realInvite
+
+	-- Look up is the profile pages, to copy.
+	local lookUp = findEntry(ns.UI.BuildConversationMenu(conv()), "Look up")
+	check("Look up is offered", lookUp ~= nil and lookUp.onClick ~= nil)
+	if lookUp then perform("Look up", lookUp.onClick) end
+	local links = _G.WhatTheWhisperLinksDialog
+	check("Look up opens the profile links", links ~= nil and links:IsShown())
+	eq("and sends no /who, which the client would block", #(M.whoSent or {}), 0)
+	ns.Dialogs.HideAll()
+
+	-- Add friend is restricted from addon code; the entry is a secure macro
+	-- button running the client's own /friend, and clicking it adds the friend
+	-- without a single blocked action.
+	local add = findEntry(ns.UI.BuildConversationMenu(conv()), "Add friend")
+	check("Add friend is offered", add ~= nil)
+	eq("through the client's own /friend", add and add.secureMacro, "/friend Thrall")
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv()))
+	M.RunFrames(2)
+	local secure = _G.WhatTheWhisperSecureAction
+	check("with a secure button over it", secure ~= nil and secure:IsVisible())
+	if secure and secure:IsVisible() then
+		perform("Add friend", function() M.Click(secure) end)
 	end
+	eq("the friend was added", M.friendsAdded[#M.friendsAdded], "Thrall")
+	eq("and nothing was blocked", #M.actionsBlocked, 0, table.concat(M.actionsBlocked, ", "))
+	ns.Menu.Close()
+
+	-- Somebody who is already a friend is offered the opposite.
+	M.friends = { { name = "Thrall", connected = true } }
+	local remove = findEntry(ns.UI.BuildConversationMenu(conv()), "Remove friend")
+	check("a friend is offered Remove friend instead", remove ~= nil and remove.onClick ~= nil)
+	check("and not Add friend", findEntry(ns.UI.BuildConversationMenu(conv()), "Add friend") == nil)
+	if remove then perform("Remove friend", remove.onClick) end
+	eq("which removes them", M.friendsRemoved[#M.friendsRemoved], "Thrall")
+	M.friends = {}
+
+	-- Ignore, and then the way back.
+	check("nobody is ignored yet", findEntry(ns.UI.BuildConversationMenu(conv()), "Unignore") == nil)
+	local ignore = findEntry(ns.UI.BuildConversationMenu(conv()), "Ignore")
+	M.ignored = {}
+	ns.Compat.AddIgnore(thrall)
+	eq("ignoring reaches the client", M.ignored["Thrall"], true)
+	local unignore = findEntry(ns.UI.BuildConversationMenu(conv()), "Unignore")
+	check("an ignored player is offered Unignore", unignore ~= nil and unignore.onClick ~= nil,
+		ignore and ignore.text)
+	check("and not Ignore again", findEntry(ns.UI.BuildConversationMenu(conv()), "Ignore") == nil)
+	if unignore then perform("Unignore", unignore.onClick) end
+	eq("which takes them off the list", M.ignored["Thrall"], nil)
+
+	-- Target is gone: the report asked for it to go.
+	check("there is no Target entry", findEntry(ns.UI.BuildConversationMenu(conv()), "Target") == nil)
 end
 
 --------------------------------------------------------------------------------

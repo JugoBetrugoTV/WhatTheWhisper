@@ -86,6 +86,7 @@
 	<Script file="Modules\Export.lua"/>
 	<Script file="Modules\Combat.lua"/>
 	<Script file="Modules\Search.lua"/>
+	<Script file="Modules\ProfileLinks.lua"/>
 
 	<!-- Views -->
 	<Script file="UI\MessageList.lua"/>

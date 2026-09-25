@@ -113,6 +113,33 @@ do
 		eq("and left in it when it is not",
 			filterSuppresses("sichtbar", "Thrall", "G-T"), false)
 	end)
+
+	-- Chosen the way a player chooses it: the control in the settings window,
+	-- which offers two places rather than a switch named for what it hides.
+	ns.SettingsUI.Show()
+	ns.SettingsUI.SelectCategory("general")
+	M.RunFrames(2)
+	local control
+	for row in ns.SettingsUI.RowPool():EnumerateActive() do
+		if row.control and row.control.spec and row.control.spec.path == "messages.hideFromChatFrame" then
+			control = row.control
+		end
+	end
+	check("the settings offer where whispers are shown", control ~= nil)
+	if control then
+		control:SetValue(false, true)
+		M.RunFrames(2)
+		eq("choosing the messenger and the chat window leaves them in the chat",
+			filterSuppresses("beides", "Thrall", "G-T"), false)
+		local inform = M.ChatFrameWouldShow("CHAT_MSG_WHISPER_INFORM", "auch raus", "Thrall",
+			"", "", "Thrall", "", 0, 0, "", 0, 99, "G-T")
+		eq("the ones you send as well", inform, true)
+		control:SetValue(true, true)
+		M.RunFrames(2)
+		eq("and the messenger only takes them out again",
+			filterSuppresses("nur hier", "Thrall", "G-T"), true)
+	end
+	ns.SettingsUI.Hide()
 end
 
 --------------------------------------------------------------------------------
@@ -136,6 +163,23 @@ do
 		M.RunFrames(3)
 		whisper("jetzt aufmachen", "Jaina", "G-J")
 		eq("and opens it when that is wanted", windowShown(), true)
+	end)
+
+	-- Or the way WIM does it: every thread in a small window of its own.
+	with("messages.openAs", "window", function()
+		ns.UI.Hide()
+		ns.Popout.CloseAll()
+		M.RunFrames(3)
+		local id = ns.Compat.NormalizeName("Anduin")
+		whisper("eigenes fenster", "Anduin", "G-A")
+		M.RunFrames(3)
+		check("a whisper opens its own window when that is wanted", ns.Popout.IsOpen(id))
+		eq("and leaves the messenger shut", windowShown(), false)
+		whisper("noch was", "Anduin", "G-A")
+		M.RunFrames(3)
+		check("a second whisper does not close it again", ns.Popout.IsOpen(id))
+		ns.Popout.CloseAll()
+		M.RunFrames(3)
 	end)
 end
 
@@ -185,7 +229,11 @@ local function openTabCount()
 	return #(ns.UI.GetTabOrder() or {})
 end
 local function closeAllTabs()
-	for _, id in ipairs(ns.UI.GetTabOrder() or {}) do ns.UI.CloseConversation(id) end
+	-- A copy: closing a tab removes it from the very list being walked, and a
+	-- walk over a shrinking array skips every other entry.
+	local ids = {}
+	for i, id in ipairs(ns.UI.GetTabOrder() or {}) do ids[i] = id end
+	for _, id in ipairs(ids) do ns.UI.CloseConversation(id) end
 	M.RunFrames(3)
 end
 

@@ -560,6 +560,8 @@ function CM.DisplayName(conv)
 	if alias then return alias end
 	if conv.isBN then return conv.name or conv.id end
 	local base = Compat.ShortName(conv.id)
+	-- On Forever the realm is an internal detail the player never sees.
+	if not Compat.namesHaveRealms then return base end
 	local mode = ns.Setting("messages.showRealm") or "cross"
 	if mode == "never" then return base end
 	local realm = Compat.RealmOf(conv.id)

@@ -11,7 +11,6 @@ local _G = _G
 
 Compat.flavorName = Compat.flavorName or ("Unknown (" .. tostring(Compat.tocVersion) .. ")")
 Compat.classCount = Compat.classCount or 10
-Compat.whoThrottle = Compat.whoThrottle or 5
 
 function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	panel.name = title

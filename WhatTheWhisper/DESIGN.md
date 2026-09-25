@@ -520,7 +520,7 @@ The visual system uses only: `SetColorTexture`, `SetGradient`, `SetTexCoord`,
 fallback, so **Classic Era looks identical to Retail** rather than degrading to a grey box.
 
 Which client it is on is decided once, in `Core/Compat/Compat.lua`, and only ever decides
-names and world data — the class count, the `/who` throttle, the folder a player is told
+names and world data — the class count, whether names carry a realm, the folder a player is told
 to look in. Never a capability: those are probed, because Blizzard backports into Classic
 without warning and a version test is a guess with a date on it.
 

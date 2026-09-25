@@ -228,23 +228,27 @@ function UI.BuildConversationMenu(conv)
 	end
 
 	if not isBN then
-		-- Targeting from insecure Lua is impossible, so this entry is backed by a
-		-- real secure macro button; ContextMenu disables it during combat.
-		entries[#entries + 1] = {
-			text = L["Target"], icon = "person",
-			secureMacro = "/target " .. conv.id,
-			combatTooltip = L["Combat"],
-		}
-	end
+		-- Adding a friend is restricted from addon code, so the entry runs the
+		-- client's own /friend from a secure button; ContextMenu disables it in
+		-- combat. Removing one is not restricted and is done directly.
+		if Compat.IsFriend(conv.id) then
+			entries[#entries + 1] = { text = L["Remove friend"], icon = "star",
+				onClick = function() Compat.RemoveFriend(conv.id) end }
+		else
+			local macro = Compat.AddFriendMacro(conv.id)
+			if macro then
+				entries[#entries + 1] = {
+					text = L["Add friend"], icon = "star",
+					secureMacro = macro,
+					combatTooltip = L["Combat"],
+				}
+			end
+		end
 
-	if not isBN and Compat.canAddFriend then
-		entries[#entries + 1] = { text = L["Add friend"], icon = "star",
-			onClick = function() Compat.AddFriend(conv.id) end }
-	end
-
-	if not isBN and Compat.canWho then
+		-- Their public profile pages, to copy: what "look somebody up" means
+		-- now that the client no longer lets an addon send a /who.
 		entries[#entries + 1] = { text = L["Look up"], icon = "search",
-			onClick = function() ns.PlayerInfo.LookUp(conv.id) end }
+			onClick = function() UI.ShowProfileLinks(conv.id) end }
 	end
 
 	entries[#entries + 1] = { separator = true }
@@ -305,11 +309,16 @@ function UI.BuildConversationMenu(conv)
 		onClick = function() UI.ConfirmClear(conv) end,
 	}
 	if not isBN and Compat.canIgnore then
-		entries[#entries + 1] = { text = L["Ignore"], icon = "block", danger = true,
-			onClick = function()
-				Compat.AddIgnore(conv.id)
-				UI.CloseConversation(conv.id)
-			end }
+		if Compat.IsIgnored(conv.id) then
+			entries[#entries + 1] = { text = L["Unignore"], icon = "block",
+				onClick = function() Compat.DelIgnore(conv.id) end }
+		else
+			entries[#entries + 1] = { text = L["Ignore"], icon = "block", danger = true,
+				onClick = function()
+					Compat.AddIgnore(conv.id)
+					UI.CloseConversation(conv.id)
+				end }
+		end
 	end
 
 	return entries
@@ -318,6 +327,13 @@ end
 --------------------------------------------------------------------------------
 -- Dialog helpers
 --------------------------------------------------------------------------------
+
+function UI.ShowProfileLinks(id)
+	local conv = CM.Get(id)
+	local links, note = ns.ProfileLinks.For(id)
+	ns.Dialogs.ShowLinks(L["Look up"] .. " \194\183 " .. (conv and CM.DisplayName(conv) or id),
+		links, note)
+end
 
 function UI.ConfirmClear(conv)
 	ns.Dialogs.Confirm(
@@ -369,7 +385,14 @@ local NAME_COMPLAINT = {
 	length = "Character names are 2 to 12 letters, with no spaces, numbers or punctuation.",
 	realm  = "That realm name is not valid.",
 	battletag = "A BattleTag looks like Name#1234.",
+	twoNames = "A character here has a first and a second name, both letters only.",
 }
+-- On Forever the space is not the mistake: the one rule that applies to every
+-- name there is the two-part shape.
+if not Compat.namesHaveRealms then
+	NAME_COMPLAINT.name = NAME_COMPLAINT.twoNames
+	NAME_COMPLAINT.length = NAME_COMPLAINT.twoNames
+end
 
 -- Display only, and the dialog says so: the line under the field is the name the
 -- message still goes to.
@@ -390,7 +413,7 @@ end
 function UI.PromptNewConversation()
 	ns.Dialogs.Prompt(L["New conversation"], L["Whisper a player"],
 		L["Enter a character name"], L["Open"], function(value)
-			local id = Compat.NormalizeName(ns.Text.UpperFirst(value))
+			local id = Compat.PlayerID(value)
 			CM.GetOrCreate(id)
 			UI.Show()
 			CM.Select(id)

@@ -23,8 +23,6 @@ ns.RegisterLocale("esMX", {
 	["BattleTag"] = true,
 	["Character"] = "Personaje",
 	["not known"] = "se desconoce",
-	["Looking up..."] = "Buscando...",
-	["Try again in a moment"] = "Inténtalo de nuevo en un momento",
 	["New conversation"] = "Nueva conversación",
 	["Settings"] = "Configuración",
 	["All windows"] = "Todas las ventanas",
@@ -105,7 +103,6 @@ ns.RegisterLocale("esMX", {
 	["Pin conversation"] = "Fijar conversación",
 	["Unpin conversation"] = "Desfijar conversación",
 	["Close conversation"] = "Cerrar conversación",
-	["Target"] = "Seleccionar",
 	["Look up"] = "Consultar",
 	["Mark as read"] = "Marcar como leída",
 	["Mark as unread"] = "Marcar como no leída",
@@ -164,9 +161,6 @@ ns.RegisterLocale("esMX", {
 	["Enable WhatTheWhisper"] = "Activar WhatTheWhisper",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"Lleva los susurros al mensajero en lugar de a la ventana de chat normal.",
-	["Hide whispers from chat frames"] = "Ocultar los susurros en las ventanas de chat",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"Los susurros siguen llegando igual, solo que no se escriben en la ventana de chat.",
 	["Open on new whisper"] = "Abrir con cada susurro nuevo",
 	["Show the messenger automatically when someone whispers you."] =
 		"Muestra el mensajero automáticamente cuando alguien te susurra.",
@@ -403,4 +397,18 @@ ns.RegisterLocale("esMX", {
 	["Open when you start a whisper"] = "Abrir al empezar un susurro",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"Escribir /w en el chat normal abre aquí esa conversación.",
+	["A character here has a first and a second name, both letters only."] = "Aquí un personaje tiene nombre y apellido, ambos solo con letras.",
+	["There are no public profile sites for this version of the game yet."] = "Todavía no hay sitios de perfiles públicos para esta versión del juego.",
+	["The profile sites do not cover this region."] = "Los sitios de perfiles no cubren esta región.",
+	["This realm's name cannot be turned into a web address here."] = "El nombre de este reino no se puede convertir aquí en una dirección web.",
+	["Click an address, then press Ctrl+C to copy it."] = "Haz clic en una dirección y presiona Ctrl+C para copiarla.",
+	["Remove friend"] = "Quitar amigo",
+	["Unignore"] = "Dejar de ignorar",
+	["Show whispers"] = "Mostrar susurros",
+	["Messenger only"] = "Solo en el mensajero",
+	["Messenger and chat"] = "Mensajero y chat",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "Para los susurros que recibes y los que envías. No se pierde nada en ningún caso.",
+	["New whispers open"] = "Los susurros nuevos se abren",
+	["In the messenger"] = "En el mensajero",
+	["In their own window"] = "En su propia ventana",
 })

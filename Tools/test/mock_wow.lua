@@ -1125,6 +1125,15 @@ function _G.CreateFrame(kind, name, parent, template)
 		_protected = template ~= nil and tostring(template):find("Secure") ~= nil,
 	}, frameMT)
 	M.frames[#M.frames + 1] = f
+	-- The template's own click handler: a macro button runs its macro, in
+	-- secure code. Anything the addon hooks runs after it, as in the client.
+	if template and tostring(template):find("SecureActionButtonTemplate") then
+		f._scripts = f._scripts or {}
+		f._scripts.OnClick = function(self)
+			local attrs = self._attributes or {}
+			if attrs.type == "macro" then M.RunMacro(attrs.macrotext or "") end
+		end
+	end
 	if parent then
 		local kids = M.children[parent]
 		if not kids then kids = {} M.children[parent] = kids end
@@ -1365,6 +1374,13 @@ _G.UnitName = function(unit)
 	if unit == "player" then return "Testchar", "" end
 	if not u then return nil end
 	return u.name, u.realm or ""
+end
+-- FrameXML's own helper: the chat form, "Name-Realm" when asked for the server
+-- and the unit is from another one.
+_G.GetUnitName = function(unit, showServerName)
+	local name, realm = _G.UnitName(unit)
+	if showServerName and realm and realm ~= "" then return name .. "-" .. realm end
+	return name
 end
 _G.UnitClass = function(unit)
 	local u = M.units and M.units[unit]
@@ -1772,6 +1788,39 @@ _G.C_ChatInfo.GetChatLineText = function(lineID) return chatLineField(lineID, "t
 _G.C_ChatInfo.GetChatLineSenderName = function(lineID) return chatLineField(lineID, "sender") end
 _G.C_ChatInfo.GetChatLineSenderGUID = function(lineID) return chatLineField(lineID, "guid") end
 
+M.friendsAdded, M.friendsRemoved, M.friendNotes, M.ignored = {}, {}, {}, {}
+M.actionsBlocked = {}
+-- A restricted call from addon code: blocked, reported, and not performed.
+function M.Restricted(name)
+	if M.secureExecution then return false end
+	M.actionsBlocked[#M.actionsBlocked + 1] = name
+	M.errors[#M.errors + 1] = "ADDON_ACTION_BLOCKED: " .. name .. "()"
+	return true
+end
+
+-- The client's own slash commands, as a secure button's macro runs them: in
+-- secure code, so the restricted calls underneath are allowed. Parsed the way
+-- Blizzard_ChatFrameBase parses them on every supported branch -- /friend takes
+-- the first word as the name and the rest as a note.
+function M.RunMacro(text)
+	local was = M.secureExecution
+	M.secureExecution = true
+	for line in tostring(text):gmatch("[^\n]+") do
+		local command, rest = line:match("^/(%S+)%s*(.*)$")
+		if command == "friend" then
+			local player, note = rest:match("%s*([^%s]+)%s*(.*)")
+			if player then _G.C_FriendList.AddOrRemoveFriend(player, note) end
+		elseif command == "removefriend" then
+			_G.C_FriendList.RemoveFriend(rest)
+		elseif command == "who" then
+			_G.C_FriendList.SendWho(rest)
+		elseif command == "target" then
+			M.targeted = rest
+		end
+	end
+	M.secureExecution = was
+end
+
 _G.C_FriendList = {
 	-- Driven by the test through M.friends, the same way /who is driven through
 	-- M.whoResults: these are client strings, and a test has to be able to make
@@ -1783,12 +1832,33 @@ _G.C_FriendList = {
 		return { name = row.name, level = row.level, className = row.class,
 			connected = row.connected ~= false }
 	end,
-	AddFriend = function() end,
-	AddOrDelIgnore = function() end,
-	IsIgnored = function() return false end,
+	-- Restricted: the client runs these only from its own secure code -- a
+	-- slash command, a secure button's macro -- and answers an addon calling
+	-- them with ADDON_ACTION_BLOCKED and nothing else. Recorded both ways, so a
+	-- test sees what reached the server and what was refused.
+	AddFriend = function(name)
+		if not M.Restricted("AddFriend") then M.friendsAdded[#M.friendsAdded + 1] = name end
+	end,
+	AddOrRemoveFriend = function(name, note)
+		if M.Restricted("AddOrRemoveFriend") then return end
+		M.friendsAdded[#M.friendsAdded + 1] = name
+		M.friendNotes[name] = note
+	end,
+	RemoveFriend = function(name) M.friendsRemoved[#M.friendsRemoved + 1] = name end,
+	GetFriendInfo = function(name)
+		for _, row in ipairs(M.friends or {}) do
+			if row.name == name then return { name = row.name, connected = row.connected ~= false } end
+		end
+		return nil
+	end,
+	AddIgnore = function(name) M.ignored[name] = true return true end,
+	DelIgnore = function(name) M.ignored[name] = nil return true end,
+	AddOrDelIgnore = function(name) M.ignored[name] = (not M.ignored[name]) or nil end,
+	IsIgnored = function(name) return M.ignored[name] == true end,
 	-- /who, driven by the test: M.whoSent records the queries, M.whoResults is
 	-- what the server would answer with.
 	SendWho = function(query)
+		if M.Restricted("SendWho") then return end
 		M.whoSent = M.whoSent or {}
 		M.whoSent[#M.whoSent + 1] = query
 	end,

@@ -369,12 +369,14 @@ function Dialogs.HideAll()
 	if copyDialog then copyDialog:Hide() end
 	if confirmDialog then confirmDialog:Hide() end
 	if ns.Dialogs.promptDialog then ns.Dialogs.promptDialog:Hide() end
+	if ns.Dialogs.linksDialog then ns.Dialogs.linksDialog:Hide() end
 end
 
 function Dialogs.ApplyTheme()
 	if copyDialog then copyDialog:ApplyTheme() end
 	if confirmDialog then confirmDialog:ApplyTheme() end
 	if ns.Dialogs.promptDialog then ns.Dialogs.promptDialog:ApplyTheme() end
+	if ns.Dialogs.linksDialog then ns.Dialogs.linksDialog:ApplyTheme() end
 end
 
 --------------------------------------------------------------------------------
@@ -472,4 +474,137 @@ function Dialogs.Prompt(title, label, placeholder, acceptLabel, onAccept, valida
 	d:Show()
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 	d.input:Focus()
+end
+
+--------------------------------------------------------------------------------
+-- Profile links
+--------------------------------------------------------------------------------
+
+-- One address per row, each in a field of its own. Clicking a field selects the
+-- whole address and gives it the keyboard, so copying any one of them is a click
+-- and Ctrl+C -- there is no clipboard API, and a browser cannot be opened.
+local linksDialog
+local LINK_FIELD_H = 28
+local LINK_W = 560
+
+local function linkRow(d)
+	local row = CreateFrame("Frame", nil, d)
+	row.label = W.Text(row, "SMALL", "textSecondary")
+	row.label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+	row.label:SetJustifyH("LEFT")
+
+	row.field = CreateFrame("Frame", nil, row)
+	row.field:SetHeight(LINK_FIELD_H)
+	row.field:SetPoint("TOPLEFT", row.label, "BOTTOMLEFT", 0, -ns.S.XS)
+	row.field:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+	row.field.surface = W.Surface(row.field, { color = "inputBg", radius = ns.R.SM })
+
+	local edit = CreateFrame("EditBox", nil, row.field)
+	edit:SetAutoFocus(false)
+	edit:SetFontObject(Theme.Font("SMALL"))
+	edit:SetPoint("LEFT", row.field, "LEFT", ns.S.SM, 0)
+	edit:SetPoint("RIGHT", row.field, "RIGHT", -ns.S.SM, 0)
+	edit:SetHeight(LINK_FIELD_H)
+	-- Read-only in practice: an edit is put back, the selection with it.
+	edit:SetScript("OnTextChanged", function(self, userInput)
+		if userInput and row.url and self:GetText() ~= row.url then
+			self:SetText(row.url)
+			self:HighlightText()
+		end
+	end)
+	edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+	edit:SetScript("OnMouseUp", function(self)
+		self:SetFocus()
+		self:HighlightText()
+	end)
+	edit:SetScript("OnEscapePressed", function() d:Hide() end)
+	edit:SetScript("OnEnterPressed", function(self) self:HighlightText() end)
+	row.edit = edit
+
+	function row:ApplyTheme()
+		W.RefreshText(row.label)
+		row.field.surface:ApplyTheme()
+		edit:SetFontObject(Theme.Font("SMALL"))
+		local c = Theme.Get("textPrimary")
+		edit:SetTextColor(c[1], c[2], c[3], 1)
+	end
+	row:ApplyTheme()
+	return row
+end
+
+local function buildLinks()
+	if linksDialog then return linksDialog end
+	local d = makeDialog("WhatTheWhisperLinksDialog", LINK_W, 200)
+	d.rows = {}
+
+	d.hint = W.Text(d, "MICRO", "textMuted")
+	d.hint:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.MD)
+	d.hint:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
+	d.hint:SetJustifyH("LEFT")
+
+	d.note = W.Text(d, "SMALL", "textSecondary")
+	d.note:SetJustifyH("LEFT")
+	d.note:SetWordWrap(true)
+
+	d:HookScript("OnHide", function()
+		for i = 1, #d.rows do d.rows[i].edit:ClearFocus() end
+	end)
+
+	function d:ApplyTheme()
+		d.surface:ApplyTheme()
+		d.header.divider:ApplyTheme()
+		W.RefreshText(d.title)
+		W.RefreshText(d.hint)
+		W.RefreshText(d.note)
+		d.close:ApplyTheme()
+		for i = 1, #d.rows do d.rows[i]:ApplyTheme() end
+	end
+
+	linksDialog = d
+	ns.Dialogs.linksDialog = d
+	return d
+end
+
+-- links: array of { label, url }; note: a sentence under them, or nil.
+function Dialogs.ShowLinks(title, links, note)
+	local d = buildLinks()
+	d.title:SetText(title or "")
+	d.hint:SetText(L["Click an address, then press Ctrl+C to copy it."])
+
+	local inner = LINK_W - ns.S.LG * 2
+	local anchor, gap = d.hint, ns.S.MD
+	local height = ns.SZ.TITLEBAR_H + 4 + ns.S.MD + (d.hint:GetStringHeight() or 12)
+	for i = 1, #links do
+		local row = d.rows[i] or linkRow(d)
+		d.rows[i] = row
+		row.url = links[i].url
+		row.label:SetText(links[i].label)
+		row.edit:SetText(links[i].url)
+		row.edit:SetCursorPosition(0)
+		local rowH = (row.label:GetStringHeight() or 12) + ns.S.XS + LINK_FIELD_H
+		row:SetSize(inner, rowH)
+		row:ClearAllPoints()
+		row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -gap)
+		row:Show()
+		anchor, gap = row, ns.S.MD
+		height = height + ns.S.MD + rowH
+	end
+	for i = #links + 1, #d.rows do d.rows[i]:Hide() end
+
+	d.note:ClearAllPoints()
+	d.note:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -ns.S.MD)
+	d.note:SetWidth(inner)
+	d.note:SetText(note or "")
+	d.note:SetShown(note ~= nil)
+	if note then height = height + ns.S.MD + (d.note:GetStringHeight() or 14) end
+
+	d:SetSize(LINK_W, height + ns.S.LG)
+	d:Show()
+	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
+	-- Shown first: the client ignores focus on an edit box that is not on screen.
+	local first = d.rows[#links > 1 and 2 or 1]
+	if first then
+		first.edit:SetFocus()
+		first.edit:HighlightText()
+	end
 end

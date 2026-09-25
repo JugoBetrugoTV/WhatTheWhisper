@@ -198,6 +198,14 @@ function Compat.GetRealmName()
 	return realm
 end
 
+-- The region the client is playing in: 1 Americas and Oceania, 2 Korea, 3 Europe,
+-- 4 Taiwan, 5 China -- or nil where the client cannot say.
+function Compat.GetRegion()
+	if type(_G.GetCurrentRegion) ~= "function" then return nil end
+	local ok, region = pcall(_G.GetCurrentRegion)
+	return ok and tonumber(region) or nil
+end
+
 -- "Thrall" -> "Thrall-Blackrock"; "Thrall-Draenor" is returned unchanged.
 -- Battle.net keys ("BN:tag#1234") pass through untouched.
 function Compat.NormalizeName(name)
@@ -234,6 +242,42 @@ function Compat.IsCrossRealm(fullName)
 	return realm ~= nil and realm ~= Compat.GetRealmName()
 end
 
+-- WoW Forever names a character with a first and a second name ("Matt Loc"),
+-- unique in the whole region, and has no realm suffix: there is one realm per
+-- ruleset. The client still reports a realm name internally, so this addon's
+-- keys keep their "-Realm" like everywhere else -- but it must never reach the
+-- server. "Matt Loc-ClassicBetaPvE2" is answered with "No player named ... is
+-- currently playing", which is how every whisper sent from the window failed.
+Compat.namesHaveRealms = not Compat.isForever
+
+-- A player's name as typed, or as the client handed it over, turned into this
+-- addon's key. Every word is capitalised, because a Forever name has two and a
+-- key that differs from the one a whisper arrives under only in the case of the
+-- second name ("Matt loc") is a second thread with the same person.
+function Compat.PlayerID(name)
+	if type(name) ~= "string" then return nil end
+	name = gsub(gsub(gsub(name, "^%s+", ""), "%s+$", ""), "%s+", " ")
+	if name == "" then return nil end
+	if strfind(name, "^BN:") then return name end
+	local base, realm = strmatch(name, "^([^%-]+)%-(.+)$")
+	base = gsub(base or name, "%S+", function(word) return ns.Text.UpperFirst(word) end)
+	return Compat.NormalizeName(realm and (base .. "-" .. realm) or base)
+end
+
+-- The name as the server wants it for a whisper, an invite or the ignore list.
+--
+-- Someone on your own realm is addressed without one, which is how the client
+-- itself replies and the one form every client accepts. On Forever nobody is
+-- addressed with one at all. Anyone else keeps "Name-Realm".
+function Compat.WireName(id)
+	if type(id) ~= "string" or id == "" then return id end
+	if strfind(id, "^BN:") then return id end
+	local base, realm = strmatch(id, "^([^%-]+)%-(.+)$")
+	if not base then return id end
+	if not Compat.namesHaveRealms or realm == Compat.GetRealmName() then return base end
+	return id
+end
+
 -- The client's own naming rules, applied before anything is sent.
 --
 -- This is not cosmetic. SendChatMessage accepts any string: whisper a name that
@@ -245,6 +289,7 @@ end
 --
 -- Returns true, or false plus a reason token the caller turns into text.
 local NAME_MIN_CHARS, NAME_MAX_CHARS = 2, 12
+local FOREVER_PART_MAX_CHARS = 24
 local REALM_MAX_CHARS = 32
 
 function Compat.ValidatePlayerName(name)
@@ -270,6 +315,24 @@ function Compat.ValidatePlayerName(name)
 	if strfind(base, "|") or (realm and strfind(realm, "|")) then
 		return false, "name"
 	end
+
+	-- A Forever name is two words, and the second one is not optional: the
+	-- server finds nobody by a first name alone. Blizzard has not published
+	-- length limits for them, so the check is on the shape -- two words of
+	-- letters -- with a generous ceiling rather than a guessed exact one.
+	if not Compat.namesHaveRealms then
+		local first, second = strmatch(gsub(base, "%s+", " "), "^(%S+) (%S+)$")
+		if not first then return false, "twoNames" end
+		for _, part in ipairs({ first, second }) do
+			if strfind(part, "%d") or strfind(part, "%p") then return false, "name" end
+			local length = ns.Text.Len(part)
+			if length < NAME_MIN_CHARS or length > FOREVER_PART_MAX_CHARS then
+				return false, "twoNames"
+			end
+		end
+		return true
+	end
+
 	-- Letters only. Bytes above 0x7F are left alone because that is where every
 	-- accented letter in a European name lives; what is refused is what the
 	-- client refuses -- digits, spaces and punctuation.
@@ -296,10 +359,21 @@ function Compat.IsBattleNet(key)
 	return key and strfind(key, "^BN:") ~= nil
 end
 
+-- On Forever UnitName is not a name at all: for other players it answers the
+-- first name, with the second name where the realm normally is, and it is not
+-- even consistent about the player. GetUnitName(unit, true) is the chat form,
+-- "First Last", every time.
+local function foreverUnitName(unit)
+	if type(_G.GetUnitName) ~= "function" then return nil end
+	local ok, name = pcall(_G.GetUnitName, unit, true)
+	if not ok then return nil end
+	return Compat.ReadableText(name)
+end
+
 local myFullName
 function Compat.PlayerFullName()
 	if not myFullName then
-		myFullName = Compat.NormalizeName(UnitName("player") or "")
+		myFullName = Compat.NormalizeName(Compat.PlayerName() or "")
 	end
 	return myFullName
 end
@@ -307,6 +381,10 @@ end
 -- Your own character, without the realm. Never secret -- the client does not
 -- hide you from yourself -- so this one needs no probe.
 function Compat.PlayerName()
+	if not Compat.namesHaveRealms then
+		local name = foreverUnitName("player")
+		if name and name ~= "" then return (gsub(name, "%-.*$", "")) end
+	end
 	return (UnitName("player"))
 end
 
@@ -322,6 +400,11 @@ end
 -- correct answer rather than a fault. Name and realm are probed separately
 -- because the client can hide either one on its own.
 function Compat.UnitFullName(unit)
+	if not Compat.namesHaveRealms then
+		local name = foreverUnitName(unit)
+		if not name or name == "" then return nil end
+		return Compat.NormalizeName(name)
+	end
 	local ok, name, realm = pcall(UnitName, unit)
 	if not ok then return nil end
 	name = Compat.ReadableText(name)
@@ -536,7 +619,7 @@ end
 
 function Compat.SendWhisper(target, text)
 	if not target or not text or text == "" then return false end
-	return (sendChat(text, "WHISPER", nil, target))
+	return (sendChat(text, "WHISPER", nil, Compat.WireName(target)))
 end
 
 -- A call that did not throw is not a message that was sent. Two APIs, two
@@ -747,33 +830,88 @@ function Compat.GetFriendInfo(index)
 	return nil
 end
 
-function Compat.AddFriend(name)
-	if type(_G.C_FriendList) == "table" and _G.C_FriendList.AddFriend then
-		return pcall(_G.C_FriendList.AddFriend, name)
-	elseif type(_G.AddFriend) == "function" then
-		return pcall(_G.AddFriend, name)
+-- Whether one of the client's game rules is in force -- the ones that switch
+-- the friends list or /who off on a given ruleset. nil where the client has no
+-- such rule, which means "not switched off".
+function Compat.IsGameRuleActive(ruleName)
+	local rules, enum = _G.C_GameRules, _G.Enum and _G.Enum.GameRule
+	if type(rules) ~= "table" or type(rules.IsGameRuleActive) ~= "function" then return nil end
+	if type(enum) ~= "table" or enum[ruleName] == nil then return nil end
+	local ok, active = pcall(rules.IsGameRuleActive, enum[ruleName])
+	return ok and active or nil
+end
+
+local function friendList() return type(_G.C_FriendList) == "table" and _G.C_FriendList or nil end
+
+-- Friends. Adding one is restricted: C_FriendList.AddFriend and AddOrRemoveFriend
+-- are blocked from addon code on every supported client, with an
+-- ADDON_ACTION_BLOCKED warning -- which is what "Add friend" did. The client's own
+-- /friend is allowed, run from a secure button, so the menu offers exactly that.
+-- Reading the list and removing somebody from it are not restricted.
+function Compat.IsFriend(id)
+	local fl = friendList()
+	if not fl or type(fl.GetFriendInfo) ~= "function" then return false end
+	local ok, info = pcall(fl.GetFriendInfo, Compat.WireName(id))
+	return ok and info ~= nil
+end
+
+function Compat.RemoveFriend(id)
+	local fl = friendList()
+	if fl and type(fl.RemoveFriend) == "function" then
+		return pcall(fl.RemoveFriend, Compat.WireName(id))
 	end
 	return false
 end
 
+-- The macro that adds this player as a friend, or nil where none can. The
+-- client's /friend takes everything after the first space as a note, so a
+-- Forever name ("Matt Loc") would add somebody called Matt with a note saying
+-- Loc -- that one is not offered rather than offered wrong.
+function Compat.AddFriendMacro(id)
+	if not id or Compat.IsBattleNet(id) then return nil end
+	if Compat.IsGameRuleActive("IngameFriendsListDisabled") then return nil end
+	local fl = friendList()
+	if not fl or type(fl.AddOrRemoveFriend) ~= "function" then return nil end
+	local name = Compat.WireName(id)
+	if not name or strfind(name, "%s") then return nil end
+	return "/friend " .. name
+end
+
+-- Ignoring is not restricted. Add and remove are asked for separately rather
+-- than through the client's toggle, so a menu that says "Ignore" never quietly
+-- does the opposite.
 function Compat.AddIgnore(name)
-	if type(_G.C_FriendList) == "table" and _G.C_FriendList.AddOrDelIgnore then
-		return pcall(_G.C_FriendList.AddOrDelIgnore, name)
-	elseif type(_G.AddOrDelIgnore) == "function" then
-		return pcall(_G.AddOrDelIgnore, name)
+	name = Compat.WireName(name)
+	local fl = friendList()
+	if fl and type(fl.AddIgnore) == "function" then return pcall(fl.AddIgnore, name) end
+	if fl and type(fl.AddOrDelIgnore) == "function" and not Compat.IsIgnored(name) then
+		return pcall(fl.AddOrDelIgnore, name)
+	end
+	return false
+end
+
+function Compat.DelIgnore(name)
+	name = Compat.WireName(name)
+	local fl = friendList()
+	if fl and type(fl.DelIgnore) == "function" then return pcall(fl.DelIgnore, name) end
+	if fl and type(fl.AddOrDelIgnore) == "function" and Compat.IsIgnored(name) then
+		return pcall(fl.AddOrDelIgnore, name)
 	end
 	return false
 end
 
 function Compat.IsIgnored(name)
-	if type(_G.C_FriendList) == "table" and _G.C_FriendList.IsIgnored then
-		local ok, res = pcall(_G.C_FriendList.IsIgnored, name)
+	name = Compat.WireName(name)
+	local fl = friendList()
+	if fl and type(fl.IsIgnored) == "function" then
+		local ok, res = pcall(fl.IsIgnored, name)
 		return ok and res or false
 	end
 	return false
 end
 
 function Compat.InviteUnit(name)
+	name = Compat.WireName(name)
 	if type(_G.C_PartyInfo) == "table" and _G.C_PartyInfo.InviteUnit then
 		return pcall(_G.C_PartyInfo.InviteUnit, name)
 	elseif type(_G.InviteUnit) == "function" then
@@ -818,30 +956,10 @@ function Compat.GetWhoInfo(index)
 	return nil
 end
 
--- Only ever called straight from a click so any hardware-event requirement holds.
--- Protected. The client allows this during a hardware event and blocks it
--- everywhere else -- and a blocked call is not a quiet failure: it shows an
--- ADDON_ACTION_BLOCKED warning naming this addon. pcall does not help, because
--- nothing throws. The only defence is never calling it outside a click, which
--- is why PlayerInfo.LookUp is the single entry point and both of its callers
--- are click handlers.
-function Compat.SendWho(name)
-	if type(_G.C_FriendList) == "table" and _G.C_FriendList.SendWho then
-		return pcall(_G.C_FriendList.SendWho, "n-" .. name)
-	elseif type(_G.SendWho) == "function" then
-		return pcall(_G.SendWho, "n-" .. name)
-	end
-	return false
-end
-
 Compat.canInvite   = (type(_G.C_PartyInfo) == "table" and _G.C_PartyInfo.InviteUnit ~= nil)
 	or type(_G.InviteUnit) == "function"
-Compat.canAddFriend = (type(_G.C_FriendList) == "table" and _G.C_FriendList.AddFriend ~= nil)
-	or type(_G.AddFriend) == "function"
-Compat.canIgnore    = (type(_G.C_FriendList) == "table" and _G.C_FriendList.AddOrDelIgnore ~= nil)
-	or type(_G.AddOrDelIgnore) == "function"
-Compat.canWho       = (type(_G.C_FriendList) == "table" and _G.C_FriendList.SendWho ~= nil)
-	or type(_G.SendWho) == "function"
+Compat.canIgnore    = type(_G.C_FriendList) == "table" and (_G.C_FriendList.AddIgnore ~= nil
+	or _G.C_FriendList.AddOrDelIgnore ~= nil)
 
 --------------------------------------------------------------------------------
 -- Battle.net

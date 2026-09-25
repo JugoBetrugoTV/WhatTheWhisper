@@ -40,7 +40,3 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	end
 	return false
 end
-
-
--- Vanilla's /who throttle, because it is Vanilla's server.
-Compat.whoThrottle = 10

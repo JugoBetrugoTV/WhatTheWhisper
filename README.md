@@ -70,9 +70,11 @@ then as sent when the server echoes it back, and as failed when the server
 answers "No player named …". That is real information, not a spinner.
 
 **Windows.** Sidebar, tabs or both. Any conversation can be popped out into its
-own window; popouts snap to each other and to the main window. Exposé lays every
-open window out in a grid — by moving the real windows, not by drawing fake
-previews.
+own window, and new whispers can open that way on their own, one small window per
+person, the way WIM does it. Popouts snap to each other and to the main window.
+Whether whispers also stay in the game's chat window is a setting: messenger only,
+or messenger and chat. Exposé lays every open window out in a grid — by moving
+the real windows, not by drawing fake previews.
 
 **Notifications.** Toasts that summarise a chatty friend into one card instead of
 a stack, a configurable sound per event with a per-conversation cooldown, an
@@ -98,15 +100,22 @@ Stated plainly, because the alternative is pretending:
   step left.
 - **No opening a browser.** Links are detected, coloured and clickable, and
   clicking one opens that copy box. An addon cannot launch anything.
-- **No targeting from insecure code.** The "Target" context-menu entry is backed
-  by a real `SecureActionButton` running a `/target` macro. Attributes cannot be
-  written during combat, so in combat the entry is disabled with an explanation
-  rather than silently doing nothing. If combat starts while the menu is open,
-  the secure environment itself takes the button away (a combat state driver);
-  it is never parented or anchored to the menu, so the menu still closes
-  normally in combat.
+- **Some player actions are Blizzard's alone.** Adding a friend and `/who` are
+  restricted: called from an addon they are blocked with an
+  `ADDON_ACTION_BLOCKED` warning, even from a click. "Add friend" therefore runs
+  the client's own `/friend` from a real `SecureActionButton`; it is disabled in
+  combat (attributes cannot be written then), and a combat state driver takes the
+  button away if combat starts while the menu is open. "Look up" does not send a
+  `/who` at all: it lists the player's public profile pages (Armory, Raider.IO,
+  Warcraft Logs, WoWProgress, Check-PvP, Wowhead, Simple Armory on Retail; the
+  Classic sites on the Classic clients) for copying. Reporting a player cannot be
+  done from an addon: Blizzard's report window refuses a report an addon started.
+- **WoW Forever names have two parts** ("Matt Loc") and no realm suffix. The addon
+  addresses everyone on your own realm, and everyone on Forever, by name alone,
+  the way the client itself replies. `/friend` takes the second name as a note,
+  so "Add friend" is not offered for a two-part name.
 - **No "is this player online" query.** Online state is only known for friends,
-  guildmates, group members and after a `/who` you asked for. Unknown state shows
+  guildmates, group members and after a `/who` you typed yourself. Unknown state shows
   no dot at all rather than a grey one that implies something.
 - **Level and faction** come from the same sources, plus the race in the chat
   event's GUID. Anything unknown is left out instead of guessed.

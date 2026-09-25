@@ -67,6 +67,14 @@ local FIELDS = {
 		end },
 }
 
+-- Forever has no realms a player would recognise, only the name of a ruleset
+-- the client keeps internally, so the row that would show it is not there.
+if not Compat.namesHaveRealms then
+	for i = #FIELDS, 1, -1 do
+		if FIELDS[i].key == "realm" then table.remove(FIELDS, i) end
+	end
+end
+
 -- Battle.net threads are a different person altogether: there is no character
 -- behind the name until they are playing one, so the panel says what the client
 -- actually knows about the account instead of six empty character rows.
@@ -208,7 +216,6 @@ function P:Refresh()
 		and ((inner - COLUMN_GAP * (columns - 1)) / columns) or inner
 	local perColumn = math.ceil(#fields / columns)
 
-	local unknown = 0
 	for i = 1, #fields do
 		local field = fields[i]
 		local row = self:Row(i)
@@ -230,7 +237,6 @@ function P:Refresh()
 			-- bug, and "not known" is a fact about the client, not about them.
 			row.value:SetText(L["not known"])
 			W.SetTextRole(row.value, "textDisabled")
-			unknown = unknown + 1
 		end
 
 		local column = math.floor((i - 1) / perColumn)
@@ -244,11 +250,10 @@ function P:Refresh()
 	for i = #fields + 1, #self.rows do self.rows[i]:Hide() end
 	local y = PAD_Y + perColumn * rowH
 
-	-- The lookup is only offered where it can actually answer, and it is the
-	-- *only* way a /who ever goes out: SendWho is protected, so the client
-	-- allows it during a click and blocks it -- loudly, with this addon's name
-	-- on the warning -- anywhere else.
-	local canLookUp = unknown > 0 and PI.NeedsLookup(conv.id, conv.isBN)
+	-- Looking somebody up is the list of their public profile pages, which
+	-- every character has -- not a /who, which the client no longer lets an
+	-- addon send. So it is offered for everyone but a Battle.net account.
+	local canLookUp = not conv.isBN
 	self.lookup:SetShown(canLookUp)
 
 	-- The button gets a row of its own. Tucking it into whatever space the last
@@ -261,21 +266,9 @@ function P:Refresh()
 	end
 end
 
--- Runs inside the button's own click handler, which is what makes the protected
--- SendWho underneath it legal. Nothing may call this from a timer or an event.
 function P:Lookup()
 	local conv = self.conv
-	if not conv then return end
-	if PI.LookUp(conv.id) then
-		self.lookup:SetText(L["Looking up..."])
-		ns.Anim.After(2, function()
-			self.lookup:SetText(L["Look up"])
-			self:Refresh()
-		end)
-	else
-		self.lookup:SetText(L["Try again in a moment"])
-		ns.Anim.After(3, function() self.lookup:SetText(L["Look up"]) end)
-	end
+	if conv then ns.UI.ShowProfileLinks(conv.id) end
 end
 
 -- The player changed the language. Everything below was written once, when the

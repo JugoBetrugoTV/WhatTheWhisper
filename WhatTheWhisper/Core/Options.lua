@@ -241,6 +241,18 @@ local function whisperModeRow()
 	}
 end
 
+-- A list of rows, some of which only exist on some clients. A nil in the middle
+-- of a table constructor is a list that ends early, so the optional ones go
+-- through here instead of being written inline.
+local function rowsOf(...)
+	local out = {}
+	for i = 1, select("#", ...) do
+		local row = select(i, ...)
+		if row then out[#out + 1] = row end
+	end
+	return out
+end
+
 local function toggle(path, label, caption, invert)
 	return { type = "toggle", path = path, label = label, caption = caption, invert = invert }
 end
@@ -272,8 +284,13 @@ function Options.BuildSchema()
 					rows = {
 						toggle("enabled", L["Enable WhatTheWhisper"],
 							L["Route whispers into the messenger instead of the default chat frame."]),
-						toggle("messages.hideFromChatFrame", L["Hide whispers from chat frames"],
-							L["Whispers still arrive normally, they are just not printed in the chat window."]),
+						-- A choice between two places rather than a switch named for
+						-- what it hides: players looked for "where do my whispers
+						-- show up" and did not recognise the answer in "hide".
+						dropdown("messages.hideFromChatFrame", L["Show whispers"], {
+							{ value = true, label = L["Messenger only"] },
+							{ value = false, label = L["Messenger and chat"] },
+						}, L["For whispers you receive and whispers you send. Nothing is lost either way."]),
 						-- Stored inverted (hide), shown as "show".
 						toggle("advanced.minimap.hide", L["Minimap button"],
 							L["Show a button on the minimap to toggle the messenger."], true),
@@ -281,24 +298,26 @@ function Options.BuildSchema()
 				},
 				{
 					title = L["Conversations"],
-					rows = {
+					rows = rowsOf(
 						toggle("messages.openOnWhisper", L["Open on new whisper"],
 							L["Show the messenger automatically when someone whispers you."]),
+						dropdown("messages.openAs", L["New whispers open"], {
+							{ value = "messenger", label = L["In the messenger"] },
+							{ value = "window", label = L["In their own window"] },
+						}),
 						toggle("messages.openOnCompose", L["Open when you start a whisper"],
 							L["Typing /w in the default chat box opens that conversation here."]),
 						toggle("messages.autoSwitch", L["Auto-switch to new conversations"],
 							L["Switching away from what you are reading is off by default."]),
 						toggle("messages.openOnSend", L["Open a tab for every conversation"]),
-						dropdown("messages.showRealm", L["Realm"], {
+						-- Forever has no realms to show.
+						Compat.namesHaveRealms and dropdown("messages.showRealm", L["Realm"], {
 							{ value = "never", label = L["Never"] },
 							{ value = "cross", label = L["Automatic"] },
 							{ value = "always", label = L["Always"] },
-						}),
-						-- Last on purpose: it is there only some of the time, and
-						-- a nil in the middle of a table constructor is a list
-						-- that ends early.
-						whisperModeRow(),
-					},
+						}) or nil,
+						whisperModeRow()
+					),
 				},
 			},
 		},

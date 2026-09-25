@@ -22,8 +22,6 @@ ns.RegisterLocale("zhTW", {
 	["BattleTag"] = true,
 	["Character"] = "角色",
 	["not known"] = "未知",
-	["Looking up..."] = "查詢中……",
-	["Try again in a moment"] = "請稍候再試",
 	["New conversation"] = "新增對話",
 	["Settings"] = "設定",
 	["All windows"] = "所有視窗",
@@ -103,7 +101,6 @@ ns.RegisterLocale("zhTW", {
 	["Pin conversation"] = "釘選此對話",
 	["Unpin conversation"] = "取消釘選此對話",
 	["Close conversation"] = "關閉此對話",
-	["Target"] = "選為目標",
 	["Look up"] = "查詢",
 	["Mark as read"] = "標為已讀",
 	["Mark as unread"] = "標為未讀",
@@ -158,9 +155,6 @@ ns.RegisterLocale("zhTW", {
 	["Enable WhatTheWhisper"] = "啟用 WhatTheWhisper",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"把密語導入訊息視窗，而不是預設的聊天視窗。",
-	["Hide whispers from chat frames"] = "在聊天視窗中隱藏密語",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"密語照常收得到，只是不會顯示在聊天視窗裡。",
 	["Open on new whisper"] = "收到新密語時開啟",
 	["Show the messenger automatically when someone whispers you."] =
 		"有人密語你時自動顯示訊息視窗。",
@@ -388,4 +382,18 @@ ns.RegisterLocale("zhTW", {
 	["Open when you start a whisper"] = "開始密語時開啟",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"在預設聊天視窗輸入 /w，就會在這裡開啟那段對話。",
+	["A character here has a first and a second name, both letters only."] = "這裡的角色有名和姓，兩者都只能由字母組成。",
+	["There are no public profile sites for this version of the game yet."] = "這個遊戲版本還沒有公開的角色資料網站。",
+	["The profile sites do not cover this region."] = "這些資料網站不涵蓋該地區。",
+	["This realm's name cannot be turned into a web address here."] = "此處無法把這個伺服器的名稱轉換成網址。",
+	["Click an address, then press Ctrl+C to copy it."] = "點擊一個地址，然後按 Ctrl+C 複製。",
+	["Remove friend"] = "移除好友",
+	["Unignore"] = "取消忽略",
+	["Show whispers"] = "顯示密語",
+	["Messenger only"] = "僅在信使中",
+	["Messenger and chat"] = "信使和聊天框",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "適用於收到和發出的密語。無論哪種都不會遺失任何內容。",
+	["New whispers open"] = "新密語開啟於",
+	["In the messenger"] = "信使中",
+	["In their own window"] = "獨立視窗中",
 })

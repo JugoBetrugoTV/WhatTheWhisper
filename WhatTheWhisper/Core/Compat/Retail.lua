@@ -30,8 +30,3 @@ function Compat.RegisterOptionsPanel(panel, title, onOpen)
 	end
 	return false
 end
-
-
--- /who results are a table on every client that has C_FriendList, but Retail is
--- also the one that throttles them hardest; the Search module honours that.
-Compat.whoThrottle = 5

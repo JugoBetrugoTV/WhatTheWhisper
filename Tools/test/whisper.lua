@@ -118,7 +118,10 @@ local sent = CM.SendMessage("Thrall-Blackrock", "bin gleich da")
 M.RunTimers(2)
 eq("send reported success", sent, true)
 eq("reached SendChatMessage once", #M.sent, 1)
-eq("target was the full name", M.sent[1].target, "Thrall-Blackrock")
+-- Someone on your own realm is addressed by name alone, the way the client's
+-- own reply does it: the one form every client accepts, and on WoW Forever the
+-- only one -- "First Last-Realm" is answered with "no player named".
+eq("a player on your own realm is addressed without the realm", M.sent[1].target, "Thrall")
 eq("bubble added immediately", count("Thrall-Blackrock", "bin gleich da"), 1)
 eq("marked pending", conv.messages[#conv.messages][MSG_STATUS], ns.SEND_PENDING)
 
@@ -392,7 +395,7 @@ do
 
 	M.sent = {}
 	CM.SendMessage(id, "geht raus")
-	eq("and a message still goes to the character",
+	eq("and a message still goes to the character, realm and all",
 		M.sent[1] and M.sent[1].target, id)
 
 	-- Trimmed, and an empty one is no nickname rather than a blank name.

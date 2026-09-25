@@ -121,12 +121,12 @@ M.whoResults = {
 	  guild = "Wildhammer Clan", zone = "Orgrimmar" },
 }
 
--- SendWho is protected: the client allows it during a hardware event and blocks
--- it everywhere else, and a blocked call is not a silent no-op -- it puts an
--- ADDON_ACTION_BLOCKED warning in front of the player with this addon's name on
--- it. So nothing that is not a click may send one, and that is what this checks:
--- opening a thread, receiving a whisper, refreshing the window -- none of them.
+-- The addon never sends a /who itself. SendWho is restricted on every client and
+-- blocked from addon code even inside a click -- the report was exactly that, an
+-- ADDON_ACTION_BLOCKED from "Look up" -- so nothing may call it: not opening a
+-- thread, not a whisper, not a refresh, not the Look up entry.
 M.whoSent = {}
+M.actionsBlocked = {}
 M.now = M.now + 2000
 CM.Select(nil)
 M.RunFrames(4)
@@ -135,14 +135,13 @@ M.RunFrames(8)
 whisper("noch eine", "Thrall", "G-THRALL")
 ns.UI.RefreshAll()
 M.RunFrames(8)
-eq("opening a thread sends no /who", #M.whoSent, 0)
+ns.UI.ShowProfileLinks(thrall)
+M.RunFrames(2)
+ns.Dialogs.HideAll()
+eq("nothing sends a /who", #M.whoSent, 0)
+eq("and nothing was blocked", #M.actionsBlocked, 0)
 
-check("but the addon knows one would help", PI.NeedsLookup(thrall) == true)
-
--- The click does send it. This is the only path that may.
-M.whoSent = {}
-check("asking for it sends one", PI.LookUp(thrall) == true)
-eq("asked by name", M.whoSent[1], "n-Thrall")
+-- But when the player types /who themselves, the answer is read.
 M.FireEvent("WHO_LIST_UPDATE")
 M.RunTimers(2)
 
@@ -155,36 +154,15 @@ check("the guild", line:find("Wildhammer Clan", 1, true) ~= nil, line)
 check("and the zone", line:find("Orgrimmar", 1, true) ~= nil, line)
 eq("the /who says they are online", PI.IsOnline(thrall), true)
 
--- Asked again straight away, it stands down rather than spamming the server.
-M.whoSent = {}
-check("nothing left to learn, so no second /who", PI.NeedsLookup(thrall) == false)
-check("and the button does not fire one", PI.LookUp(thrall) == false)
-eq("nothing was sent", #M.whoSent, 0)
-
--- Nothing came back, so they are not logged in.
-CM.GetOrCreate("Jaina-Blackrock")
-M.whoResults = {}
-M.now = M.now + 100
-check("a lookup for somebody else does go out",
-	PI.LookUp("Jaina-Blackrock") == true)
+-- Only people the addon has a thread with: a /who for a whole zone is not a
+-- reason to start keeping notes on everyone in it.
+M.whoResults = {
+	{ name = "Fremder", level = 12, class = "ROGUE", guild = "", zone = "Elwynn Forest" },
+}
 M.FireEvent("WHO_LIST_UPDATE")
 M.RunTimers(2)
-eq("an empty /who means offline", PI.IsOnline("Jaina-Blackrock"), false)
-
--- Replacing results the player is reading is worse than a missing line.
-_G.WhoFrame:Show()
-M.whoSent = {}
-M.now = M.now + 1000
-check("nothing is sent while the Who window is open",
-	PI.LookUp(ns.Compat.NormalizeName("Muradin")) == false)
-eq("really nothing", #M.whoSent, 0)
-_G.WhoFrame:Hide()
-
--- /who only ever searches your own realm, so asking about somebody else's is
--- a request that can never be answered.
-M.whoSent = {}
-check("no /who across realms", PI.LookUp("Thrall-Draenor") == false)
-eq("and none sent", #M.whoSent, 0)
+eq("a stranger in the results is not recorded", PI.Get(ns.Compat.NormalizeName("Fremder")), nil)
+M.whoResults = {}
 
 --------------------------------------------------------------------------------
 -- The details panel

@@ -66,7 +66,11 @@ function Notifications.OnIncoming(conv, msg, isMention)
 	-- applies once the window is up.
 	local ms = messageSettings()
 	if UI and not conv.muted and not visible then
-		if ms.openOnWhisper and not UI.IsShown() then
+		if ms.openOnWhisper and ms.openAs == "window" then
+			-- A window of its own for this thread, whatever else is open: the
+			-- messenger stays where it is and shows what it was showing.
+			if not ns.Popout.IsOpen(conv.id) then UI.TogglePopout(conv.id) end
+		elseif ms.openOnWhisper and not UI.IsShown() then
 			UI.Show()
 			ns.ConversationManager.Select(conv.id)
 		elseif ms.autoSwitch and UI.IsShown() then

@@ -160,7 +160,7 @@ function addon:HandleCommand(input)
 		ns.Print(L["/wtw debug - toggle developer logging"])
 	else
 		local name = input
-		local id = Compat.NormalizeName(ns.Text.UpperFirst(name))
+		local id = Compat.PlayerID(name)
 		ns.ConversationManager.GetOrCreate(id)
 		ns.UI.Show()
 		ns.ConversationManager.Select(id)

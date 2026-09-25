@@ -66,6 +66,9 @@ ns.defaults = {
 			-- messenger you miss messages in, so both directions open it: a
 			-- whisper arriving, and you starting to type one.
 			openOnWhisper      = true,
+			-- "messenger": the main window, on that thread. "window": the thread
+			-- in a small window of its own, one per person, the way WIM does it.
+			openAs             = "messenger",
 			openOnCompose      = true,
 			hideFromChatFrame  = true,
 			markReadOnFocus    = true,

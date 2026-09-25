@@ -20,8 +20,6 @@ local cache = {}
 local cacheCount = 0
 local CACHE_LIMIT = 600
 
-local lastWho = 0
-local pendingWho
 
 local function entry(fullName, create)
 	if not fullName then return nil end
@@ -171,13 +169,13 @@ PlayerInfo.PRESENCE_TTL = PRESENCE_TTL
 -- neither is news.
 local function note(key, e, class, level, online, source)
 	local wasOnline = PlayerInfo.IsOnline(key)
-	local changed = (class and e.class ~= class) or (level and e.level ~= level)
+	local anyChanged = (class and e.class ~= class) or (level and e.level ~= level)
 	e.class = class or e.class
 	e.level = level or e.level
 	e.online = online
 	e.presenceAt = time()
 	e.presenceSource = source
-	return changed or PlayerInfo.IsOnline(key) ~= wasOnline
+	return anyChanged or PlayerInfo.IsOnline(key) ~= wasOnline
 end
 
 -- Both rosters are rescanned whole on every update, and in a large guild that
@@ -188,25 +186,25 @@ end
 local function scanGuild()
 	local n = Compat.GetNumGuildMembers()
 	if n == 0 then return end
-	local changed = false
+	local anyChanged = false
 	for i = 1, n do
 		local name, level, classFile, online = Compat.GetGuildRosterInfo(i)
 		if name then
 			local key = Compat.NormalizeName(name)
 			local e = cache[key]
 			if e then
-				if e.source ~= "guild" then changed = true end
+				if e.source ~= "guild" then anyChanged = true end
 				e.source = "guild"
-				if note(key, e, classFile, level, online, "guild") then changed = true end
+				if note(key, e, classFile, level, online, "guild") then anyChanged = true end
 			end
 		end
 	end
-	if changed then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
+	if anyChanged then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
 end
 
 local function scanFriends()
 	local n = Compat.GetNumFriends()
-	local changed = false
+	local anyChanged = false
 	for i = 1, n do
 		local name, level, _, connected = Compat.GetFriendInfo(i)
 		if name then
@@ -215,96 +213,43 @@ local function scanFriends()
 			if e then
 				if not e.source then
 					e.source = "friend"
-					changed = true
+					anyChanged = true
 				end
-				if note(key, e, nil, level, connected, "friend") then changed = true end
+				if note(key, e, nil, level, connected, "friend") then anyChanged = true end
 			end
 		end
 	end
-	if changed then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
+	if anyChanged then ns.Bus.Fire(ns.EV.PLAYER_INFO_UPDATED, nil) end
 end
 
 PlayerInfo.ScanGuild = scanGuild
 PlayerInfo.ScanFriends = scanFriends
 
 --------------------------------------------------------------------------------
--- /who, only ever from a click
+-- /who results the player asked for
 --------------------------------------------------------------------------------
 
--- The raw send. Everything outside this file goes through LookUp, which checks
--- first whether a lookup would help; this only enforces the client's own rate
--- limit. Both are protected calls in the end, so both need a click above them.
-function PlayerInfo.RequestWho(fullName)
-	if not Compat.canWho then return false end
-	local now = GetTime()
-	if now - lastWho < (Compat.whoThrottle or 5) then return false end
-	lastWho = now
-	pendingWho = fullName
-	local base = fullName:match("^([^%-]+)") or fullName
-	return Compat.SendWho(base) and true or false
-end
-
--- Consumes the results of a /who we asked for. Blizzard's own frame also
--- receives them; we never suppress that.
+-- The addon never sends a /who. C_FriendList.SendWho is restricted on every
+-- supported client and blocked outright from addon code, click or no click,
+-- with an ADDON_ACTION_BLOCKED warning naming this addon. But when the player
+-- types /who themselves, the answer is there for anyone to read, and it is the
+-- only source of a stranger's guild and zone -- so every result that names
+-- somebody this addon has a thread with is taken in. Nobody else is recorded.
 function PlayerInfo.HandleWhoResults()
-	if not pendingWho then return end
-	local target = pendingWho
-	pendingWho = nil
-
+	local anyChanged = false
 	for i = 1, Compat.GetNumWhoResults() do
 		local name, level, classFile, guild, zone = Compat.GetWhoInfo(i)
-		if name and Compat.NormalizeName(name) == target then
-			PlayerInfo.Set(target, {
+		local key = name and Compat.NormalizeName(name)
+		if key and (cache[key] or ns.ConversationManager.Get(key)) then
+			PlayerInfo.Set(key, {
 				level = level, class = classFile, guild = guild,
 				zone = zone, online = true, source = "who",
 				presenceSource = "who",
 			})
-			return
+			anyChanged = true
 		end
 	end
-	-- Asked by name and got nothing back: on your own realm that means they are
-	-- not logged in. It expires like any other one-shot observation, so a wrong
-	-- guess about somebody hidden from /who corrects itself rather than sticking.
-	PlayerInfo.Set(target, { online = false, presenceSource = "who" })
-end
-
--- Everything a /who can tell us that a whisper cannot: guild, zone, and a level
--- and class for somebody who is neither a friend nor a guildmate.
---
--- It can only ever be asked for by a click. SendWho is a protected function: the
--- client allows it during a hardware event and blocks it everywhere else, and a
--- blocked call is not a silent no-op -- it puts an ADDON_ACTION_BLOCKED warning
--- in front of the player with this addon's name on it.
---
--- So this answers "would a lookup help, and is one possible?" and sends nothing.
--- The button in the details panel and the entry in the conversation menu are the
--- only callers of RequestWho, and both of them run inside a real click.
-local WHO_REFRESH = 900
-
-function PlayerInfo.NeedsLookup(fullName, isBN)
-	if isBN or not fullName or not Compat.canWho then return false end
-	if Compat.IsBattleNet(fullName) then return false end
-	-- /who only ever searches your own realm.
-	if Compat.IsCrossRealm(fullName) then return false end
-	-- Replacing results the player is reading is worse than a missing line.
-	local whoFrame = _G.WhoFrame
-	if whoFrame and whoFrame.IsShown and whoFrame:IsShown() then return false end
-
-	local e = entry(fullName, false)
-	if not e then return true end
-	if e.whoAt and (GetTime() - e.whoAt) < WHO_REFRESH then return false end
-	-- Nothing left to learn.
-	if e.level and e.class and e.guild and e.zone then return false end
-	return true
-end
-
--- Called from a click, and only from a click. Records when it went out so the
--- button stops offering an answer the server has already been asked for.
-function PlayerInfo.LookUp(fullName)
-	if not PlayerInfo.NeedsLookup(fullName) then return false end
-	if not PlayerInfo.RequestWho(fullName) then return false end
-	entry(fullName, true).whoAt = GetTime()
-	return true
+	return anyChanged
 end
 
 --------------------------------------------------------------------------------

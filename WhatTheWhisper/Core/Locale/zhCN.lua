@@ -22,8 +22,6 @@ ns.RegisterLocale("zhCN", {
 	["BattleTag"] = true,
 	["Character"] = "角色",
 	["not known"] = "未知",
-	["Looking up..."] = "查询中……",
-	["Try again in a moment"] = "请稍后再试",
 	["New conversation"] = "新建会话",
 	["Settings"] = "设置",
 	["All windows"] = "所有窗口",
@@ -103,7 +101,6 @@ ns.RegisterLocale("zhCN", {
 	["Pin conversation"] = "置顶该会话",
 	["Unpin conversation"] = "取消置顶该会话",
 	["Close conversation"] = "关闭该会话",
-	["Target"] = "选中目标",
 	["Look up"] = "查询",
 	["Mark as read"] = "标为已读",
 	["Mark as unread"] = "标为未读",
@@ -158,9 +155,6 @@ ns.RegisterLocale("zhCN", {
 	["Enable WhatTheWhisper"] = "启用 WhatTheWhisper",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"把密语导入信使窗口，而不是默认聊天框。",
-	["Hide whispers from chat frames"] = "在聊天框中隐藏密语",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"密语照常收到，只是不会打印在聊天窗口里。",
 	["Open on new whisper"] = "收到新密语时打开",
 	["Show the messenger automatically when someone whispers you."] =
 		"有人密语你时自动显示信使窗口。",
@@ -388,4 +382,18 @@ ns.RegisterLocale("zhCN", {
 	["Open when you start a whisper"] = "开始密语时打开",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"在默认聊天框里输入 /w，会在这里打开那段会话。",
+	["A character here has a first and a second name, both letters only."] = "这里的角色有名和姓，两者都只能由字母组成。",
+	["There are no public profile sites for this version of the game yet."] = "这个游戏版本还没有公开的角色资料网站。",
+	["The profile sites do not cover this region."] = "这些资料网站不覆盖该地区。",
+	["This realm's name cannot be turned into a web address here."] = "此处无法把这个服务器的名称转换成网址。",
+	["Click an address, then press Ctrl+C to copy it."] = "点击一个地址，然后按 Ctrl+C 复制。",
+	["Remove friend"] = "删除好友",
+	["Unignore"] = "取消屏蔽",
+	["Show whispers"] = "显示密语",
+	["Messenger only"] = "仅在信使中",
+	["Messenger and chat"] = "信使和聊天框",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "适用于收到和发出的密语。无论哪种都不会丢失任何内容。",
+	["New whispers open"] = "新密语打开于",
+	["In the messenger"] = "信使中",
+	["In their own window"] = "独立窗口中",
 })

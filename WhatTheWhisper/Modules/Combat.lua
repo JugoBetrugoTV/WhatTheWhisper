@@ -5,7 +5,7 @@
 -- paths. That means showing, hiding, moving and fading our windows during combat
 -- is safe and cannot taint the execution path.
 --
--- The one place where combat genuinely restricts us is the secure "Target"
+-- The one place where combat genuinely restricts us is the secure "Add friend"
 -- button in the context menu, which needs SetAttribute -- that is guarded
 -- separately in UI/Widgets/ContextMenu.lua.
 

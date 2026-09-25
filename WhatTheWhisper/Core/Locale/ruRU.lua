@@ -23,8 +23,6 @@ ns.RegisterLocale("ruRU", {
 	["BattleTag"] = true,
 	["Character"] = "Персонаж",
 	["not known"] = "неизвестно",
-	["Looking up..."] = "Запрашиваем...",
-	["Try again in a moment"] = "Повторите через мгновение",
 	["New conversation"] = "Новый разговор",
 	["Settings"] = "Настройки",
 	["All windows"] = "Все окна",
@@ -105,7 +103,6 @@ ns.RegisterLocale("ruRU", {
 	["Pin conversation"] = "Закрепить разговор",
 	["Unpin conversation"] = "Открепить разговор",
 	["Close conversation"] = "Закрыть разговор",
-	["Target"] = "Взять в цель",
 	["Look up"] = "Запросить",
 	["Mark as read"] = "Отметить прочитанным",
 	["Mark as unread"] = "Отметить непрочитанным",
@@ -164,9 +161,6 @@ ns.RegisterLocale("ruRU", {
 	["Enable WhatTheWhisper"] = "Включить WhatTheWhisper",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"Направляет шёпот в мессенджер вместо обычного окна чата.",
-	["Hide whispers from chat frames"] = "Скрывать шёпот в окнах чата",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"Шёпот по-прежнему приходит как обычно, просто он не выводится в окне чата.",
 	["Open on new whisper"] = "Открывать при новом шёпоте",
 	["Show the messenger automatically when someone whispers you."] =
 		"Показывает мессенджер сам, когда вам кто-то шепчет.",
@@ -403,4 +397,18 @@ ns.RegisterLocale("ruRU", {
 	["Open when you start a whisper"] = "Открывать, когда вы начинаете шёпот",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"Набранное /w в обычной строке чата открывает этот разговор здесь.",
+	["A character here has a first and a second name, both letters only."] = "Здесь у персонажа есть имя и фамилия, и то и другое только из букв.",
+	["There are no public profile sites for this version of the game yet."] = "Для этой версии игры пока нет публичных сайтов с профилями.",
+	["The profile sites do not cover this region."] = "Сайты с профилями не охватывают этот регион.",
+	["This realm's name cannot be turned into a web address here."] = "Название этого мира нельзя превратить здесь в веб-адрес.",
+	["Click an address, then press Ctrl+C to copy it."] = "Нажмите на адрес, затем Ctrl+C, чтобы скопировать его.",
+	["Remove friend"] = "Удалить из друзей",
+	["Unignore"] = "Перестать игнорировать",
+	["Show whispers"] = "Показывать шепот",
+	["Messenger only"] = "Только в мессенджере",
+	["Messenger and chat"] = "Мессенджер и чат",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "Для полученного и отправленного шепота. Ничего не теряется в любом случае.",
+	["New whispers open"] = "Новый шепот открывается",
+	["In the messenger"] = "В мессенджере",
+	["In their own window"] = "В отдельном окне",
 })

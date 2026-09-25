@@ -23,8 +23,6 @@ ns.RegisterLocale("frFR", {
 	["BattleTag"] = true,
 	["Character"] = "Personnage",
 	["not known"] = "inconnu",
-	["Looking up..."] = "Recherche...",
-	["Try again in a moment"] = "Réessayez dans un instant",
 	["New conversation"] = "Nouvelle conversation",
 	["Settings"] = "Réglages",
 	["All windows"] = "Toutes les fenêtres",
@@ -105,7 +103,6 @@ ns.RegisterLocale("frFR", {
 	["Pin conversation"] = "Épingler la conversation",
 	["Unpin conversation"] = "Désépingler la conversation",
 	["Close conversation"] = "Fermer la conversation",
-	["Target"] = "Cibler",
 	["Look up"] = "Rechercher",
 	["Mark as read"] = "Marquer comme lu",
 	["Mark as unread"] = "Marquer comme non lu",
@@ -164,9 +161,6 @@ ns.RegisterLocale("frFR", {
 	["Enable WhatTheWhisper"] = "Activer WhatTheWhisper",
 	["Route whispers into the messenger instead of the default chat frame."] =
 		"Dirige les chuchotements vers la messagerie plutôt que vers la fenêtre de discussion.",
-	["Hide whispers from chat frames"] = "Masquer les chuchotements du chat",
-	["Whispers still arrive normally, they are just not printed in the chat window."] =
-		"Les chuchotements arrivent normalement, ils ne sont simplement plus affichés dans le chat.",
 	["Open on new whisper"] = "Ouvrir à la réception",
 	["Show the messenger automatically when someone whispers you."] =
 		"Affiche la messagerie dès que quelqu'un vous chuchote.",
@@ -398,4 +392,18 @@ ns.RegisterLocale("frFR", {
 	["Open when you start a whisper"] = "Ouvrir quand vous commencez un chuchotement",
 	["Typing /w in the default chat box opens that conversation here."] =
 		"Taper /w dans la fenêtre de discussion ouvre la conversation ici.",
+	["A character here has a first and a second name, both letters only."] = "Ici, un personnage a un prénom et un nom, tous deux uniquement en lettres.",
+	["There are no public profile sites for this version of the game yet."] = "Il n'existe pas encore de sites de profils publics pour cette version du jeu.",
+	["The profile sites do not cover this region."] = "Les sites de profils ne couvrent pas cette région.",
+	["This realm's name cannot be turned into a web address here."] = "Le nom de ce royaume ne peut pas être transformé ici en adresse web.",
+	["Click an address, then press Ctrl+C to copy it."] = "Cliquez sur une adresse, puis appuyez sur Ctrl+C pour la copier.",
+	["Remove friend"] = "Retirer des amis",
+	["Unignore"] = "Ne plus ignorer",
+	["Show whispers"] = "Afficher les chuchotements",
+	["Messenger only"] = "Messagerie uniquement",
+	["Messenger and chat"] = "Messagerie et discussion",
+	["For whispers you receive and whispers you send. Nothing is lost either way."] = "Pour les chuchotements reçus comme envoyés. Rien n'est perdu dans les deux cas.",
+	["New whispers open"] = "Les nouveaux chuchotements s'ouvrent",
+	["In the messenger"] = "Dans la messagerie",
+	["In their own window"] = "Dans leur propre fenêtre",
 })

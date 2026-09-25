@@ -393,6 +393,34 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Look up offers the sites that cover this client, and only those
+--------------------------------------------------------------------------------
+
+-- A retail address for a Classic character leads to somebody else, or nowhere.
+do
+	local EXPECTED = {
+		retail = { "worldofwarcraft.blizzard.com", "raider.io", "www.warcraftlogs.com",
+			"www.wowprogress.com", "check-pvp.fr", "www.wowhead.com", "simplearmory.com" },
+		mop = { "classic.raider.io", "classic.warcraftlogs.com", "check-pvp-classic.fr" },
+		tbc = { "classic.raider.io", "fresh.warcraftlogs.com" },
+		classic = { "era.raider.io", "vanilla.warcraftlogs.com" },
+		forever = {},
+	}
+	EXPECTED.modern = EXPECTED.retail
+	-- An older, poorer Classic Era: still Classic Era as far as the sites go.
+	EXPECTED.fallback = EXPECTED.classic
+	local want = EXPECTED[FLAVOUR] or {}
+	local links, note = ns.ProfileLinks.For(Compat.NormalizeName("Thrall"))
+	local hosts = {}
+	for i = 2, #links do hosts[#hosts + 1] = links[i].url:match("^https://([^/]+)") end
+	eq("Look up lists the sites for this client", table.concat(hosts, " "), table.concat(want, " "))
+	if #want == 0 then
+		check("and says why there are none", note ~= nil)
+	end
+	eq("with the name to copy first", links[1] and links[1].label, ns.L["Name"])
+end
+
+--------------------------------------------------------------------------------
 
 eq("nothing errored", #M.errors, 0,
 	table.concat(M.errors, "\n      ", 1, math.min(#M.errors, 6)))
