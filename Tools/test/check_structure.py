@@ -453,6 +453,8 @@ GUARDED_GLOBALS = (
     "C_ChatInfo", "C_BattleNet", "C_FriendList", "SendChatMessage",
     "BNSendWhisper", "FlashClientIcon", "GetCVar", "SetCVar",
     "GetPlayerInfoByGUID", "AddonCompartmentFrame",
+    "ChatFrameUtil", "ChatFrame_AddMessageEventFilter",
+    "ChatFrame_RemoveMessageEventFilter", "ChatEdit_UpdateHeader",
 )
 # Compat is where the probe lives, so it is the one place allowed to call them.
 GUARD_HOME = "Core/Compat/"
@@ -475,6 +477,33 @@ for rel in declared:
             % (rel, line, match.group(1)))
     bypasses += 1
 notes.append("%d files checked for client calls that belong behind Compat" % bypasses)
+
+# Inside Compat: never a deprecated alias on its own. Each of these is defined,
+# on every supported branch, only in a Blizzard_Deprecated* file -- which loads
+# only while the loadDeprecationFallbacks CVar is on and which Blizzard says goes
+# at the next expansion. Two features died that way without an error anywhere:
+# the chat filter behind "keep whispers out of the chat frame" and the hook
+# behind "open the thread on /w". So a Compat file that names an alias must also
+# reach for the current API it stands in for, which is what it probes first.
+DEPRECATED_ALIASES = {
+    "ChatFrame_AddMessageEventFilter": "ChatFrameUtil",
+    "ChatFrame_RemoveMessageEventFilter": "ChatFrameUtil",
+    "ChatEdit_UpdateHeader": '"UpdateHeader"',  # the edit box's own method
+    "SendChatMessage": "C_ChatInfo",
+    "BNSendWhisper": "C_BattleNet",
+    "NUM_CHAT_WINDOWS": "CHAT_FRAMES",
+}
+for rel in declared:
+    if not rel.startswith(GUARD_HOME):
+        continue
+    body = open(os.path.join(ADDON, rel), encoding="utf-8").read()
+    code = "\n".join(line.split("--", 1)[0] for line in body.splitlines())
+    for alias, current in DEPRECATED_ALIASES.items():
+        # By field or by name: _G.Alias, _G["Alias"], or "Alias" handed to a probe.
+        if re.search(r'(_G\.|["\'])' + alias + r'\b', code) and current not in code:
+            err("%s uses the deprecated alias %s without the current API (%s) it "
+                "stands in for; the alias is gone whenever loadDeprecationFallbacks "
+                "is off" % (rel, alias, current.strip('"')))
 
 # --- settings are read through ns.Setting, not indexed two levels deep ------
 #

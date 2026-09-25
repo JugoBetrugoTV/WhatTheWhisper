@@ -835,13 +835,26 @@ function frameMethods:SetFrameStrata(s)
 	assert(STRATA[s], "invalid frame strata: " .. tostring(s))
 	self._strata = s
 end
-function frameMethods:GetFrameStrata() return self._strata or "MEDIUM" end
+-- A frame nobody set a strata or level on takes its parent's strata and sits
+-- one level above it, as in the client; a flat default made a child of a
+-- FULLSCREEN_DIALOG panel look as if it were drawn underneath the panel.
+function frameMethods:GetFrameStrata()
+	if self._strata then return self._strata end
+	local parent = self._parent
+	if parent and parent.GetFrameStrata then return parent:GetFrameStrata() end
+	return "MEDIUM"
+end
 function frameMethods:SetFrameLevel(level)
 	assert(type(level) == "number" and level >= 0 and level % 1 == 0,
 		"frame level must be a non-negative integer, got " .. tostring(level))
 	self._level = level
 end
-function frameMethods:GetFrameLevel() return self._level or 1 end
+function frameMethods:GetFrameLevel()
+	if self._level then return self._level end
+	local parent = self._parent
+	if parent and parent.GetFrameLevel then return parent:GetFrameLevel() + 1 end
+	return 1
+end
 function frameMethods:SetToplevel() end
 function frameMethods:SetMovable() end
 function frameMethods:SetResizable() end
@@ -893,10 +906,58 @@ local PROTECTED_IN_COMBAT = {
 	EnableMouse = true, SetAttribute = true,
 }
 
+-- Whether the client treats this frame as protected right now.
+--
+-- Not only the frames built from a secure template. Blizzard's own statement of
+-- the rule: "Control restrictions on protected frames are also applied to their
+-- parents and any frames they are anchored to." So a plain frame that holds a
+-- secure button, or that a secure button is anchored to, is locked in combat
+-- exactly as the button is -- and the mock used to wave those through, which is
+-- how an addon that hid the parent of its secure button in combat looked fine
+-- here and would have printed ADDON_ACTION_BLOCKED in the game.
+--
+-- The frames that are protected in their own right are few, so this walks from
+-- each of them outward rather than searching the tree under every frame asked
+-- about.
+local function explicitlyProtected()
+	local out = {}
+	for i = 1, #M.frames do
+		if M.frames[i]._protected then out[#out + 1] = M.frames[i] end
+	end
+	return out
+end
+
+local function restricted(frame)
+	if frame._protected then return true, "protected" end
+	local roots = explicitlyProtected()
+	for i = 1, #roots do
+		local secure = roots[i]
+		-- Its parents, all the way up.
+		local up, hops = secure._parent, 0
+		while up and hops < 64 do
+			if up == frame then return true, "parent of a protected frame" end
+			up, hops = up._parent, hops + 1
+		end
+		-- And the frames it is anchored to.
+		for p = 1, #(secure._points or {}) do
+			if secure._points[p][2] == frame then
+				return true, "anchor of a protected frame"
+			end
+		end
+	end
+	return false
+end
+M.IsRestricted = restricted
+
 local function guardProtected(frame, method)
-	if M.inCombat and frame._protected and PROTECTED_IN_COMBAT[method] then
-		error(("protected frame %s: %s is blocked in combat")
-			:format(frame._name or "<anonymous>", method), 3)
+	-- Code running inside a secure snippet -- a state driver's _onstate handler,
+	-- say -- is exactly what is allowed to do this in combat.
+	if M.secureExecution then return end
+	if not (M.inCombat and PROTECTED_IN_COMBAT[method]) then return end
+	local locked, why = restricted(frame)
+	if locked then
+		error(("%s frame %s: %s is blocked in combat")
+			:format(why, frame._name or "<anonymous>", method), 3)
 	end
 end
 M.GuardProtected = guardProtected
@@ -1030,7 +1091,7 @@ end
 
 M.knownTemplates = {}
 for name in ([[UIPanelButtonTemplate UIPanelCloseButton
-	SecureActionButtonTemplate SecureHandlerClickTemplate
+	SecureActionButtonTemplate SecureHandlerClickTemplate SecureHandlerStateTemplate
 	BackdropTemplate TooltipBorderedFrameTemplate
 	InputBoxTemplate UIDropDownMenuTemplate
 	OptionsSliderTemplate UICheckButtonTemplate
@@ -1180,6 +1241,71 @@ _G.IsShiftKeyDown = function() return M.shift or false end
 _G.IsControlKeyDown = function() return false end
 _G.IsAltKeyDown = function() return false end
 _G.InCombatLockdown = function() return M.inCombat or false end
+
+-- RegisterStateDriver, for the "[combat] x; y" conditionals this addon can use.
+-- The driver sets `state-<name>` and SecureHandlerStateTemplate runs the frame's
+-- `_onstate-<name>` snippet in the secure environment -- see
+-- Blizzard_RestrictedAddOnEnvironment/SecureStateDriver.lua and
+-- SecureHandlers.lua at any of the supported tags. The snippet is run here as
+-- ordinary Lua with `self` bound to the frame, under M.secureExecution, which is
+-- what lets it do in combat what addon code cannot.
+M.stateDrivers = {}
+local function evaluateCondition(values)
+	-- "[combat] a; b": the first clause whose condition holds, else the default.
+	for clause in string.gmatch(values .. ";", "%s*([^;]+);") do
+		local cond, value = clause:match("^%[(%w+)%]%s*(.-)%s*$")
+		if cond then
+			if cond == "combat" and M.inCombat then return value end
+			if cond == "nocombat" and not M.inCombat then return value end
+		else
+			return (clause:gsub("^%s+", ""):gsub("%s+$", ""))
+		end
+	end
+	return nil
+end
+local function runStateDrivers()
+	for i = 1, #M.stateDrivers do
+		local d = M.stateDrivers[i]
+		local value = evaluateCondition(d.values)
+		if value ~= d.last then
+			d.last = value
+			d.frame._attributes = d.frame._attributes or {}
+			d.frame._attributes["state-" .. d.state] = value
+			local body = d.frame._attributes["_onstate-" .. d.state]
+			if body then
+				local chunk = assert(loadstring("local self, stateid, newstate = ...\n" .. body))
+				M.secureExecution = true
+				local ok, err = pcall(chunk, d.frame, d.state, value)
+				M.secureExecution = false
+				if not ok then M.errors[#M.errors + 1] = "state driver: " .. tostring(err) end
+			end
+		end
+	end
+end
+_G.RegisterStateDriver = function(frame, state, values)
+	assert(frame and frame._template and tostring(frame._template):find("SecureHandlerStateTemplate"),
+		"RegisterStateDriver on a frame without SecureHandlerStateTemplate does nothing in the client")
+	M.stateDrivers[#M.stateDrivers + 1] = { frame = frame, state = state, values = values }
+	runStateDrivers()
+end
+_G.UnregisterStateDriver = function(frame, state)
+	for i = #M.stateDrivers, 1, -1 do
+		if M.stateDrivers[i].frame == frame and M.stateDrivers[i].state == state then
+			table.remove(M.stateDrivers, i)
+		end
+	end
+end
+
+-- Entering and leaving combat, in the order that is safe to assume: lockdown
+-- first, then the event. Whether PLAYER_REGEN_DISABLED fires a moment before the
+-- lockdown or a moment after is not something the documentation commits to, so
+-- a handler that does protected work in it has to fail here rather than pass by
+-- the luck of the ordering.
+function M.SetCombat(on)
+	M.inCombat = on and true or false
+	runStateDrivers()
+	M.FireEvent(on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
+end
 _G.IsInInstance = function() return false, "none" end
 _G.IsInRaid = function() return false end
 _G.IsInGroup = function() return false end
@@ -1294,7 +1420,11 @@ end
 -- default chat frame is the single most important thing the addon must not get
 -- wrong, so the harness has to be able to observe it.
 M.chatFilters = {}
-_G.ChatFrame_AddMessageEventFilter = function(event, filter)
+-- Where the client keeps them today: ChatFrameUtil, in Blizzard_ChatFrameBase,
+-- on every supported branch. The ChatFrame_* globals are only aliases of these,
+-- defined in Blizzard_DeprecatedChatInfo -- see M.DropDeprecationFallbacks.
+_G.ChatFrameUtil = {}
+function ChatFrameUtil.AddMessageEventFilter(event, filter)
 	local list = M.chatFilters[event]
 	if not list then list = {} M.chatFilters[event] = list end
 	for i = 1, #list do
@@ -1302,13 +1432,15 @@ _G.ChatFrame_AddMessageEventFilter = function(event, filter)
 	end
 	list[#list + 1] = filter
 end
-_G.ChatFrame_RemoveMessageEventFilter = function(event, filter)
+function ChatFrameUtil.RemoveMessageEventFilter(event, filter)
 	local list = M.chatFilters[event]
 	if not list then return end
 	for i = #list, 1, -1 do
 		if list[i] == filter then table.remove(list, i) end
 	end
 end
+_G.ChatFrame_AddMessageEventFilter = ChatFrameUtil.AddMessageEventFilter
+_G.ChatFrame_RemoveMessageEventFilter = ChatFrameUtil.RemoveMessageEventFilter
 
 -- Runs the registered filters the way the client does: the first one to return
 -- true suppresses the line. Returns whether the chat frame would show it.
@@ -1453,18 +1585,65 @@ _G.hooksecurefunc = function(a, b, c)
 	end
 end
 
--- Blizzard's default chat edit box, and the function it calls whenever the
--- player points it somewhere else. Enough of it to drive "/w Someone".
-_G.DEFAULT_CHAT_FRAME_EDITBOX = CreateFrame("EditBox", "ChatFrame1EditBox", UIParent)
-function _G.ChatEdit_UpdateHeader(editBox) return editBox end
+-- Blizzard's chat edit boxes, as the client builds them. The template's mixin
+-- (ChatFrameEditBoxMixin) is copied into every box when it is created, and
+-- Blizzard's own code updates the header through the box's method --
+-- `editBox:UpdateHeader()` -- never through a global. ChatEdit_UpdateHeader is
+-- only an alias of the mixin function, defined in Blizzard_DeprecatedChatInfo
+-- (see M.DropDeprecationFallbacks), which nothing of Blizzard's calls. The mock
+-- used to call that global itself, so a hook on it looked as if it worked.
+_G.ChatFrameEditBoxMixin = {}
+function ChatFrameEditBoxMixin:GetChatType() return self:GetAttribute("chatType") end
+function ChatFrameEditBoxMixin:GetTellTarget() return self:GetAttribute("tellTarget") end
+function ChatFrameEditBoxMixin:UpdateHeader()
+	M.headerUpdates = (M.headerUpdates or 0) + 1
+end
 
--- Drives the chat box the way typing "/w Name " does: set the target, then let
--- Blizzard update the header, which is where addons hook in.
-function M.ComposeWhisper(target)
-	local editBox = _G.DEFAULT_CHAT_FRAME_EDITBOX
+_G.CHAT_FRAMES = {}
+local function makeEditBox(chatFrame)
+	local box = CreateFrame("EditBox", chatFrame:GetName() .. "EditBox", chatFrame)
+	for k, v in pairs(ChatFrameEditBoxMixin) do box[k] = v end
+	chatFrame.editBox = box
+	return box
+end
+_G.CHAT_FRAMES[1] = "ChatFrame1"
+_G.DEFAULT_CHAT_FRAME_EDITBOX = makeEditBox(_G.DEFAULT_CHAT_FRAME)
+_G.ChatEdit_UpdateHeader = ChatFrameEditBoxMixin.UpdateHeader
+
+-- A whisper tab of its own, the way the client opens one when whispers are set
+-- to pop out: a new chat frame with a new edit box, made from the template now.
+local nextTempIndex = 11
+function _G.FCF_OpenTemporaryWindow(chatType, chatTarget)
+	local name = "ChatFrame" .. nextTempIndex
+	nextTempIndex = nextTempIndex + 1
+	local chatFrame = CreateFrame("Frame", name, UIParent)
+	chatFrame.AddMessage = function() end
+	chatFrame.isTemporary = true
+	makeEditBox(chatFrame)
+	_G.CHAT_FRAMES[#_G.CHAT_FRAMES + 1] = name
+	return chatFrame
+end
+
+-- Drives a chat box the way typing "/w Name " does: set the target, then let
+-- Blizzard update the header -- through the box's own method, as the client does.
+function M.ComposeWhisper(target, editBox)
+	editBox = editBox or _G.DEFAULT_CHAT_FRAME_EDITBOX
 	editBox:SetAttribute("chatType", target and "WHISPER" or "SAY")
 	editBox:SetAttribute("tellTarget", target)
-	_G.ChatEdit_UpdateHeader(editBox)
+	editBox:UpdateHeader()
+end
+
+-- The client with the loadDeprecationFallbacks CVar off: every alias that lives
+-- in a Blizzard_Deprecated* file is simply not there. Each of these is defined
+-- only in such a file on every supported branch (12.1.0, 5.5.x, 2.5.x, 1.15.x),
+-- and Blizzard says of them that "they will be removed at the next expansion".
+-- Call it before the addon loads.
+M.DEPRECATED_ALIASES = {
+	"ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
+	"ChatEdit_UpdateHeader", "SendChatMessage", "BNSendWhisper", "NUM_CHAT_WINDOWS",
+}
+function M.DropDeprecationFallbacks()
+	for _, name in ipairs(M.DEPRECATED_ALIASES) do _G[name] = nil end
 end
 _G.SetPortraitTexture = function() end
 _G.InterfaceOptions_AddCategory = function() end

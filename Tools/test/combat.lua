@@ -43,13 +43,11 @@ local function whisper(text)
 	M.RunFrames(2)
 end
 local function enterCombat()
-	M.inCombat = true
-	M.FireEvent("PLAYER_REGEN_DISABLED")
+	M.SetCombat(true)
 	M.RunFrames(3)
 end
 local function leaveCombat()
-	M.inCombat = false
-	M.FireEvent("PLAYER_REGEN_ENABLED")
+	M.SetCombat(false)
 	M.RunFrames(3)
 end
 local function clearProblems()
@@ -170,6 +168,36 @@ check("the secure target button exists", secure ~= nil)
 eq("its macro targets the right player",
 	secure and secure:GetAttribute("macrotext"), "/target Thrall-Blackrock")
 check("attaching it out of combat is clean", #clearProblems() == 0)
+
+-- It has to sit exactly over the Target entry: it is placed by coordinates now,
+-- not anchored, so a wrong conversion would leave a click area beside the row.
+local function targetRow()
+	local menu = _G.WhatTheWhisperContextMenu
+	for i = 1, #M.frames do
+		local row = M.frames[i]
+		if row._parent == menu and row:IsShown() and row.entry and row.entry.secureMacro then
+			return row
+		end
+	end
+end
+do
+	local row = targetRow()
+	local host = secure and secure:GetParent()
+	check("the Target entry is in the menu", row ~= nil)
+	if row and host then
+		local k = row:GetEffectiveScale() / host:GetEffectiveScale()
+		local function near(a, b) return a and b and math.abs(a - b) < 0.01 end
+		check("the click area covers the Target entry exactly",
+			near(host:GetLeft(), row:GetLeft() * k) and near(host:GetBottom(), row:GetBottom() * k)
+			and near(host:GetWidth(), row:GetWidth() * k) and near(host:GetHeight(), row:GetHeight() * k),
+			("host %s,%s %sx%s  row %s,%s %sx%s"):format(host:GetLeft(), host:GetBottom(),
+				host:GetWidth(), host:GetHeight(), row:GetLeft(), row:GetBottom(), row:GetWidth(), row:GetHeight()))
+		check("and is drawn above it", host:GetFrameLevel() > row:GetFrameLevel()
+			and host:GetFrameStrata() == row:GetFrameStrata())
+		check("the host is not the menu's child, so the menu stays free in combat",
+			host:GetParent() ~= _G.WhatTheWhisperContextMenu)
+	end
+end
 ns.Menu.Close()
 check("closing the menu out of combat is clean", #clearProblems() == 0)
 
@@ -197,6 +225,56 @@ eq("the macro is armed again after combat",
 	_G.WhatTheWhisperSecureTarget:GetAttribute("macrotext"), "/target Thrall-Blackrock")
 ns.Menu.Close()
 check("re-arming after combat is clean", #clearProblems() == 0)
+
+-- The case that actually happens: the menu is open with Target armed, and a
+-- mob notices you. Combat starts with a live secure button on the screen, and
+-- the addon is no longer allowed to hide it, move it, or hide anything it is
+-- parented to or anchored to -- so whatever takes it away has to be the secure
+-- environment itself, not addon code.
+do
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(2)
+	local secureButton = _G.WhatTheWhisperSecureTarget
+	local host = secureButton and secureButton:GetParent()
+	check("the target overlay is up before combat", host ~= nil and host:IsShown())
+	clearProblems()
+
+	local row = targetRow()
+	M.SetCombat(true)
+	M.RunFrames(3)
+	check("the open menu's Target entry greys out when combat starts",
+		row ~= nil and row.__wtwEnabled == false and row.label.__wtwRole == "textDisabled",
+		row and tostring(row.label.__wtwRole))
+	check("combat starting takes the target overlay down on its own",
+		host ~= nil and not host:IsShown(),
+		"a live secure button left over a closed menu targets whoever it last named")
+	check("and that touched nothing protected from addon code", #clearProblems() == 0)
+
+	ns.Menu.Close()
+	M.RunFrames(2)
+	check("closing a menu that was armed before combat is clean", #clearProblems() == 0,
+		"the menu, the overlay's host and anything anchored to it are all locked now")
+	check("and leaves no overlay behind", not host:IsShown())
+
+	-- Pressing Escape is the other way a menu closes, and it goes through the
+	-- client's own CloseSpecialWindows, then into the addon's OnHide hook.
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(2)
+	_G.WhatTheWhisperContextMenu:Hide()
+	M.RunFrames(2)
+	check("closing it with Escape in combat is clean too", #clearProblems() == 0)
+
+	M.SetCombat(false)
+	M.RunFrames(3)
+	check("leaving combat does not bring a stale overlay back", not host:IsShown())
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(2)
+	check("and the next menu out of combat arms it again",
+		host:IsShown() and secureButton:GetAttribute("macrotext") == "/target Thrall-Blackrock",
+		tostring(secureButton:GetAttribute("macrotext")))
+	ns.Menu.Close()
+	check("all of that out of combat is clean", #clearProblems() == 0)
+end
 
 --------------------------------------------------------------------------------
 -- Notifications and settings during combat

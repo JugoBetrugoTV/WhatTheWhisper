@@ -8,7 +8,8 @@
 -- One special case: "Target" cannot be done from insecure Lua at all, so that
 -- entry is backed by a real SecureActionButton with a /target macro. Attributes
 -- are only ever written outside combat; inside combat the entry is disabled with
--- an explanation instead of silently doing nothing.
+-- an explanation instead of silently doing nothing, and the secure button is
+-- taken down by the secure environment itself (see ensureSecureButton).
 
 local _, ns = ...
 local Theme, W, Anim, Pool = ns.Theme, ns.Widgets, ns.Anim, ns.Pool
@@ -121,14 +122,27 @@ end
 -- Secure "Target" support
 --------------------------------------------------------------------------------
 
--- The secure button lives inside an ordinary frame. Hide() and SetPoint() are
--- blocked on a protected frame during combat, but hiding or moving its
--- unprotected parent is not -- so all the show/hide/position work happens on the
--- host and the protected button itself is only ever touched out of combat.
+-- The secure button sits on a host of its own, and neither of them is tied to
+-- the menu. Blizzard's rule is that "control restrictions on protected frames
+-- are also applied to their parents and any frames they are anchored to": had
+-- the host been a child of the menu, or anchored to a row, a menu that was open
+-- when combat started could no longer be closed, hidden or re-laid out by addon
+-- code at all -- every one of those calls would be blocked.
+--
+-- So the host hangs off UIParent, is placed by absolute coordinates copied from
+-- the row, and is itself a SecureHandlerStateTemplate with a combat state
+-- driver: the moment combat starts, the secure environment hides it. Nothing in
+-- addon code has to reach for it in combat, and nothing does -- it is only ever
+-- shown, moved or given a macro outside combat.
 local function ensureSecureButton()
 	if secureButton then return secureButton end
-	secureHost = CreateFrame("Frame", nil, frame)
+	secureHost = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
+	secureHost:SetFrameStrata(frame:GetFrameStrata())
 	secureHost:Hide()
+	secureHost:SetAttribute("_onstate-combat", [[
+		if newstate == "on" then self:Hide() end
+	]])
+	RegisterStateDriver(secureHost, "combat", "[combat] on; off")
 	secureButton = CreateFrame("Button", "WhatTheWhisperSecureTarget", secureHost,
 		"SecureActionButtonTemplate")
 	secureButton:RegisterForClicks("AnyUp")
@@ -138,16 +152,27 @@ local function ensureSecureButton()
 	return secureButton
 end
 
+-- The entry as it looks when it cannot act: greyed out, with a tooltip that
+-- says why rather than a click that silently does nothing.
+local function showBlocked(row)
+	row:SetEnabled(false)
+	row.secure = nil
+	W.SetTextRole(row.label, "textDisabled")
+	W.SetIconRole(row.icon, "textDisabled")
+	W.SetTooltip(row, row.entry and (row.entry.combatTooltip or row.entry.tooltip))
+end
+
 local function attachSecure(row, macroText)
-	if InCombatLockdown() then
-		-- SetAttribute is forbidden in combat; say so rather than doing nothing.
-		row:SetEnabled(false)
-		row.blockedByCombat = true
-		return false
-	end
+	-- SetAttribute is forbidden in combat.
+	if InCombatLockdown() then return false end
 	local btn = ensureSecureButton()
+	-- The row's rectangle, in the host's own coordinate space (UIParent's).
+	local left, bottom, width, height = row:GetLeft(), row:GetBottom(), row:GetWidth(), row:GetHeight()
+	if not (left and bottom) then return false end
+	local k = row:GetEffectiveScale() / secureHost:GetEffectiveScale()
 	secureHost:ClearAllPoints()
-	secureHost:SetAllPoints(row)
+	secureHost:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * k, bottom * k)
+	secureHost:SetSize(width * k, height * k)
 	secureHost:SetFrameLevel(row:GetFrameLevel() + 2)
 	btn:SetAttribute("type", "macro")
 	btn:SetAttribute("macrotext", macroText)
@@ -156,6 +181,15 @@ local function attachSecure(row, macroText)
 	secureHost:Show()
 	row.secure = true
 	return true
+end
+
+-- Combat started with the menu open: the state driver has taken the button
+-- away, so the entry must stop looking as if it could still be clicked.
+local function onCombatChanged(inCombat)
+	if not (inCombat and itemPool and Menu.IsOpen()) then return end
+	for row in itemPool:EnumerateActive() do
+		if row.secure then showBlocked(row) end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -200,6 +234,7 @@ local function build()
 	end
 
 	itemPool = Pool.New(createItem, resetItem, "menu.item")
+	ns.Bus.Register(ns.EV.COMBAT_STATE_CHANGED, "ContextMenu", onCombatChanged)
 end
 
 --------------------------------------------------------------------------------
@@ -304,11 +339,7 @@ function Menu.Open(entries, opts)
 	for i = 1, #shown do
 		local row = shown[i]
 		if row.entry and row.entry.secureMacro then
-			if not attachSecure(row, row.entry.secureMacro) then
-				W.SetTextRole(row.label, "textDisabled")
-				W.SetIconRole(row.icon, "textDisabled")
-				W.SetTooltip(row, row.entry.combatTooltip or row.entry.tooltip)
-			end
+			if not attachSecure(row, row.entry.secureMacro) then showBlocked(row) end
 		end
 	end
 
@@ -317,12 +348,12 @@ end
 
 function Menu.Close()
 	if not frame then return end
-	if secureHost then
+	-- In combat the host is already down -- its state driver saw to that -- and
+	-- addon code may not touch it; out of combat it is put away here.
+	if secureHost and not InCombatLockdown() then
 		secureHost:Hide()
-		if not InCombatLockdown() then
-			secureButton:SetScript("OnEnter", nil)
-			secureButton:SetScript("OnLeave", nil)
-		end
+		secureButton:SetScript("OnEnter", nil)
+		secureButton:SetScript("OnLeave", nil)
 	end
 	if itemPool then itemPool:ReleaseAll() end
 	catcher:Hide()

@@ -36,10 +36,12 @@ end
 -- The client of the day after tomorrow
 --------------------------------------------------------------------------------
 
--- Everything Blizzard has a namespaced replacement for is gone.
-local REMOVED = {
-	"SendChatMessage", "BNSendWhisper", "BNGetNumFriends", "BNGetFriendInfo",
-}
+-- Everything Blizzard has a namespaced replacement for is gone: every alias in
+-- a Blizzard_Deprecated* file (what a client with the loadDeprecationFallbacks
+-- CVar off looks like today, and every client after the next expansion), and
+-- the old friends-list globals besides.
+M.DropDeprecationFallbacks()
+local REMOVED = { "BNGetNumFriends", "BNGetFriendInfo" }
 for i = 1, #REMOVED do _G[REMOVED[i]] = nil end
 
 -- ...and the friends list answers through C_BattleNet alone.
@@ -79,6 +81,59 @@ check("and can be sent to", Compat.canSendBattleNet)
 check("and its friends can be resolved", Compat.canResolveBattleNetFriends)
 eq("the old send global really is gone", _G.BNSendWhisper, nil)
 eq("and so is the old chat one", _G.SendChatMessage, nil)
+eq("and the old chat filter global", _G.ChatFrame_AddMessageEventFilter, nil)
+eq("and the old chat header global", _G.ChatEdit_UpdateHeader, nil)
+check("chat filters are still available", Compat.hasChatFilters)
+
+--------------------------------------------------------------------------------
+-- The chat frame, without the deprecated aliases
+--------------------------------------------------------------------------------
+
+-- "Keep whispers out of the chat frame" is the one promise the whole design
+-- rests on. It went through ChatFrame_AddMessageEventFilter, which on every
+-- supported client exists only in Blizzard_DeprecatedChatInfo -- so with the
+-- fallbacks off, the filter was never registered and the setting did nothing.
+do
+	local filters = M.chatFilters["CHAT_MSG_WHISPER"]
+	eq("the whisper filter is registered through ChatFrameUtil", filters and #filters, 1)
+	ns.Options.Set("messages.hideFromChatFrame", true)
+	eq("with hiding on, a whisper the addon keeps leaves the chat frame",
+		M.ChatFrameWouldShow("CHAT_MSG_WHISPER", "hallo", "Thrall-Blackrock", "", "",
+			"Thrall-Blackrock", "", 0, 0, "", 0, 77, "G-1"), false)
+	ns.Options.Set("messages.hideFromChatFrame", false)
+	eq("and with it off, it stays", M.ChatFrameWouldShow("CHAT_MSG_WHISPER", "hallo",
+		"Thrall-Blackrock", "", "", "Thrall-Blackrock", "", 0, 0, "", 0, 78, "G-1"), true)
+end
+
+-- "/w Name" opening the thread: Blizzard updates the header through the edit
+-- box's own method, so that is what has to be hooked -- on the boxes that exist
+-- and on the ones a whisper tab brings later.
+do
+	ns.Options.Set("messages.openOnCompose", true)
+	ns.UI.Hide()
+	M.ComposeWhisper("Jaina")
+	M.RunFrames(2)
+	local jaina = Compat.NormalizeName("Jaina")
+	check("composing in the main chat box opens the thread",
+		CM.Get(jaina) ~= nil and ns.MainWindow.Existing() and ns.MainWindow.Existing():IsShown())
+	eq("and selects it", CM.SelectedID(), jaina)
+
+	local tab = _G.FCF_OpenTemporaryWindow("WHISPER", "Anduin")
+	M.ComposeWhisper("Anduin", tab.editBox)
+	M.RunFrames(2)
+	eq("a whisper tab opened later is heard too", CM.SelectedID(), Compat.NormalizeName("Anduin"))
+
+	-- It runs inside Blizzard's chat input: an error on this side must stop here.
+	local show = ns.UI.Show
+	ns.UI.Show = function() error("kaputt") end
+	local ok = pcall(M.ComposeWhisper, "Garrosh")
+	ns.UI.Show = show
+	check("an error while opening the thread never reaches the chat box", ok)
+	check("and is reported as the addon's own", #softErrors == 1 and softErrors[1]:find("kaputt") ~= nil,
+		table.concat(softErrors, "; "))
+	softErrors = {}
+	ns.Options.Set("messages.openOnCompose", false)
+end
 
 --------------------------------------------------------------------------------
 -- Sending

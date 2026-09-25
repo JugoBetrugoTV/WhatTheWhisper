@@ -101,7 +101,10 @@ Stated plainly, because the alternative is pretending:
 - **No targeting from insecure code.** The "Target" context-menu entry is backed
   by a real `SecureActionButton` running a `/target` macro. Attributes cannot be
   written during combat, so in combat the entry is disabled with an explanation
-  rather than silently doing nothing.
+  rather than silently doing nothing. If combat starts while the menu is open,
+  the secure environment itself takes the button away (a combat state driver);
+  it is never parented or anchored to the menu, so the menu still closes
+  normally in combat.
 - **No "is this player online" query.** Online state is only known for friends,
   guildmates, group members and after a `/who` you asked for. Unknown state shows
   no dot at all rather than a grey one that implies something.

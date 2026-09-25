@@ -580,18 +580,29 @@ function Compat.SendBNWhisper(bnetAccountID, text)
 	return false
 end
 
-Compat.hasChatFilters = type(_G.ChatFrame_AddMessageEventFilter) == "function"
+-- Chat message filters. Every supported client keeps the registry on
+-- ChatFrameUtil (Blizzard_ChatFrameBase); the ChatFrame_* globals are only
+-- aliases of it, defined in Blizzard_DeprecatedChatInfo -- which loads only
+-- while the loadDeprecationFallbacks CVar is on, and which Blizzard says will be
+-- removed at the next expansion. Relying on the alias meant "keep whispers out
+-- of the chat frame" silently did nothing for anyone with that CVar off.
+local function chatFilterApi(method, legacy)
+	local util = _G.ChatFrameUtil
+	if type(util) == "table" and type(util[method]) == "function" then return util[method] end
+	if type(_G[legacy]) == "function" then return _G[legacy] end
+	return nil
+end
+
+Compat.hasChatFilters = chatFilterApi("AddMessageEventFilter", "ChatFrame_AddMessageEventFilter") ~= nil
 
 function Compat.AddMessageEventFilter(event, fn)
-	if Compat.hasChatFilters then
-		_G.ChatFrame_AddMessageEventFilter(event, fn)
-	end
+	local add = chatFilterApi("AddMessageEventFilter", "ChatFrame_AddMessageEventFilter")
+	if add then add(event, fn) end
 end
 
 function Compat.RemoveMessageEventFilter(event, fn)
-	if type(_G.ChatFrame_RemoveMessageEventFilter) == "function" then
-		_G.ChatFrame_RemoveMessageEventFilter(event, fn)
-	end
+	local remove = chatFilterApi("RemoveMessageEventFilter", "ChatFrame_RemoveMessageEventFilter")
+	if remove then remove(event, fn) end
 end
 
 -- Registering an event that does not exist on this client raises a Lua error, so
@@ -1338,20 +1349,26 @@ function Compat.ShowGameLink(link, text, button)
 	return false
 end
 
--- Calls back when the player points the default chat box at a whisper target,
--- which is what "/w Thrall " does before a single word is typed.
+-- Calls back when the player points a chat box at a whisper target, which is
+-- what "/w Thrall " does before a single word is typed.
 --
--- ChatEdit_UpdateHeader is the function Blizzard calls whenever that header
--- changes, and hooksecurefunc only adds to it -- nothing of Blizzard's is
--- replaced, so a chat box the addon knows nothing about keeps working exactly
--- as it did. Returns whether the hook could be installed at all.
+-- Blizzard updates that header through each edit box's own method --
+-- `editBox:UpdateHeader()`, copied into the box from ChatFrameEditBoxMixin when
+-- the box is made. The global ChatEdit_UpdateHeader is only a deprecated alias
+-- of the mixin function that nothing of Blizzard's calls any more, so hooking it
+-- (as this once did) never fired on any supported client. The hook therefore
+-- goes on every chat frame's edit box, and again whenever the client opens a
+-- temporary whisper window, which brings an edit box of its own.
+--
+-- hooksecurefunc only adds to a function -- nothing of Blizzard's is replaced,
+-- so a chat box keeps working exactly as it did. Returns whether any hook could
+-- be installed at all.
 function Compat.HookWhisperCompose(callback)
-	if type(_G.hooksecurefunc) ~= "function"
-		or type(_G.ChatEdit_UpdateHeader) ~= "function" then
-		return false
-	end
+	local hook = _G.hooksecurefunc
+	if type(hook) ~= "function" then return false end
+
 	local lastTarget
-	_G.hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
+	local function onHeader(editBox)
 		if type(editBox) ~= "table" or not editBox.GetAttribute then return end
 		local ok, chatType = pcall(editBox.GetAttribute, editBox, "chatType")
 		if not ok or chatType ~= "WHISPER" then
@@ -1363,9 +1380,40 @@ function Compat.HookWhisperCompose(callback)
 		-- The header updates on every keystroke; only a change of target is news.
 		if target == lastTarget then return end
 		lastTarget = target
-		callback(target)
-	end)
-	return true
+		-- This runs inside Blizzard's chat input. Whatever goes wrong on this
+		-- side must not travel back into it.
+		ns.Guard("Compat.HookWhisperCompose", callback, target)
+	end
+
+	local hooked = {}
+	local function hookEditBox(box)
+		if type(box) ~= "table" or hooked[box] or type(box.UpdateHeader) ~= "function" then return end
+		hooked[box] = true
+		hook(box, "UpdateHeader", onHeader)
+	end
+	local function hookChatFrames()
+		local names = _G.CHAT_FRAMES
+		if type(names) ~= "table" then return end
+		for _, name in pairs(names) do
+			local chatFrame = type(name) == "string" and _G[name]
+			if type(chatFrame) == "table" then
+				hookEditBox(chatFrame.editBox or _G[name .. "EditBox"])
+			end
+		end
+	end
+
+	hookChatFrames()
+	hookEditBox(_G.ChatFrame1EditBox)
+	if type(_G.FCF_OpenTemporaryWindow) == "function" then
+		hook("FCF_OpenTemporaryWindow", hookChatFrames)
+	end
+	-- A client whose chat still calls the global. On the supported ones it is
+	-- the deprecated alias no Blizzard code calls, and a call through it reaches
+	-- the unhooked mixin function rather than a box's hooked method, so the two
+	-- hooks never both see the same update.
+	local legacy = type(_G.ChatEdit_UpdateHeader) == "function"
+	if legacy then hook("ChatEdit_UpdateHeader", onHeader) end
+	return legacy or next(hooked) ~= nil
 end
 
 function Compat.SetTooltipHyperlink(tooltip, link)
