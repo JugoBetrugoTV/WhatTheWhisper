@@ -274,6 +274,9 @@ local function seconds(value) return L["%d seconds"]:format(math.floor(value + 0
 
 function Options.BuildSchema()
 	local soundOptions = ns.Sounds.Options()
+	-- The same list, headed by "no sound of their own".
+	local friendSoundOptions = { { value = "same", label = L["Same as other whispers"] } }
+	for i = 1, #soundOptions do friendSoundOptions[#friendSoundOptions + 1] = soundOptions[i] end
 
 	return {
 		{
@@ -517,6 +520,8 @@ function Options.BuildSchema()
 					rows = {
 						dropdown("sounds.newMessage", L["Sound on new message"], soundOptions),
 						dropdown("sounds.hiddenMessage", L["Sound when window is hidden"], soundOptions),
+						dropdown("sounds.friendMessage", L["Sound for friends and guild"],
+							friendSoundOptions, L["Friends, guildmates and Battle.net friends."]),
 						dropdown("sounds.mention", L["Sound on mention"], soundOptions),
 						dropdown("sounds.openConv", L["Sound when opening a conversation"], soundOptions),
 						slider("sounds.cooldown", L["Repeat sound cooldown"], 0, 30, 1, seconds),

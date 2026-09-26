@@ -232,6 +232,11 @@ ns.RegisterLocale("frFR", {
 	-- Réglages : sons
 	["Sound on new message"] = "Son à la réception",
 	["Sound when window is hidden"] = "Son quand la fenêtre est masquée",
+	["Sound for friends and guild"] = "Son pour les amis et la guilde",
+	["Same as other whispers"] = "Comme les autres chuchotements",
+	["Friends, guildmates and Battle.net friends."] = "Amis, membres de la guilde et amis Battle.net.",
+	["%d unread"] = "%d non lu(s)",
+	["No new messages"] = "Aucun nouveau message",
 	["Sound on mention"] = "Son quand on vous nomme",
 	["Sound when opening a conversation"] = "Son à l'ouverture d'une conversation",
 	["Repeat sound cooldown"] = "Délai entre deux sons",

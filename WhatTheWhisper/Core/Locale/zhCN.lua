@@ -225,6 +225,11 @@ ns.RegisterLocale("zhCN", {
 	-- 设置：声音
 	["Sound on new message"] = "新消息提示音",
 	["Sound when window is hidden"] = "窗口隐藏时也提示",
+	["Sound for friends and guild"] = "好友和公会成员的提示音",
+	["Same as other whispers"] = "与其他密语相同",
+	["Friends, guildmates and Battle.net friends."] = "好友、公会成员和战网好友。",
+	["%d unread"] = "%d 条未读",
+	["No new messages"] = "没有新消息",
 	["Sound on mention"] = "被提到时提示音",
 	["Sound when opening a conversation"] = "打开会话时提示音",
 	["Repeat sound cooldown"] = "重复提示的间隔",

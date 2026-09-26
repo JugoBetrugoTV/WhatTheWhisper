@@ -232,6 +232,11 @@ ns.RegisterLocale("koKR", {
 	-- 설정: 소리
 	["Sound on new message"] = "새 메시지 소리",
 	["Sound when window is hidden"] = "창이 숨겨져 있을 때 소리",
+	["Sound for friends and guild"] = "친구 및 길드원 소리",
+	["Same as other whispers"] = "다른 귓속말과 동일",
+	["Friends, guildmates and Battle.net friends."] = "친구, 길드원, Battle.net 친구.",
+	["%d unread"] = "읽지 않음 %d",
+	["No new messages"] = "새 메시지 없음",
 	["Sound on mention"] = "내 이름이 불릴 때 소리",
 	["Sound when opening a conversation"] = "대화를 열 때 소리",
 	["Repeat sound cooldown"] = "소리 반복 간격",

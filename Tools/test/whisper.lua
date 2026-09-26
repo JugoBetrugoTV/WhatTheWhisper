@@ -84,6 +84,14 @@ eq("short name drops other realm too", ns.Compat.ShortName("Thrall-Draenor"), "T
 eq("cross realm detected", ns.Compat.IsCrossRealm("Thrall-Draenor"), true)
 eq("same realm not cross", ns.Compat.IsCrossRealm("Thrall-Blackrock"), false)
 
+-- The name the server is sent. A realm stays on for anyone elsewhere; a name
+-- with a space in it is a Forever name, and loses the realm even if the client
+-- was not recognised as Forever -- that realm is what made every reply fail.
+eq("own realm addressed by name alone", ns.Compat.WireName("Thrall-Blackrock"), "Thrall")
+eq("another realm keeps it", ns.Compat.WireName("Thrall-Draenor"), "Thrall-Draenor")
+eq("a two-part name never carries one", ns.Compat.WireName("Matt Loc-ClassicBetaPvE2"), "Matt Loc")
+eq("a Battle.net key is left alone", ns.Compat.WireName("BN:Tag#1234"), "BN:Tag#1234")
+
 --------------------------------------------------------------------------------
 -- Incoming
 --------------------------------------------------------------------------------

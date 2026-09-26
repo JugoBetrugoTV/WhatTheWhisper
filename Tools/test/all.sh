@@ -60,6 +60,9 @@ suite "library coexistence"   Tools/test/libs.lua
 suite "real-client loadability" Tools/test/loadability.lua
 suite "text processing"       Tools/test/text.lua
 suite "whisper pipeline"      Tools/test/whisper.lua
+suite "reply key"             Tools/test/reply.lua
+suite "composer keys"         Tools/test/keys.lua
+suite "friends and broker"    Tools/test/extras.lua
 suite "history"               Tools/test/history.lua
 suite "leaks and churn"       Tools/test/perf.lua
 suite "combat lockdown"       Tools/test/combat.lua

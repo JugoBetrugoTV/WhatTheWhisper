@@ -278,6 +278,7 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 		censoredLine and { censoredLine = censoredLine } or nil)
 	if not msg then return false end
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
+	ChatEvents.NoteIncoming(id)
 
 	-- ...and everything below is what happens because it exists. Guarded on its
 	-- own so a toast that throws cannot un-store a stored message: a replayed
@@ -333,6 +334,7 @@ local function onBNWhisper(text, accountName, _, _, _, _, _, _, _, _, _, _, bnSe
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, ns.MSG_BNET, replayTimestamp)
 	if not msg then return false end
 	Debug.Log("events", "bnet whisper in on %s", id)
+	ChatEvents.NoteIncoming(id)
 	aftermath("Notifications.OnIncoming", ns.Notifications.OnIncoming, conv, msg,
 		isMention(text))
 	return true
@@ -620,6 +622,64 @@ local function suppressFilter(_, event, ...)
 end
 
 --------------------------------------------------------------------------------
+-- Replying
+--------------------------------------------------------------------------------
+
+-- Who the Reply key should answer, as far as the game cannot know it.
+--
+-- The game records a whisperer as the reply target only once its chat frame
+-- has shown the whisper, so a whisper this addon took out of the chat frame is
+-- one the Reply key knows nothing about. The two are kept in order with one
+-- counter: the last whisper the chat frame never saw, and the last one it did.
+-- Only when the hidden one is the newer does the game's own answer need
+-- correcting; otherwise it already has the right person.
+local INCOMING = { CHAT_MSG_WHISPER = true, CHAT_MSG_BN_WHISPER = true }
+local sequence = 0
+local hiddenReply = { id = nil, seq = 0 }
+local chatReplySeq = 0
+
+local function noteChatKept()
+	sequence = sequence + 1
+	chatReplySeq = sequence
+end
+
+-- Called once a whisper to the player is stored. A replayed one is a whisper
+-- the chat frame kept the whole time it was held, so the game already has it.
+function ChatEvents.NoteIncoming(id)
+	if replayTimestamp ~= nil then return end
+	if shouldHide() then
+		sequence = sequence + 1
+		hiddenReply.id, hiddenReply.seq = id, sequence
+	else
+		noteChatKept()
+	end
+end
+
+-- The conversation the Reply key belongs to, or nil when the game's own reply
+-- target is already the right one.
+function ChatEvents.ReplyTarget()
+	if not hiddenReply.id or hiddenReply.seq <= chatReplySeq then return nil end
+	if not CM.Get(hiddenReply.id) then return nil end
+	return hiddenReply.id
+end
+
+-- The Reply key, or "/r " in a chat box. The answer goes into the thread, in
+-- the messenger or the conversation's own window: taking the keyboard is also
+-- what closes the game's box, which deactivates itself when it loses focus
+-- with nothing typed in it.
+function ChatEvents.OnReply()
+	local db = ns.db
+	if not db or not db.profile or not db.profile.enabled then return end
+	-- Chat the client is withholding was never hidden here, so the game's
+	-- target is the right one; and there is nothing to type into anyway.
+	if Compat.InChatMessagingLockdown() then return end
+	local id = ChatEvents.ReplyTarget()
+	if not id then return end
+	Debug.Log("events", "reply goes to %s, whose whisper the chat frame never showed", id)
+	ns.UI.Reply(id)
+end
+
+--------------------------------------------------------------------------------
 -- Event plumbing
 --------------------------------------------------------------------------------
 
@@ -643,7 +703,9 @@ local rosterHandlers = {
 frame:SetScript("OnEvent", function(_, event, ...)
 	local db = ns.db
 	if not db or not db.profile.enabled then
-		-- Roster bookkeeping still runs; message routing does not.
+		-- Roster bookkeeping still runs; message routing does not. A whisper
+		-- that arrives now is the chat frame's, and so is the reply to it.
+		if INCOMING[event] then noteChatKept() end
 		local roster = rosterHandlers[event]
 		if roster then ns.Guard(event, roster) end
 		return
@@ -654,6 +716,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	-- The same decision the chat filter made, from the same function, so the two
 	-- cannot disagree about whether this message is anyone's to keep.
 	local mode, identity = ChatEvents.Admit(event, ...)
+
+	-- Held or left alone, a whisper to the player stays in the chat frame, and
+	-- the game's Reply key learns about it the ordinary way.
+	if INCOMING[event] and mode ~= ADMIT_STORE then noteChatKept() end
 
 	if mode == ADMIT_HOLD then
 		-- Put aside with its chat line id, and back the moment the client will
@@ -727,6 +793,9 @@ function ChatEvents.Init()
 	-- front of them -- before the message is sent, not after.
 	if not Compat.HookWhisperCompose(ChatEvents.OnComposeWhisper) then
 		Debug.Log("compat", "chat compose hook unavailable on this client")
+	end
+	if not Compat.HookReply(ChatEvents.OnReply) then
+		Debug.Log("compat", "reply hook unavailable on this client")
 	end
 
 	-- Registered once; the filter itself checks the setting so toggling it never

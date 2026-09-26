@@ -391,8 +391,14 @@ local function setShown(region, shown)
 	-- An edit box that goes off screen loses keyboard focus, the same way the
 	-- client drops it when the frame holding it is hidden.
 	if M.focus and not effectivelyVisible(M.focus) then
-		M.focus._focus = false
+		local lost = M.focus
+		lost._focus = false
 		M.focus = nil
+		local script = lost._scripts and lost._scripts.OnEditFocusLost
+		if script then
+			local ok, err = pcall(script, lost)
+			if not ok then M.errors[#M.errors + 1] = "OnEditFocusLost: " .. tostring(err) end
+		end
 	end
 end
 
@@ -766,7 +772,7 @@ local TYPE_SCRIPTS = {
 		OnEnterPressed = true, OnEscapePressed = true, OnTextChanged = true,
 		OnTextSet = true, OnCursorChanged = true, OnEditFocusGained = true,
 		OnEditFocusLost = true, OnSpacePressed = true, OnTabPressed = true,
-		OnInputLanguageChanged = true,
+		OnInputLanguageChanged = true, OnArrowPressed = true,
 	},
 	ScrollFrame = {
 		OnScrollRangeChanged = true, OnHorizontalScroll = true, OnVerticalScroll = true,
@@ -1029,15 +1035,34 @@ function frameMethods:GetHighlight() return self._highlight end
 -- Modelling that is the point: a copy dialog that fills its box and focuses it
 -- before the window is up looks perfect in a mock that just sets a flag, and in
 -- the game it hands the player an unfocused box where Ctrl+C copies nothing.
+--
+-- Moving the focus also tells both boxes, the way the client does: the one that
+-- had it gets OnEditFocusLost, then the new one OnEditFocusGained. Blizzard's
+-- chat box closes itself from that handler, and a mock that only flipped a flag
+-- could not show whether taking the keyboard from it actually closed it.
+local function focusScript(box, name)
+	local script = box._scripts and box._scripts[name]
+	if not script then return end
+	local ok, err = pcall(script, box)
+	if not ok then M.errors[#M.errors + 1] = name .. ": " .. tostring(err) end
+end
 function frameMethods:SetFocus()
 	if not effectivelyVisible(self) then return end
-	if M.focus and M.focus ~= self then M.focus._focus = false end
+	if M.focus == self then return end
+	local previous = M.focus
+	if previous then previous._focus = false end
 	self._focus = true
 	M.focus = self
+	if previous then focusScript(previous, "OnEditFocusLost") end
+	focusScript(self, "OnEditFocusGained")
 end
 function frameMethods:ClearFocus()
+	local had = M.focus == self
 	self._focus = false
-	if M.focus == self then M.focus = nil end
+	if had then
+		M.focus = nil
+		focusScript(self, "OnEditFocusLost")
+	end
 end
 function frameMethods:HasFocus() return self._focus or false end
 function frameMethods:Insert(v) self:SetText((self._text or "") .. (v or "")) end
@@ -1611,6 +1636,18 @@ function M.EffectivelyShown(node, root)
 	return root == nil
 end
 
+-- The chat frame receiving a chat event: the message filters run, and a whisper
+-- that is still shown after them becomes the reply target -- which is the only
+-- way the game ever learns who that is.
+function M.ChatFrameReceives(event, ...)
+	local shown = M.ChatFrameWouldShow(event, ...)
+	if shown and (event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_BN_WHISPER") then
+		ChatFrameUtil.SetLastTellTarget((select(2, ...)),
+			event == "CHAT_MSG_WHISPER" and "WHISPER" or "BN_WHISPER")
+	end
+	return shown
+end
+
 function M.ChatFrameWouldShow(event, ...)
 	local list = M.chatFilters[event]
 	if not list then return true end
@@ -1659,14 +1696,74 @@ end
 _G.ChatFrameEditBoxMixin = {}
 function ChatFrameEditBoxMixin:GetChatType() return self:GetAttribute("chatType") end
 function ChatFrameEditBoxMixin:GetTellTarget() return self:GetAttribute("tellTarget") end
+function ChatFrameEditBoxMixin:SetChatType(chatType) self:SetAttribute("chatType", chatType) end
+function ChatFrameEditBoxMixin:SetTellTarget(target) self:SetAttribute("tellTarget", target) end
 function ChatFrameEditBoxMixin:UpdateHeader()
 	M.headerUpdates = (M.headerUpdates or 0) + 1
+end
+
+-- The game's reply target: the people who last whispered the player, newest
+-- first. Blizzard's chat frame writes it after the message filters have run,
+-- and only for a whisper it goes on to show -- see M.ChatFrameReceives.
+M.lastTell = {}
+function ChatFrameUtil.SetLastTellTarget(target, chatType)
+	for i = #M.lastTell, 1, -1 do
+		if M.lastTell[i].target:upper() == target:upper() then table.remove(M.lastTell, i) end
+	end
+	table.insert(M.lastTell, 1, { target = target, chatType = chatType })
+end
+function ChatFrameUtil.GetLastTellTarget()
+	local entry = M.lastTell[1]
+	if entry then return entry.target, entry.chatType end
+	return nil
+end
+
+-- "/r " typed into the box, as Blizzard's ProcessChatType handles the chat type
+-- "REPLY": the box becomes a whisper to the game's reply target, or stays as it
+-- was when there is none.
+function ChatFrameEditBoxMixin:ProcessChatType(msg, index)
+	if index == "REPLY" then
+		local lastTell, lastTellType = ChatFrameUtil.GetLastTellTarget()
+		if lastTell then
+			self:SetChatType(lastTellType)
+			self:SetTellTarget(lastTell)
+			self:SetText(msg or "")
+			self:UpdateHeader()
+		end
+	else
+		self:SetChatType(index)
+		self:SetText(msg or "")
+		self:UpdateHeader()
+	end
+	return true
+end
+
+-- The Reply key. Blizzard opens the chat box on the reply target, and does
+-- nothing at all when it has none.
+function ChatFrameUtil.ReplyTell()
+	local box = _G.DEFAULT_CHAT_FRAME_EDITBOX
+	local lastTell, lastTellType = ChatFrameUtil.GetLastTellTarget()
+	if not lastTell then return end
+	box:SetChatType(lastTellType)
+	box:SetTellTarget(lastTell)
+	box:UpdateHeader()
+	box:Show()
+	box:SetFocus()
 end
 
 _G.CHAT_FRAMES = {}
 local function makeEditBox(chatFrame)
 	local box = CreateFrame("EditBox", chatFrame:GetName() .. "EditBox", chatFrame)
 	for k, v in pairs(ChatFrameEditBoxMixin) do box[k] = v end
+	-- An empty chat box that loses the keyboard closes and goes back to its
+	-- ordinary chat type (ShouldDeactivateChatOnEditFocusLost: the text is "").
+	box:SetScript("OnEditFocusLost", function(self)
+		if (self:GetText() or "") == "" then
+			self:SetChatType("SAY")
+			self:SetTellTarget(nil)
+			self:Hide()
+		end
+	end)
 	chatFrame.editBox = box
 	return box
 end

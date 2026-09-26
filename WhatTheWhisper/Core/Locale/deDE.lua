@@ -212,6 +212,11 @@ ns.RegisterLocale("deDE", {
 	-- Einstellungen: Töne
 	["Sound on new message"] = "Ton bei neuer Nachricht",
 	["Sound when window is hidden"] = "Ton, wenn das Fenster verborgen ist",
+	["Sound for friends and guild"] = "Ton für Freunde und Gilde",
+	["Same as other whispers"] = "Wie bei anderen Flüsternachrichten",
+	["Friends, guildmates and Battle.net friends."] = "Freunde, Gildenmitglieder und Battle.net-Freunde.",
+	["%d unread"] = "%d ungelesen",
+	["No new messages"] = "Keine neuen Nachrichten",
 	["Sound on mention"] = "Ton bei Erwähnung",
 	["Sound when opening a conversation"] = "Ton beim Öffnen einer Unterhaltung",
 	["Repeat sound cooldown"] = "Wiederholungssperre für Töne",

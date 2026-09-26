@@ -112,6 +112,11 @@ function ConversationView.New(parent, opts)
 	------------------------------------------------------------------ content
 	v.composer = ns.Composer.New(v, {
 		onResize = function() v:Relayout() end,
+		-- Whoever holds this view decides what "the next conversation" is: the
+		-- main window has a list of them, a popout has one.
+		onTab = function(shift)
+			if v.onTab then v.onTab(shift) end
+		end,
 	})
 	v.composer:SetPoint("BOTTOMLEFT")
 	v.composer:SetPoint("BOTTOMRIGHT")

@@ -3,6 +3,11 @@
 -- Enter sends, Shift+Enter starts a new line, Escape gives focus back to the
 -- game. Input longer than a whisper is split into legal chunks and the composer
 -- says so before you press Enter rather than after.
+--
+-- Up and Down in an empty field walk back through what the player has already
+-- said in this thread, the way the game's chat box walks its history -- so a
+-- message that did not arrive is one key away from being sent again. Tab moves
+-- to the next conversation, Shift+Tab to the one before.
 
 local _, ns = ...
 local W, Text = ns.Widgets, ns.Text
@@ -77,6 +82,10 @@ function Composer.New(parent, opts)
 		onResize = function() c:Relayout() end,
 		onEscape = function()
 			if ns.UI then ns.UI.OnComposerEscape() end
+		end,
+		onArrow = function(key) c:OnArrow(key) end,
+		onTab = function(shift)
+			if c.opts.onTab then c.opts.onTab(shift) end
 		end,
 	})
 	c.input:SetPoint("LEFT", c.emoji, "RIGHT", ns.S.SM, 0)
@@ -156,6 +165,7 @@ function C:SetConversation(conv)
 		self:RefreshPlaceholder()
 		return
 	end
+	self.recall = nil
 	-- Keep the half-typed message with the thread it belongs to.
 	if self.conv then
 		ns.ConversationManager.SetDraft(self.conv.id, self.input:GetText())
@@ -169,6 +179,8 @@ end
 
 function C:OnTextChanged(value)
 	value = value or ""
+	-- Typing over a recalled message makes it the player's own again.
+	if self.recall and value ~= self.recall.text then self.recall = nil end
 	local trimmed = Text.Trim(value)
 	self.send:SetActive(trimmed ~= "" and self.conv ~= nil)
 	if self.conv then
@@ -196,10 +208,59 @@ function C:OnTextChanged(value)
 	self:Relayout()
 end
 
+-- How far back Up reaches.
+local RECALL_DEPTH = 50
+
+-- What the player has said in this thread, newest first, each text once.
+-- Taken from the thread itself rather than kept on the side, so it is there
+-- after a reload and belongs to the right person.
+local function sentTexts(conv)
+	local out, seen = {}, {}
+	local messages = conv and conv.messages
+	if not messages then return out end
+	for i = #messages, 1, -1 do
+		local msg = messages[i]
+		if msg[ns.MSG_DIR] == ns.DIR_OUT then
+			local text = msg[ns.MSG_TEXT]
+			if type(text) == "string" and text ~= "" and not seen[text] then
+				seen[text] = true
+				out[#out + 1] = text
+				if #out >= RECALL_DEPTH then break end
+			end
+		end
+	end
+	return out
+end
+
+-- Only an empty field, or one still showing what the last press put there,
+-- is walked through: with anything the player typed in it, the arrows belong
+-- to the caret.
+function C:OnArrow(key)
+	if key ~= "UP" and key ~= "DOWN" then return end
+	local current = self.input:GetText()
+	local recall = self.recall
+	if current ~= "" and not (recall and current == recall.text) then return end
+	if key == "DOWN" and not recall then return end
+
+	local sent = sentTexts(self.conv)
+	local index = (recall and recall.index or 0) + (key == "UP" and 1 or -1)
+	if index > #sent then return end
+	if index < 1 then
+		self.recall = nil
+		self.input:SetText("")
+		self:OnTextChanged("")
+		return
+	end
+	self.recall = { index = index, text = sent[index] }
+	self.input:SetText(sent[index])
+	self:OnTextChanged(sent[index])
+end
+
 function C:Submit()
 	if not self.conv then return end
 	local value = Text.Trim(self.input:GetText())
 	if value == "" then return end
+	self.recall = nil
 	local sent = ns.ConversationManager.SendMessage(self.conv.id, value)
 	if sent then
 		self.input:SetText("")

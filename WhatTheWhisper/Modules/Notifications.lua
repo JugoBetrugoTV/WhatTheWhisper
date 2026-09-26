@@ -24,20 +24,35 @@ end
 -- Incoming
 --------------------------------------------------------------------------------
 
+-- Somebody the player knows: a friend, a guildmate, or anyone on Battle.net --
+-- which is only ever a friend. Asked only when there is a sound of their own
+-- to play, so a player who never set one pays nothing for the question.
+local function isCloseContact(conv)
+	local chosen = ns.Setting("sounds.friendMessage")
+	if not chosen or chosen == "same" then return false end
+	if conv.isBN or ns.Compat.IsBattleNet(conv.id) then return true end
+	return ns.Compat.IsFriend(conv.id) or ns.Compat.IsGuildMember(conv.id)
+end
+
 function Notifications.OnIncoming(conv, msg, isMention)
 	if not conv or not msg then return end
 	local UI = ns.UI
 	local visible = UI and UI.IsConversationVisible(conv.id) or false
 	local windowShown = UI and UI.IsAnyWindowShown() or false
 
-	-- Sound
+	-- Sound. Mentioning the player's name outranks who it is from.
+	local sound
 	if isMention then
-		Sounds.Play("mention", conv)
+		sound = "mention"
 	elseif not windowShown then
-		Sounds.Play("hiddenMessage", conv)
+		sound = "hiddenMessage"
 	elseif not visible then
-		Sounds.Play("newMessage", conv)
+		sound = "newMessage"
 	end
+	if (sound == "hiddenMessage" or sound == "newMessage") and isCloseContact(conv) then
+		sound = "friendMessage"
+	end
+	if sound then Sounds.Play(sound, conv) end
 
 	-- Toast: only when you cannot already see the message.
 	if settings().toasts and not visible and not conv.muted then

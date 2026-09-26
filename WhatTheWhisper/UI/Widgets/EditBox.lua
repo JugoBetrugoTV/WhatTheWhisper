@@ -30,6 +30,8 @@ local PAD_Y = ns.S.SM + 2
 --   placeholder  greyed text shown while empty
 --   minHeight / maxHeight
 --   onEnter(text) onChange(text) onEscape() onResize(height) onFocus(bool)
+--   onArrow(key)  an arrow key; the caret still moves as the client moves it
+--   onTab(shift)
 --   radius, fontToken
 --   insetRight   extra room kept clear on the right, for a button drawn inside
 --                the field -- the composer's send arrow
@@ -244,6 +246,17 @@ function Input.New(parent, opts)
 		self:ClearFocus()
 		if opts.onEscape then ns.Guard("Input.onEscape", opts.onEscape) end
 	end)
+
+	if opts.onArrow then
+		editBox:SetScript("OnArrowPressed", function(_, key)
+			ns.Guard("Input.onArrow", opts.onArrow, key)
+		end)
+	end
+	if opts.onTab then
+		editBox:SetScript("OnTabPressed", function()
+			ns.Guard("Input.onTab", opts.onTab, IsShiftKeyDown() and true or false)
+		end)
+	end
 
 	-- Focus is mostly the field getting lighter, and only faintly a ring around
 	-- it. The other way round -- a bright outline on an unchanged fill -- is how

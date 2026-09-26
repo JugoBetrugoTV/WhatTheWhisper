@@ -232,6 +232,11 @@ ns.RegisterLocale("esMX", {
 	-- Ajustes: sonidos
 	["Sound on new message"] = "Sonido al recibir un mensaje",
 	["Sound when window is hidden"] = "Sonido con la ventana oculta",
+	["Sound for friends and guild"] = "Sonido para amigos y hermandad",
+	["Same as other whispers"] = "Igual que otros susurros",
+	["Friends, guildmates and Battle.net friends."] = "Amigos, miembros de la hermandad y amigos de Battle.net.",
+	["%d unread"] = "%d sin leer",
+	["No new messages"] = "No hay mensajes nuevos",
 	["Sound on mention"] = "Sonido al mencionarte",
 	["Sound when opening a conversation"] = "Sonido al abrir una conversación",
 	["Repeat sound cooldown"] = "Espera entre sonidos repetidos",

@@ -150,6 +150,12 @@ function MainWindow.Get()
 	frame.tabs:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -ns.SZ.TITLEBAR_H)
 
 	frame.view = ns.ConversationView.New(frame)
+	-- Tab in the composer: the next conversation, and the keyboard stays in the
+	-- composer, which is the same field showing the next thread.
+	frame.view.onTab = function(shift)
+		local id = frame:NeighbourOf(ns.ConversationManager.SelectedID(), shift and -1 or 1)
+		if id then ns.ConversationManager.Select(id) end
+	end
 	frame.view:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
 	frame.view:SetPoint("LEFT", frame.sidebar, "RIGHT", 0, 0)
 
@@ -221,6 +227,28 @@ function M:SetSidebarWidth(width)
 		width = ns.SZ.SIDEBAR_RAIL_W
 	end
 	self.sidebar:SetWidth(width)
+end
+
+-- The conversation `step` places away from `id` in the list the player can
+-- see -- the sidebar as it is filtered right now, or the tabs when there is no
+-- sidebar -- wrapping round at either end. nil when that list is empty or holds
+-- only this one.
+function M:NeighbourOf(id, step)
+	local ids = {}
+	if self.sidebar:IsShown() then
+		for _, conv in ipairs(self.sidebar.filtered) do ids[#ids + 1] = conv.id end
+	else
+		for _, tabID in ipairs(ns.UI.GetTabOrder()) do ids[#ids + 1] = tabID end
+	end
+	if #ids == 0 then return nil end
+	local at
+	for i = 1, #ids do
+		if ids[i] == id then at = i break end
+	end
+	if not at then return ids[step > 0 and 1 or #ids] end
+	local target = ids[(at - 1 + step) % #ids + 1]
+	if target == id then return nil end
+	return target
 end
 
 function M:Relayout()

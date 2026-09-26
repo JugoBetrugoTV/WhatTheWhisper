@@ -232,6 +232,11 @@ ns.RegisterLocale("ruRU", {
 	-- Настройки: звуки
 	["Sound on new message"] = "Звук при новом сообщении",
 	["Sound when window is hidden"] = "Звук, когда окно скрыто",
+	["Sound for friends and guild"] = "Звук для друзей и гильдии",
+	["Same as other whispers"] = "Как у остальных шепотов",
+	["Friends, guildmates and Battle.net friends."] = "Друзья, согильдийцы и друзья Battle.net.",
+	["%d unread"] = "Непрочитанных: %d",
+	["No new messages"] = "Новых сообщений нет",
 	["Sound on mention"] = "Звук при упоминании",
 	["Sound when opening a conversation"] = "Звук при открытии разговора",
 	["Repeat sound cooldown"] = "Пауза между повторами звука",

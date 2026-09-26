@@ -338,6 +338,8 @@ arrow. The arrow fades from `textMuted` to `accent` the moment the field is non-
 Both buttons sit on the *last* line of the field, so once a message wraps they stay with
 the line being typed. Focus lifts the field's fill rather than drawing a ring.
 Placeholder: *"Message Thrall…"*. `Enter` sends, `Shift+Enter` newline, `Esc` blurs.
+`Up`/`Down` in an empty field walk back through what was said in the thread;
+`Tab`/`Shift+Tab` move to the next/previous conversation in the visible list.
 Multi-line input is split into whisper-legal chunks (255 **bytes**, UTF-8 safe, word-aware).
 A character counter appears only at ≥ 200 bytes, in `textMuted`, `danger` past the limit.
 

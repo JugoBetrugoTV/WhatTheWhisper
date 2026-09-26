@@ -208,6 +208,11 @@ ns.RegisterLocale("enUS", {
 	-- Settings: sounds
 	["Sound on new message"] = true,
 	["Sound when window is hidden"] = true,
+	["Sound for friends and guild"] = true,
+	["Same as other whispers"] = true,
+	["Friends, guildmates and Battle.net friends."] = true,
+	["%d unread"] = true,
+	["No new messages"] = true,
 	["Sound on mention"] = true,
 	["Sound when opening a conversation"] = true,
 	["Repeat sound cooldown"] = true,

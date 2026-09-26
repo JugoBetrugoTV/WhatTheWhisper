@@ -76,10 +76,18 @@ Whether whispers also stay in the game's chat window is a setting: messenger onl
 or messenger and chat. Exposé lays every open window out in a grid — by moving
 the real windows, not by drawing fake previews.
 
+**Replying.** The game's Reply key and `/r` answer whoever whispered last, in the
+messenger, even when the whisper never reached the chat window. In the composer,
+Up and Down bring back what you already said in that thread — a message that did
+not arrive is one key away from being sent again — and Tab or Shift+Tab move to
+the next or previous conversation.
+
 **Notifications.** Toasts that summarise a chatty friend into one card instead of
-a stack, a configurable sound per event with a per-conversation cooldown, an
-unread badge on the minimap button, and Do-Not-Disturb with per-instance-type
-muting.
+a stack, a configurable sound per event with a per-conversation cooldown, a sound
+of its own for friends, guildmates and Battle.net friends if you want one, an
+unread badge on the minimap button and in the addon compartment, the same count on
+data-broker displays (Titan Panel, ElvUI datatexts, Bazooka...) when one is
+installed, and Do-Not-Disturb with per-instance-type muting.
 
 **History.** Off, session-only, 1/7/30 days, or unlimited, with a message cap per
 conversation and a conversation cap, pruned at login and logout. The settings
@@ -110,6 +118,12 @@ Stated plainly, because the alternative is pretending:
   Warcraft Logs, WoWProgress, Check-PvP, Wowhead, Simple Armory on Retail; the
   Classic sites on the Classic clients) for copying. Reporting a player cannot be
   done from an addon: Blizzard's report window refuses a report an addon started.
+- **The game learns who to reply to from its chat window.** A whisper shown in
+  the messenger only never becomes the target of the Reply key, so the addon
+  answers the key itself, in the messenger. It does not write the game's own reply
+  list: a value an addon puts there makes the player's replies fail in arenas and
+  rated battlegrounds, where the client withholds chat from addons. There, and for
+  any whisper the chat window did show, Reply is the game's alone.
 - **WoW Forever names have two parts** ("Matt Loc") and no realm suffix. The addon
   addresses everyone on your own realm, and everyone on Forever, by name alone,
   the way the client itself replies. `/friend` takes the second name as a note,

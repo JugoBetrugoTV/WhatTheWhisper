@@ -43,11 +43,20 @@ function addon:OnEnable()
 	ns.UI.Init()
 	ns.Minimap.Update()
 	ns.Minimap.RegisterCompartment()
+	-- A data-broker display that loads on demand, later than this, brings the
+	-- library with it; until then there is nothing to register with.
+	if not ns.Minimap.RegisterBroker() then
+		self:RegisterEvent("ADDON_LOADED", "OnAddonLoaded")
+	end
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnteringWorld")
 	self:RegisterEvent("UI_SCALE_CHANGED", "OnScaleChanged")
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", "OnScaleChanged")
 	self:RegisterEvent("PLAYER_LOGOUT", "OnLogout")
+end
+
+function addon:OnAddonLoaded()
+	if ns.Minimap.RegisterBroker() then self:UnregisterEvent("ADDON_LOADED") end
 end
 
 function addon:OnEnteringWorld()
@@ -279,7 +288,5 @@ function ns.BindingReply()
 		ns.UI.Show()
 		return
 	end
-	ns.UI.Show()
-	CM.Select(target.id)
-	ns.Anim.After(0.05, function() ns.MainWindow.Get().view:Focus() end)
+	ns.UI.Reply(target.id)
 end

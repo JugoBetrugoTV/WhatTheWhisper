@@ -269,12 +269,18 @@ end
 -- Someone on your own realm is addressed without one, which is how the client
 -- itself replies and the one form every client accepts. On Forever nobody is
 -- addressed with one at all. Anyone else keeps "Name-Realm".
+--
+-- A name with a space in it is a Forever name whatever the flavour detection
+-- concluded: no other client allows a space in a character name, and on the
+-- one that does, a realm suffix is exactly what makes the server find nobody.
+-- So that shape alone is enough to leave the realm off.
 function Compat.WireName(id)
 	if type(id) ~= "string" or id == "" then return id end
 	if strfind(id, "^BN:") then return id end
 	local base, realm = strmatch(id, "^([^%-]+)%-(.+)$")
 	if not base then return id end
 	if not Compat.namesHaveRealms or realm == Compat.GetRealmName() then return base end
+	if strfind(base, "%s") then return base end
 	return id
 end
 
@@ -795,6 +801,25 @@ function Compat.GetGuildRosterInfo(index)
 	name = knownText(name)
 	if not name then return nil end
 	return name, knownNumber(level), knownText(classFile), online == true
+end
+
+-- Whether somebody is in the player's guild. The client's own answer first,
+-- and the roster as well, because the two are asked in different forms -- the
+-- name alone for somebody on your realm, the roster's "Name-Realm" -- and a
+-- guildmate the one form misses is still a guildmate.
+function Compat.IsGuildMember(id)
+	if type(id) ~= "string" or Compat.IsBattleNet(id) then return false end
+	if type(_G.IsInGuild) == "function" and not _G.IsInGuild() then return false end
+	local info = _G.C_GuildInfo
+	if type(info) == "table" and type(info.MemberExistsByName) == "function" then
+		local ok, exists = pcall(info.MemberExistsByName, Compat.WireName(id))
+		if ok and exists == true then return true end
+	end
+	for i = 1, Compat.GetNumGuildMembers() do
+		local name = Compat.GetGuildRosterInfo(i)
+		if name and Compat.NormalizeName(name) == id then return true end
+	end
+	return false
 end
 
 function Compat.GetNumFriends()
@@ -1450,6 +1475,29 @@ function Compat.ShowGameLink(link, text, button)
 	return false
 end
 
+-- Every chat frame's input box, now and whenever the client opens a temporary
+-- whisper window later, which brings an edit box of its own. `fn` is called
+-- once per box per sighting, so it keeps its own record of which it has done.
+local function forEachChatEditBox(fn)
+	local names = _G.CHAT_FRAMES
+	if type(names) == "table" then
+		for _, name in pairs(names) do
+			local chatFrame = type(name) == "string" and _G[name]
+			if type(chatFrame) == "table" then
+				fn(chatFrame.editBox or _G[name .. "EditBox"])
+			end
+		end
+	end
+	fn(_G.ChatFrame1EditBox)
+end
+
+local function watchChatEditBoxes(fn)
+	forEachChatEditBox(fn)
+	if type(_G.FCF_OpenTemporaryWindow) == "function" then
+		_G.hooksecurefunc("FCF_OpenTemporaryWindow", function() forEachChatEditBox(fn) end)
+	end
+end
+
 -- Calls back when the player points a chat box at a whisper target, which is
 -- what "/w Thrall " does before a single word is typed.
 --
@@ -1458,8 +1506,7 @@ end
 -- the box is made. The global ChatEdit_UpdateHeader is only a deprecated alias
 -- of the mixin function that nothing of Blizzard's calls any more, so hooking it
 -- (as this once did) never fired on any supported client. The hook therefore
--- goes on every chat frame's edit box, and again whenever the client opens a
--- temporary whisper window, which brings an edit box of its own.
+-- goes on every chat frame's edit box.
 --
 -- hooksecurefunc only adds to a function -- nothing of Blizzard's is replaced,
 -- so a chat box keeps working exactly as it did. Returns whether any hook could
@@ -1487,27 +1534,11 @@ function Compat.HookWhisperCompose(callback)
 	end
 
 	local hooked = {}
-	local function hookEditBox(box)
+	watchChatEditBoxes(function(box)
 		if type(box) ~= "table" or hooked[box] or type(box.UpdateHeader) ~= "function" then return end
 		hooked[box] = true
 		hook(box, "UpdateHeader", onHeader)
-	end
-	local function hookChatFrames()
-		local names = _G.CHAT_FRAMES
-		if type(names) ~= "table" then return end
-		for _, name in pairs(names) do
-			local chatFrame = type(name) == "string" and _G[name]
-			if type(chatFrame) == "table" then
-				hookEditBox(chatFrame.editBox or _G[name .. "EditBox"])
-			end
-		end
-	end
-
-	hookChatFrames()
-	hookEditBox(_G.ChatFrame1EditBox)
-	if type(_G.FCF_OpenTemporaryWindow) == "function" then
-		hook("FCF_OpenTemporaryWindow", hookChatFrames)
-	end
+	end)
 	-- A client whose chat still calls the global. On the supported ones it is
 	-- the deprecated alias no Blizzard code calls, and a call through it reaches
 	-- the unhooked mixin function rather than a box's hooked method, so the two
@@ -1515,6 +1546,51 @@ function Compat.HookWhisperCompose(callback)
 	local legacy = type(_G.ChatEdit_UpdateHeader) == "function"
 	if legacy then hook("ChatEdit_UpdateHeader", onHeader) end
 	return legacy or next(hooked) ~= nil
+end
+
+-- Calls back when the player asks the game to reply to the last whisper: the
+-- Reply key, which runs ChatFrameUtil.ReplyTell, or "/r " typed into a chat box,
+-- which goes through the box's ProcessChatType with the chat type "REPLY".
+--
+-- The game only learns who that is from its own chat frame: it records the
+-- sender as the reply target *after* the chat filters have run, and a whisper a
+-- filter took out of the chat frame never gets that far. With whispers shown in
+-- the messenger only, the Reply key therefore went to nobody, or to whoever last
+-- whispered while the addon was not hiding anything.
+--
+-- The target list itself is left alone. Writing it from here would put this
+-- addon's values into Blizzard's reply, and SendChatMessage refuses a secret
+-- target from tainted code -- the player's own replies would start failing in
+-- exactly the places the client hides chat from addons. So the caller is told,
+-- and answers in the messenger instead. `callback(editBox)`; editBox is nil for
+-- the key, which may not have opened a box at all.
+function Compat.HookReply(callback)
+	local hook = _G.hooksecurefunc
+	if type(hook) ~= "function" then return false end
+	local function fire(editBox)
+		ns.Guard("Compat.HookReply", callback, editBox)
+	end
+
+	local installed = false
+	local util = _G.ChatFrameUtil
+	if type(util) == "table" and type(util.ReplyTell) == "function" then
+		hook(util, "ReplyTell", function() fire(nil) end)
+		installed = true
+	elseif type(_G.ChatFrame_ReplyTell) == "function" then
+		hook("ChatFrame_ReplyTell", function() fire(nil) end)
+		installed = true
+	end
+
+	local hooked = {}
+	watchChatEditBoxes(function(box)
+		if type(box) ~= "table" or hooked[box] or type(box.ProcessChatType) ~= "function" then return end
+		hooked[box] = true
+		hook(box, "ProcessChatType", function(editBox, _, index)
+			if index == "REPLY" then fire(editBox) end
+		end)
+		installed = true
+	end)
+	return installed
 end
 
 function Compat.SetTooltipHyperlink(tooltip, link)

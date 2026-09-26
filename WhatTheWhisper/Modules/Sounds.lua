@@ -79,7 +79,13 @@ end
 
 Sounds.PlayID = playSoundID
 
--- event: "newMessage" | "hiddenMessage" | "mention" | "openConv" | "closeConv"
+-- The sounds a message plays, as opposed to a window opening or closing.
+local MESSAGE_SOUNDS = {
+	newMessage = true, hiddenMessage = true, mention = true, friendMessage = true,
+}
+
+-- event: "newMessage" | "hiddenMessage" | "mention" | "friendMessage"
+--      | "openConv" | "closeConv"
 function Sounds.Play(event, conv)
 	local s = settings()
 	if conv and conv.muted then return false end
@@ -87,7 +93,7 @@ function Sounds.Play(event, conv)
 
 	-- One sound per conversation per cooldown window, so a burst of five
 	-- messages is one notification, not five.
-	if conv and (event == "newMessage" or event == "hiddenMessage" or event == "mention") then
+	if conv and MESSAGE_SOUNDS[event] then
 		local cooldown = tonumber(s.cooldown) or 0
 		if cooldown > 0 then
 			local now = GetTime()

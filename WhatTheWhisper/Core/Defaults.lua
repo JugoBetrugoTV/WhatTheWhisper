@@ -86,6 +86,9 @@ ns.defaults = {
 			newMessage     = "TELL_MESSAGE",
 			hiddenMessage  = "TELL_MESSAGE",
 			mention        = "RAID_WARNING",
+			-- A friend, a guildmate or a Battle.net friend. "same" plays whatever
+			-- anybody else's whisper would.
+			friendMessage  = "same",
 			openConv       = "none",
 			closeConv      = "none",
 			cooldown       = 5,

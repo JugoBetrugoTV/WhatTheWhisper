@@ -87,6 +87,34 @@ function UI.IsConversationVisible(id)
 	return false
 end
 
+-- Puts a conversation in front of the player with the keyboard in its composer,
+-- ready to answer: in its own window when it has one open, or when new
+-- whispers are set to open that way, and in the messenger otherwise.
+-- `inMessenger` asks for the messenger whatever the setting says -- the
+-- messenger's own menu, where a new window would be a surprise.
+--
+-- The focus is taken a moment later rather than now. This runs from a key press
+-- -- the Reply key, or a binding -- and a composer focused inside that press
+-- would receive the key's own character as the first letter of the reply.
+function UI.Reply(id, inMessenger)
+	if not CM.Get(id) then return end
+	local popout = ns.Popout.Get(id)
+	local inWindow = not inMessenger and ((popout and popout:IsShown())
+		or (ns.Setting("messages.openAs") == "window" and not UI.IsConversationVisible(id)))
+	if inWindow then
+		popout = ns.Popout.Open(id)
+		if not popout then return end
+		if popout.minimized then popout:ToggleMinimized(false) end
+		popout:Raise()
+		Anim.After(0.05, function() if popout:IsShown() then popout.view:Focus() end end)
+		return
+	end
+	UI.Show()
+	CM.Select(id)
+	UI.EnsureConversationOpen(id, false)
+	Anim.After(0.05, function() main().view:Focus() end)
+end
+
 function UI.OnComposerEscape()
 	-- Escape in the composer gives the game back its keyboard, it does not close
 	-- the window; that would be infuriating mid-sentence.
@@ -217,9 +245,7 @@ function UI.BuildConversationMenu(conv)
 	local isBN = conv.isBN
 
 	entries[#entries + 1] = { text = L["Whisper"], icon = "chat", onClick = function()
-		UI.Show()
-		CM.Select(conv.id)
-		Anim.After(0.05, function() main().view:Focus() end)
+		UI.Reply(conv.id, true)
 	end }
 
 	if not isBN and Compat.canInvite then

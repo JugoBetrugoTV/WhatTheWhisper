@@ -4,6 +4,11 @@
 -- addon was pointed at, and a single draggable button is not worth a hard
 -- dependency. It shows the unread count, which the LDB version could not.
 --
+-- The same count also goes to data-broker displays -- Titan Panel, ElvUI's
+-- datatexts, Bazooka and the like -- when one is installed. Those carry
+-- LibDataBroker themselves, so this addon neither embeds nor needs it: it asks
+-- whether it is there, the way it asks for LibSharedMedia.
+--
 -- The button rides the *outside* of the minimap ring. Sitting on the ring, or
 -- inside it, covers the map and fights every other addon's buttons for the same
 -- pixels; a full button width clear of the edge is where a tray belongs.
@@ -17,9 +22,10 @@ local MinimapButton = {}
 ns.Minimap = MinimapButton
 
 local button
--- Forward declared: the compartment entry is defined below, next to the clicks
--- it shares with the button, but Update above it has to keep its count current.
-local refreshCompartment
+-- Forward declared: the compartment entry and the broker feed are defined
+-- below, next to the clicks they share with the button, but Update above them
+-- has to keep their counts current.
+local refreshCompartment, refreshBroker
 local SIZE = 30
 -- Clearance between the minimap's own edge and the near edge of the button.
 local ORBIT_GAP = 3
@@ -129,8 +135,9 @@ local function onLeftClick()
 end
 
 -- Right click: the names, then the rest. Everything the button can do is here,
--- so nothing depends on the player guessing a modifier.
-local function onRightClick()
+-- so nothing depends on the player guessing a modifier. The list opens under
+-- whatever was clicked: the button, or a broker display's own frame.
+local function onRightClick(anchor)
 	local entries = {}
 	local waiting = unreadConversations()
 	for i = 1, math.min(#waiting, MAX_LISTED) do
@@ -159,7 +166,7 @@ local function onRightClick()
 		onClick = function()
 			ns.Options.Set("advanced.minimap.hide", true)
 		end }
-	ns.Menu.Open(entries, { anchorTo = button, point = "TOPRIGHT",
+	ns.Menu.Open(entries, { anchorTo = anchor or button, point = "TOPRIGHT",
 		relPoint = "BOTTOMRIGHT", y = -ns.S.XS })
 end
 
@@ -276,7 +283,9 @@ function MinimapButton.Update()
 		end
 		-- Hiding the minimap button is exactly when the compartment entry
 		-- becomes the way in, so it keeps counting.
-		refreshCompartment(ns.Setting("notifications.badge") and CM.TotalUnread() or 0)
+		local count = ns.Setting("notifications.badge") and CM.TotalUnread() or 0
+		refreshCompartment(count)
+		refreshBroker(count)
 		return
 	end
 	if not build() then return end
@@ -292,6 +301,7 @@ function MinimapButton.Update()
 	Anim.Attention(button.badge, count > 0)
 	refreshTooltip(count > 0 and waiting or {})
 	refreshCompartment(count)
+	refreshBroker(count)
 
 	button:Show()
 end
@@ -341,6 +351,54 @@ function refreshCompartment(count)
 	if compartment.text == text then return end
 	compartment.text = text
 	Compat.RefreshAddonCompartment()
+end
+
+--------------------------------------------------------------------------------
+-- Data-broker displays
+--------------------------------------------------------------------------------
+
+local LOGO = "Interface\\AddOns\\WhatTheWhisper\\Art\\Logo"
+local broker
+
+local function brokerText(count)
+	if count > 0 then return L["%d unread"]:format(count) end
+	return L["No new messages"]
+end
+
+-- Registers the feed if a display has brought LibDataBroker along. Asked at
+-- login, when every addon that loads with the game has, and again for any
+-- that loads later. Returns whether the feed exists.
+function MinimapButton.RegisterBroker()
+	if broker then return true end
+	local stub = _G.LibStub
+	local ldb = stub and stub("LibDataBroker-1.1", true)
+	if not ldb or type(ldb.NewDataObject) ~= "function" then return false end
+	broker = ldb:NewDataObject("WhatTheWhisper", {
+		type = "data source",
+		label = L["WhatTheWhisper"],
+		text = brokerText(0),
+		icon = LOGO,
+		OnClick = function(frame, mouseButton)
+			if mouseButton == "RightButton" then onRightClick(frame) else onLeftClick() end
+		end,
+		OnTooltipShow = function(tooltip)
+			if not tooltip or not tooltip.AddLine then return end
+			tooltip:AddLine(L["WhatTheWhisper"])
+			for text in tooltipBody(unreadConversations()):gmatch("[^\n]+") do
+				tooltip:AddLine(text, 1, 1, 1)
+			end
+		end,
+	})
+	if not broker then return false end
+	refreshBroker(ns.Setting("notifications.badge") and CM.TotalUnread() or 0)
+	return true
+end
+
+-- Written only when it changes: every display redraws on every write.
+function refreshBroker(count)
+	if not broker then return end
+	local text = brokerText(count)
+	if broker.text ~= text then broker.text = text end
 end
 
 function MinimapButton.ApplyTheme()
