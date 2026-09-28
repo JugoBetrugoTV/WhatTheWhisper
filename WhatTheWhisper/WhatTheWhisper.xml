@@ -80,6 +80,7 @@
 	<Script file="Modules\Sounds.lua"/>
 	<Script file="Modules\Notifications.lua"/>
 	<Script file="Modules\Deferred.lua"/>
+	<Script file="Modules\SpamFilter.lua"/>
 	<Script file="Modules\ChatEvents.lua"/>
 	<Script file="Modules\URLs.lua"/>
 	<Script file="Modules\Emoticons.lua"/>

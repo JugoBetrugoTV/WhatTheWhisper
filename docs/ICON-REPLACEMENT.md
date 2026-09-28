@@ -71,6 +71,7 @@ nothing in this set does.
 | `failed.tga` | Delivery: it did not go -- in the line, and beside the message | 16px | 64 x 64 | yes | 4px | circled exclamation or X | not needed | 2 places |
 | `grid.tga` | Show every open conversation window at once | 22px | 64 x 64 | yes | 6px | four rounded squares | not needed | 2 places |
 | `grip.tga` | The window's resize corner | 18px | 64 x 64 | yes | 5px | three short diagonal strokes | not needed | 1 place |
+| `guild.tga` | Invite to guild | 20px | 64 x 64 | yes | 5px | two people, one behind the other | not needed | 1 place |
 | `history.tga` | Settings category: History | 22px | 64 x 64 | yes | 6px | clock face | not needed | 1 place |
 | `info.tga` | Show character details under the conversation header | 22px | 64 x 64 | yes | 6px | circled lower-case i | not needed | 1 place |
 | `invite.tga` | Invite this player to your group | 20px | 64 x 64 | yes | 5px | head and shoulders with a plus | not needed | 1 place |
@@ -90,6 +91,7 @@ nothing in this set does.
 | `sent.tga` | Delivery line: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
 | `settings.tga` | Opens the settings window; the Appearance-level settings category | 22px | 64 x 64 | yes | 6px | two horizontal sliders | not needed | 3 places |
 | `sounds.tga` | Settings category: Sounds | 22px | 64 x 64 | yes | 6px | speaker with one wave | not needed | 1 place |
+| `spam.tga` | Mark a thread as spam, or not | 20px | 64 x 64 | yes | 5px | a funnel | not needed | 2 places |
 | `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 2 places |
 | `trash.tga` | Clear or delete a conversation | 20px | 64 x 64 | yes | 5px | waste bin with a lid | not needed | 1 place |
 | `unpin.tga` | Unpin, in the conversation menu | 20px | 64 x 64 | yes | 5px | push-pin, outline only | not needed | 2 places |

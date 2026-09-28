@@ -313,6 +313,8 @@ function Options.BuildSchema()
 							{ value = "messenger", label = L["In the messenger"] },
 							{ value = "window", label = L["In their own window"] },
 						}),
+						toggle("messages.openInInstances", L["Also in dungeons, raids and PvP"],
+							L["Off: inside an instance a whisper only shows a card and plays its sound."]),
 						toggle("messages.openOnCompose", L["Open when you start a whisper"],
 							L["Typing /w in the default chat box opens that conversation here."]),
 						toggle("messages.autoSwitch", L["Auto-switch to new conversations"],
@@ -326,6 +328,14 @@ function Options.BuildSchema()
 						}) or nil,
 						whisperModeRow()
 					),
+				},
+				{
+					title = L["Spam filter"],
+					rows = {
+						{ type = "input", path = "filter.words",
+							label = L["Filter whispers containing"],
+							caption = L["Words or phrases, separated by commas. Only strangers are filtered, never friends, guildmates or anyone you have written to. Filtered whispers are kept, silently, at the bottom of the list."] },
+					},
 				},
 			},
 		},

@@ -248,11 +248,25 @@ local function readableWhisper(value)
 	return nil
 end
 
+-- The spam filter's answer for one whisper, asked by the chat filter and by the
+-- handler and remembered per chat line, so the two cannot disagree about a
+-- message halfway through being handled -- the handler's own answer changes the
+-- thread, and asking again afterwards would see a thread already filtered.
+local lastSpam = {}
+local function isSpam(id, text, lineID)
+	local line = Compat.ReadableNumber(lineID)
+	if line and lastSpam.line == line then return lastSpam.value end
+	local value = ns.SpamFilter.ShouldFilter(id, text)
+	if line then lastSpam.line, lastSpam.value = line, value end
+	return value
+end
+
 local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 	text, sender, guid = readableWhisper(text), readableOrNil(sender), readableOrNil(guid)
 	if text == nil or sender == nil or sender == "" then return end
 	local censoredLine = censoredLineOf(lineID)
 	local id = Compat.NormalizeName(sender)
+	local filtered = isSpam(id, text, lineID)
 	PlayerInfo.Observe(id, guid)
 	local info = PlayerInfo.Get(id)
 
@@ -275,9 +289,13 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 	-- The commit. Everything above is working out where it goes; this is the
 	-- line that means the message exists.
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp, nil,
-		{ censoredLine = censoredLine, chatLine = Compat.ReadableNumber(lineID) })
+		{ censoredLine = censoredLine, chatLine = Compat.ReadableNumber(lineID),
+			filtered = filtered or nil })
 	if not msg then return false end
-	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
+	Debug.Log("events", "whisper in from %s (%d bytes)%s", id, #(text or ""),
+		filtered and ", filtered" or "")
+	-- A filtered whisper interrupts nothing, the Reply key included.
+	if filtered then return true end
 	ChatEvents.NoteIncoming(id)
 
 	-- ...and everything below is what happens because it exists. Guarded on its
@@ -617,8 +635,20 @@ end
 -- the player can read it -- which for a held message is the only copy there is,
 -- and for an unusable one is the only copy there will ever be.
 local function suppressFilter(_, event, ...)
-	if not shouldHide() then return false end
-	return ChatEvents.Admit(event, ...) == ADMIT_STORE
+	if ChatEvents.Admit(event, ...) ~= ADMIT_STORE then return false end
+	if shouldHide() then return true end
+	-- Whispers are staying in the chat window, but not the ones the spam
+	-- filter caught: the addon keeps those in their thread, so this is the
+	-- one copy the player can do without. Same safeguards as hiding at all.
+	if event ~= "CHAT_MSG_WHISPER" then return false end
+	local db = ns.db
+	if not db or not db.profile or not db.profile.enabled or ns.Debug.IsDegraded() then
+		return false
+	end
+	local text, sender = ...
+	text, sender = Compat.ReadableText(text), Compat.ReadableText(sender)
+	if not text or not sender or sender == "" then return false end
+	return isSpam(Compat.NormalizeName(sender), text, (select(11, ...)))
 end
 
 --------------------------------------------------------------------------------

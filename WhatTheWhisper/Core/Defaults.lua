@@ -69,11 +69,19 @@ ns.defaults = {
 			-- "messenger": the main window, on that thread. "window": the thread
 			-- in a small window of its own, one per person, the way WIM does it.
 			openAs             = "messenger",
+			-- Inside a dungeon, raid, arena or battleground a window opening in
+			-- the middle of a pull is the one interruption nobody wants.
+			openInInstances    = true,
 			openOnCompose      = true,
 			hideFromChatFrame  = true,
 			markReadOnFocus    = true,
 			deliveryStatus     = true,
 			showRealm          = "cross", -- never | cross | always
+		},
+
+		-- Words that mark a stranger's whisper as spam. Empty means off.
+		filter = {
+			words = "",
 		},
 
 		history = {

@@ -144,7 +144,10 @@ local function retentionCutoff()
 	local seconds = ns.RETENTION_SECONDS[setting("retention")]
 	if not seconds or seconds < 0 then return nil end   -- forever / session
 	if seconds == 0 then return math.huge end           -- off: drop everything
-	return time() - seconds
+	-- The server's clock, not the computer's: every stored message is stamped
+	-- with the server's, and a PC clock a few days out would otherwise keep
+	-- messages past their window or drop them early.
+	return Compat.GetServerTime() - seconds
 end
 
 -- Drops messages older than the retention window and conversations that are
@@ -270,6 +273,8 @@ function History.WriteMeta(conv)
 	rec.u = conv.unread > 0 and conv.unread or nil
 	rec.p = conv.pinned or nil
 	rec.m = conv.muted or nil
+	rec.fl = conv.filtered or nil
+	rec.ns = conv.notSpam or nil
 end
 
 --------------------------------------------------------------------------------

@@ -36,6 +36,9 @@ end
 
 function Notifications.OnIncoming(conv, msg, isMention)
 	if not conv or not msg then return end
+	-- The spam filter caught it: kept, and nothing more. No sound, card, flash
+	-- or window, and no tab.
+	if conv.filtered then return end
 	local UI = ns.UI
 	local visible = UI and UI.IsConversationVisible(conv.id) or false
 	local windowShown = UI and UI.IsAnyWindowShown() or false
@@ -80,7 +83,10 @@ function Notifications.OnIncoming(conv, msg, isMention)
 	-- -- whether to interrupt a conversation already on screen -- and only
 	-- applies once the window is up.
 	local ms = messageSettings()
-	if UI and not conv.muted and not visible then
+	local instance = ns.Compat.InstanceType()
+	local stayShut = not ms.openInInstances and (instance == "party" or instance == "raid"
+		or instance == "arena" or instance == "pvp" or instance == "scenario")
+	if UI and not conv.muted and not visible and not stayShut then
 		if ms.openOnWhisper and ms.openAs == "window" then
 			-- A window of its own for this thread, whatever else is open: the
 			-- messenger stays where it is and shows what it was showing.

@@ -343,13 +343,15 @@ function S:RenderRow(conv, index)
 		local nameColor = Theme.ClassColor(conv.class, "bg1")
 		if nameColor then
 			-- A muted thread has to look muted even when class colours are on,
-			-- so the class colour is pulled towards the muted text colour.
-			if conv.muted then
+			-- so the class colour is pulled towards the muted text colour. A
+			-- filtered one is quieter still.
+			if conv.muted or conv.filtered then
 				nameColor = ns.Color.Mix(nameColor, Theme.Get("textMuted"), 0.55)
 			end
 			row.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3], 1)
 		else
-			W.SetTextRole(row.name, conv.muted and "textSecondary" or "textPrimary")
+			W.SetTextRole(row.name, (conv.muted or conv.filtered) and "textSecondary"
+				or "textPrimary")
 		end
 
 		-- Reserve room for whichever indicators this row actually shows. Each is
@@ -393,6 +395,10 @@ function S:RenderRow(conv, index)
 			end
 		else
 			preview = ""
+		end
+		-- Why it is down here, said where the eye already is.
+		if conv.filtered then
+			preview = L["Filtered"] .. " \194\183 " .. preview
 		end
 		W.SetTextRole(row.preview, unread and "textSecondary" or "textMuted")
 		local badgeWidth = unread and (row.badge:GetWidth() or ns.SZ.BADGE_H) + ns.S.SM or 0

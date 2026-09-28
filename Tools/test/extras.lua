@@ -56,6 +56,7 @@ local function soundFor(text, sender)
 end
 
 M.friends = { { name = "Jaina", connected = true } }
+M.inGuild = true
 M.guildRoster = { { name = "Anduin-Blackrock", level = 70, class = "PRIEST" } }
 
 --------------------------------------------------------------------------------

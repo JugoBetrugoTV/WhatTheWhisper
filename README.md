@@ -69,7 +69,8 @@ false-positiving on "3.5" or "e.g.".
 then as sent when the server echoes it back, and as failed when the server
 answers "No player named …". That is real information, not a spinner.
 
-**Windows.** Sidebar, tabs or both. Any conversation can be popped out into its
+**Windows.** Sidebar, tabs or both. Whether a whisper may open a window inside a
+dungeon, raid or PvP is a setting of its own. Any conversation can be popped out into its
 own window, and new whispers can open that way on their own, one small window per
 person, the way WIM does it. Popouts snap to each other and to the main window.
 Whether whispers also stay in the game's chat window is a setting: messenger only,
@@ -81,6 +82,12 @@ messenger, even when the whisper never reached the chat window. In the composer,
 Up and Down bring back what you already said in that thread — a message that did
 not arrive is one key away from being sent again — and Tab or Shift+Tab move to
 the next or previous conversation.
+
+**Spam.** A list of words in the settings: a stranger's whisper containing one
+is kept, silently — no sound, card, window or unread count, out of the chat
+window too — at the bottom of the list, marked as filtered. Friends, guildmates,
+Battle.net friends and anyone you have written to are never filtered, and "Not
+spam" or "Mark as spam" in the menu overrule it either way.
 
 **Hidden by the game's filter.** A whisper the game's language filter hid says so,
 and one click on it shows it — on every client, since all of them ship the call.

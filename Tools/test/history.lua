@@ -209,6 +209,23 @@ local alt = CM.Get("Alt-Blackrock")
 eq("message outside the window dropped", #alt.messages, 1)
 eq("message inside the window kept", alt.messages[1][MSG_TEXT], "neu")
 
+-- The window is measured on the server's clock, which is what every message is
+-- stamped with. The computer's clock used to decide instead, so with that clock
+-- forty days ahead a message one day old by the server was dropped as older
+-- than the thirty-day window.
+do
+	local realTime = _G.time
+	_G.time = function(t)
+		if t ~= nil then return realTime(t) end
+		return ns.Compat.GetServerTime() + 40 * 86400
+	end
+	CM.AddMessage("Uhr-Blackrock", ns.DIR_IN, "gestern", ns.MSG_WHISPER, now - 86400)
+	History.Prune()
+	eq("a computer clock that is off does not decide what is dropped",
+		CM.Get("Uhr-Blackrock") and #CM.Get("Uhr-Blackrock").messages, 1)
+	_G.time = realTime
+end
+
 problems = audit(_G.WhatTheWhisperHistoryDB, "HistoryDB")
 check("pruning leaves the file serialisable", #problems == 0,
 	table.concat(problems, "\n      ", 1, math.min(#problems, 5)))

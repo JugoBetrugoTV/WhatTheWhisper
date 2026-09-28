@@ -2021,7 +2021,15 @@ _G.BNSendWhisper = function(id, text)
 	M.sentBN = M.sentBN or {}
 	M.sentBN[#M.sentBN + 1] = { id = id, text = text, via = "global" }
 end
-_G.C_GuildInfo = { GuildRoster = function() end }
+-- The guild: whether the player is in one and may invite (M.inGuild,
+-- M.canGuildInvite), and the invites that went out (M.guildInvites).
+M.guildInvites = {}
+_G.C_GuildInfo = {
+	GuildRoster = function() end,
+	Invite = function(name) M.guildInvites[#M.guildInvites + 1] = name end,
+}
+_G.IsInGuild = function() return M.inGuild == true end
+_G.CanGuildInvite = function() return M.canGuildInvite == true end
 _G.GetNumGuildMembers = function() return #(M.guildRoster or {}) end
 _G.GetGuildRosterInfo = function(index)
 	local row = M.guildRoster and M.guildRoster[index]
@@ -2073,7 +2081,15 @@ _G.xpcall = function(f, handler, ...)
 end
 _G.IsLoggedIn = function() return M.loggedIn or false end
 -- WoW exposes these as globals, not through the os table.
-_G.time = os.time
+-- The wall clock follows the mock's own clock, the same one GetServerTime reads.
+-- It used to be the machine's real clock, so every stored message was stamped a
+-- fixed date while "now" moved on with the calendar, and a suite that passed in
+-- August failed a month later for no change in the code. With a table it still
+-- converts a date, as os.time does.
+_G.time = function(t)
+	if t ~= nil then return os.time(t) end
+	return M.serverEpoch + math.floor(M.now)
+end
 _G.date = os.date
 
 _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end

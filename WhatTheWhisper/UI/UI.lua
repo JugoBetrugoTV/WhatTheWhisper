@@ -253,6 +253,13 @@ function UI.BuildConversationMenu(conv)
 			onClick = function() Compat.InviteUnit(conv.id) end }
 	end
 
+	-- Recruiting is what a lot of whispers are about. Offered to somebody who may
+	-- invite, for somebody not already in the guild.
+	if not isBN and Compat.CanGuildInvite() and not Compat.IsGuildMember(conv.id) then
+		entries[#entries + 1] = { text = L["Invite to guild"], icon = "guild",
+			onClick = function() Compat.GuildInvite(conv.id) end }
+	end
+
 	if not isBN then
 		-- Adding a friend is restricted from addon code, so the entry runs the
 		-- client's own /friend from a secure button; ContextMenu disables it in
@@ -307,6 +314,15 @@ function UI.BuildConversationMenu(conv)
 		icon = conv.muted and "bell" or "mute",
 		onClick = function() CM.SetMuted(conv.id, not conv.muted) end,
 	}
+	-- The spam filter's verdict, and the player's way to overrule it -- or to
+	-- give it one it missed. Battle.net senders are all friends.
+	if conv.filtered then
+		entries[#entries + 1] = { text = L["Not spam"], icon = "spam",
+			onClick = function() CM.SetFiltered(conv.id, false) end }
+	elseif not isBN then
+		entries[#entries + 1] = { text = L["Mark as spam"], icon = "spam",
+			onClick = function() CM.SetFiltered(conv.id, true) end }
+	end
 	entries[#entries + 1] = {
 		text = conv.pinned and L["Unpin conversation"] or L["Pin conversation"],
 		icon = conv.pinned and "pin" or "unpin",

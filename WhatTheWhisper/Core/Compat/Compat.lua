@@ -807,6 +807,24 @@ end
 -- and the roster as well, because the two are asked in different forms -- the
 -- name alone for somebody on your realm, the roster's "Name-Realm" -- and a
 -- guildmate the one form misses is still a guildmate.
+-- Guild invites are not restricted: C_GuildInfo.Invite is what the client's own
+-- /ginvite calls, on every supported client. Whether the player may invite at
+-- all is the guild's rank setting, which CanGuildInvite answers.
+function Compat.CanGuildInvite()
+	if type(_G.IsInGuild) == "function" and not _G.IsInGuild() then return false end
+	if type(_G.CanGuildInvite) ~= "function" then return false end
+	local ok, can = pcall(_G.CanGuildInvite)
+	if not ok or not can then return false end
+	local info = _G.C_GuildInfo
+	return type(info) == "table" and type(info.Invite) == "function"
+end
+
+function Compat.GuildInvite(id)
+	local info = _G.C_GuildInfo
+	if type(info) ~= "table" or type(info.Invite) ~= "function" then return false end
+	return (pcall(info.Invite, Compat.WireName(id)))
+end
+
 function Compat.IsGuildMember(id)
 	if type(id) ~= "string" or Compat.IsBattleNet(id) then return false end
 	if type(_G.IsInGuild) == "function" and not _G.IsInGuild() then return false end

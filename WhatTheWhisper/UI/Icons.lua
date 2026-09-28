@@ -247,6 +247,16 @@ Icons.REPLACEABLE = {
 		note = "a triangle with an exclamation mark",
 		use = "Report a whisper",
 	},
+	spam = {
+		size = "MENU_ICON",
+		note = "a funnel",
+		use = "Mark a thread as spam, or not",
+	},
+	guild = {
+		size = "MENU_ICON",
+		note = "two people, one behind the other",
+		use = "Invite to guild",
+	},
 	bullet = {
 		size = "MENU_ICON",
 		note = "a small filled dot",
@@ -290,6 +300,8 @@ local ATLAS_ALIAS = {
 	link = "globe",
 	reveal = "eye",
 	report = "warning",
+	spam = "filter",
+	guild = "users",
 	bullet = "dot",
 	grip = "sort",
 }

@@ -72,6 +72,8 @@ local function newConversation(id, opts)
 		conv.unread = rec.u or 0
 		conv.pinned = rec.p and true or false
 		conv.muted = rec.m and true or false
+		conv.filtered = rec.fl and true or false
+		conv.notSpam = rec.ns and true or false
 	else
 		conv.messages = {}
 	end
@@ -152,6 +154,9 @@ end
 
 local function compare(a, b)
 	if a.pinned ~= b.pinned then return a.pinned end
+	-- Filtered threads go to the bottom, where they are there if wanted and
+	-- out of the way if not.
+	if (a.filtered or false) ~= (b.filtered or false) then return not a.filtered end
 	if a.lastActivity ~= b.lastActivity then return a.lastActivity > b.lastActivity end
 	return a.name < b.name
 end
@@ -289,6 +294,13 @@ function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 		msg[ns.MSG_LINE] = opts.censoredLine
 	end
 
+	-- A whisper the spam filter caught marks its whole thread. The message is
+	-- kept like any other; the thread just stops asking for attention.
+	if opts and opts.filtered and not conv.filtered then
+		conv.filtered = true
+		if conv.record then conv.record.fl = true end
+	end
+
 	History.Append(conv, msg)
 
 	conv.lastActivity = msg[MSG_TS]
@@ -298,7 +310,8 @@ function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 		-- They wrote, so they exist and they are online: whatever the server
 		-- said about the name earlier is stale.
 		conv.notFound = nil
-		if selectedID ~= id or not ns.UI or not ns.UI.IsConversationVisible(id) then
+		if not conv.filtered and
+			(selectedID ~= id or not ns.UI or not ns.UI.IsConversationVisible(id)) then
 			conv.unread = conv.unread + 1
 			totalUnread = totalUnread + 1
 			ns.Bus.Fire(ns.EV.UNREAD_CHANGED, totalUnread)
@@ -447,6 +460,29 @@ function CM.SetMuted(id, muted)
 	conv.muted = muted and true or false
 	if conv.record then conv.record.m = conv.muted or nil end
 	ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv)
+end
+
+-- The player's own verdict on a thread: "Mark as spam" or "Not spam". Lifting
+-- it is also what the filter respects afterwards -- a thread the player said
+-- is not spam is known, and is not filtered again for the same words.
+function CM.SetFiltered(id, filtered)
+	local conv = conversations[id]
+	if not conv then return end
+	filtered = filtered and true or false
+	if conv.filtered == filtered then return end
+	conv.filtered = filtered
+	if conv.record then conv.record.fl = filtered or nil end
+	if filtered and conv.unread > 0 then
+		totalUnread = math.max(0, totalUnread - conv.unread)
+		conv.unread = 0
+		if conv.record then conv.record.u = nil end
+		ns.Bus.Fire(ns.EV.UNREAD_CHANGED, totalUnread)
+	end
+	conv.notSpam = not filtered
+	if conv.record then conv.record.ns = conv.notSpam or nil end
+	orderDirty = true
+	ns.Bus.Fire(ns.EV.CONVERSATION_UPDATED, conv)
+	ns.Bus.Fire(ns.EV.LAYOUT_CHANGED)
 end
 
 function CM.SetDraft(id, text)
