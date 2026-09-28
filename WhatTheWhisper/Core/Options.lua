@@ -83,6 +83,11 @@ local APPLY = {
 	["history"] = function() ns.History.Prune() end,
 	["messages"] = function() ns.UI.RefreshAll() end,
 	["notifications.position"] = function() ns.Toast.Relayout() end,
+	["notifications.scale"] = function()
+		ns.Toast.Relayout()
+		-- The sample being dragged is drawn at the size it will have.
+		if ns.Toast.IsMoving() then ns.Toast.StartMoving() end
+	end,
 	["advanced.minimap.hide"] = function() ns.Minimap.Update() end,
 }
 
@@ -555,7 +560,20 @@ function Options.BuildSchema()
 							{ value = "topleft", label = L["Top left"] },
 							{ value = "bottomright", label = L["Bottom right"] },
 							{ value = "bottomleft", label = L["Bottom left"] },
+							{ value = "custom", label = L["Where you put it"] },
 						}),
+						{
+							type = "button", label = L["Move notifications"],
+							caption = L["Drag the sample anywhere on the screen. Right-click it when done."],
+							buttonText = L["Move"],
+							onClick = function() ns.Toast.ToggleMoving() end,
+						},
+						slider("notifications.scale", L["Notification size"], 0.7, 1.6, 0.1, percent),
+						{
+							type = "button", label = L["Show a test notification"],
+							buttonText = L["Test"],
+							onClick = function() ns.Toast.ShowSample() end,
+						},
 						slider("notifications.duration", L["Toast duration"], 2, 15, 1, seconds),
 						slider("notifications.maxVisible", L["Maximum toasts"], 1, 6, 1, plain),
 						toggle("notifications.summarise", L["Summarise repeated messages"]),

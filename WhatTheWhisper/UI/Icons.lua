@@ -242,6 +242,11 @@ Icons.REPLACEABLE = {
 		note = "an open eye",
 		use = "Show a message the game has hidden",
 	},
+	report = {
+		size = "MENU_ICON",
+		note = "a triangle with an exclamation mark",
+		use = "Report a whisper",
+	},
 	bullet = {
 		size = "MENU_ICON",
 		note = "a small filled dot",
@@ -284,6 +289,7 @@ local ATLAS_ALIAS = {
 	appearance = "eye",
 	link = "globe",
 	reveal = "eye",
+	report = "warning",
 	bullet = "dot",
 	grip = "sort",
 }

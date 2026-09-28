@@ -103,7 +103,11 @@ ns.defaults = {
 
 		notifications = {
 			toasts     = true,
-			position   = "topright",     -- topright | topleft | bottomright | bottomleft
+			position   = "topright",     -- topright | topleft | bottomright | bottomleft | custom
+			-- Where the player dragged them, as the card's top-left in UIParent
+			-- units; used when position is "custom".
+			anchor     = nil,
+			scale      = 1,
 			duration   = 5,
 			badge      = true,
 			summarise  = true,

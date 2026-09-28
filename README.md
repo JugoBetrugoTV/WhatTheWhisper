@@ -82,12 +82,17 @@ Up and Down bring back what you already said in that thread — a message that d
 not arrive is one key away from being sent again — and Tab or Shift+Tab move to
 the next or previous conversation.
 
+**Hidden by the game's filter.** A whisper the game's language filter hid says so,
+and one click on it shows it — on every client, since all of them ship the call.
+
 **Notifications.** Toasts that summarise a chatty friend into one card instead of
-a stack, a configurable sound per event with a per-conversation cooldown, a sound
-of its own for friends, guildmates and Battle.net friends if you want one, an
-unread badge on the minimap button and in the addon compartment, the same count on
-data-broker displays (Titan Panel, ElvUI datatexts, Bazooka...) when one is
-installed, and Do-Not-Disturb with per-instance-type muting.
+a stack — in a corner or wherever you drag them, at the size you choose, with a
+button that shows one to try the settings out. A configurable sound per event
+with a per-conversation cooldown, a sound of its own for friends, guildmates and
+Battle.net friends if you want one, an unread badge on the minimap button and in
+the addon compartment, the same count on data-broker displays (Titan Panel,
+ElvUI datatexts, Bazooka...) when one is installed, and Do-Not-Disturb with
+per-instance-type muting.
 
 **History.** Off, session-only, 1/7/30 days, or unlimited, with a message cap per
 conversation and a conversation cap, pruned at login and logout. The settings
@@ -116,8 +121,16 @@ Stated plainly, because the alternative is pretending:
   button away if combat starts while the menu is open. "Look up" does not send a
   `/who` at all: it lists the player's public profile pages (Armory, Raider.IO,
   Warcraft Logs, WoWProgress, Check-PvP, Wowhead, Simple Armory on Retail; the
-  Classic sites on the Classic clients) for copying. Reporting a player cannot be
-  done from an addon: Blizzard's report window refuses a report an addon started.
+  Classic sites on the Classic clients) for copying.
+- **Reporting is Blizzard's, from the click on.** An addon may not send a report
+  (`C_ReportSystem.SendReport`: "Not allowed to be called by addons"), and one
+  opened from addon code carries the addon's taint into everything it sets off.
+  The game reports a whisper from a right click on the sender's name in its chat
+  window — a name that is not there when whispers are shown in the messenger
+  only. So "Report" puts it there: the chat window's own player link, carrying the
+  whisper's chat line, whose right-click menu has Report on it. That works for
+  whispers from this session (the line means nothing after a reload) and not for
+  Battle.net, whose chat link carries no line to report.
 - **The game learns who to reply to from its chat window.** A whisper shown in
   the messenger only never becomes the target of the Reply key, so the addon
   answers the key itself, in the messenger. It does not write the game's own reply

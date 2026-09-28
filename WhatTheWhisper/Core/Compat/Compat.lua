@@ -1329,6 +1329,44 @@ function Compat.UncensorChatLine(lineID)
 	return (pcall(info.UncensorChatLine, lineID))
 end
 
+-- Reporting. An addon cannot file a report: Blizzard's report window started
+-- from addon code carries the addon's taint into everything the report sets
+-- off, and on the current client that includes the chat frame purging the
+-- reported player's lines -- which then fails, once per line, blaming whoever
+-- started it. The game's own way in is a right click on a name in its chat
+-- window, which opens the player menu with Report on it, and that path is
+-- Blizzard's from the click onward.
+--
+-- So the addon hands the player that name: a player link carrying the chat line
+-- of the whisper, which is what the menu files the report against. Whether the
+-- client would accept a report for the line is asked the same way the menu
+-- asks it; a client that cannot say is given the benefit of the doubt, since
+-- the menu will simply leave Report out.
+function Compat.CanReportChatLine(lineID)
+	if type(lineID) ~= "number" then return false end
+	local location, report = _G.PlayerLocation, _G.C_ReportSystem
+	if type(location) ~= "table" or type(location.CreateFromChatLineID) ~= "function"
+		or type(report) ~= "table" or type(report.CanReportPlayer) ~= "function" then
+		return true
+	end
+	local ok, playerLocation = pcall(location.CreateFromChatLineID, location, lineID)
+	if not ok or not playerLocation then return true end
+	local asked, allowed = pcall(report.CanReportPlayer, playerLocation)
+	if not asked then return true end
+	return allowed == true
+end
+
+-- "|Hplayer:Name:line:WHISPER:Name|h[Name]|h", the link the chat window puts on
+-- a whisperer's name -- built by the client's own helper where it has one.
+function Compat.PlayerChatLink(name, display, lineID)
+	display = "[" .. (display or name) .. "]"
+	if type(_G.GetPlayerLink) == "function" then
+		local ok, link = pcall(_G.GetPlayerLink, name, display, lineID, "WHISPER", name)
+		if ok and type(link) == "string" and link ~= "" then return link end
+	end
+	return ("|Hplayer:%s:%d:WHISPER:%s|h%s|h"):format(name, lineID or 0, name, display)
+end
+
 -- How the game itself presents whispers: "inline" keeps them in the chat frame,
 -- "popout" gives each one its own chat tab. Both are handled, but the second
 -- means the game opens a window of its own beside this addon's, which is a thing

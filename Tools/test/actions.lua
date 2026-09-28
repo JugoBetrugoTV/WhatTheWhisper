@@ -101,13 +101,18 @@ do
 		local entry = entries[i]
 		if not entry.separator then
 			named[#named + 1] = entry.text
-			if entry.onClick or entry.secureMacro then actionable = actionable + 1 end
+			-- Doing something, or greyed out and saying why it cannot. A disabled
+			-- entry without a reason is as dead as one without a handler.
+			if entry.onClick or entry.secureMacro
+				or (entry.disabled and type(entry.tooltip) == "string" and entry.tooltip ~= "") then
+				actionable = actionable + 1
+			end
 		end
 	end
 	check("the conversation menu has entries", #named >= 10, tostring(#named))
-	check("and every one of them does something",
+	check("and every one of them does something, or says why it cannot",
 		actionable == #named,
-		("%d of %d entries have no handler"):format(#named - actionable, #named))
+		("%d of %d entries have no handler and no reason"):format(#named - actionable, #named))
 
 	-- Every entry carries an icon, because a menu with holes in its icon column
 	-- reads as a menu with something missing from it.

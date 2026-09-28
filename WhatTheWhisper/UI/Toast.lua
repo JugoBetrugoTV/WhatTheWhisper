@@ -84,7 +84,9 @@ local function createToast()
 			Toast.Dismiss(self)
 			return
 		end
-		if self.convID then
+		-- A test notification belongs to no conversation, and opening the
+		-- messenger on nothing would be a strange answer to a click.
+		if self.convID and CM.Get(self.convID) then
 			ns.UI.Show()
 			CM.Select(self.convID)
 		end
@@ -112,13 +114,49 @@ local function settings()
 	return ns.Setting("notifications")
 end
 
+-- Size, as a scale on the whole card. The offsets below are in the card's own
+-- units, so the margin to the screen edge grows with it, as it should.
+local MIN_SCALE, MAX_SCALE = 0.7, 1.6
+local function toastScale()
+	local scale = tonumber(settings().scale) or 1
+	return math.min(MAX_SCALE, math.max(MIN_SCALE, scale))
+end
+
+-- Where the first card goes and which way the rest stack. A corner, or the
+-- place the player dragged the sample to: remembered as the card's top-left in
+-- UIParent units, so a later change of size keeps the corner where it was put.
+-- Below the middle of the screen the stack grows upward, so it never runs off
+-- the bottom; the slide comes in from the nearer side.
+local function placement()
+	local s = settings()
+	local anchor = s.anchor
+	if s.position == "custom" and type(anchor) == "table"
+		and tonumber(anchor.x) and tonumber(anchor.y) then
+		local scale = toastScale()
+		local screenW = UIParent:GetWidth() or 0
+		local screenH = UIParent:GetHeight() or 0
+		local upper = anchor.y > screenH / 2
+		local rightSide = anchor.x + ns.SZ.TOAST_W * scale / 2 > screenW / 2
+		return {
+			point = "TOPLEFT", relPoint = "BOTTOMLEFT",
+			x = anchor.x / scale, y = anchor.y / scale,
+			dir = upper and -1 or 1,
+			slideX = rightSide and ns.S.LG or -ns.S.LG,
+		}
+	end
+	return CORNERS[s.position] or CORNERS.topright
+end
+Toast.Placement = placement
+
 function Toast.Relayout()
-	local corner = CORNERS[settings().position] or CORNERS.topright
+	local corner = placement()
+	local scale = toastScale()
 	local y = corner.y
 	for i = 1, #active do
 		local t = active[i]
+		t:SetScale(scale)
 		t:ClearAllPoints()
-		t:SetPoint(corner.point, UIParent, corner.point, corner.x, y)
+		t:SetPoint(corner.point, UIParent, corner.relPoint or corner.point, corner.x, y)
 		y = y + corner.dir * (ns.SZ.TOAST_H + ns.S.SM)
 	end
 end
@@ -215,8 +253,7 @@ function Toast.Show(conv, msg, isMention)
 
 	Toast.Relayout()
 	if not existing then
-		local corner = CORNERS[settings().position] or CORNERS.topright
-		Anim.SlideIn(t, corner.slideX, 0, Theme.Duration("BASE"))
+		Anim.SlideIn(t, placement().slideX, 0, Theme.Duration("BASE"))
 	end
 	Toast.StartTimer(t)
 	return t
@@ -233,6 +270,111 @@ function Toast.Dismiss(t)
 		pool:Release(t)
 		Toast.Relayout()
 	end)
+end
+
+--------------------------------------------------------------------------------
+-- Trying it out
+--------------------------------------------------------------------------------
+
+-- A whisper from yourself: the one sender every player has, and exactly what a
+-- real one will look like -- your class colour, your name, the current time.
+local function sampleConversation()
+	local classFile = select(2, UnitClass("player"))
+	return {
+		id = ns.Compat.PlayerFullName() or "WhatTheWhisper",
+		class = classFile,
+		messages = {},
+	}
+end
+
+-- One notification, now, whether or not notifications are switched on: the
+-- player asked to see one.
+function Toast.ShowSample(text)
+	local conv = sampleConversation()
+	local t = Toast.Show(conv, {
+		ns.Compat.GetServerTime(), ns.DIR_IN,
+		text or ns.L["Hello! This is a test."], ns.MSG_WHISPER,
+	})
+	return t
+end
+
+-- Moving. A sample card that follows the mouse; where it is let go is where
+-- notifications appear from then on. A right click or Escape puts it away.
+local mover
+
+local function saveMoverPosition()
+	if not mover then return end
+	local left, top = mover:GetLeft(), mover:GetTop()
+	if not left or not top then return end
+	local scale = mover:GetScale() or 1
+	local profile = ns.db and ns.db.profile
+	if not profile then return end
+	profile.notifications.anchor = { x = left * scale, y = top * scale }
+	if ns.Setting("notifications.position") == "custom" then
+		Toast.Relayout()
+	else
+		ns.Options.Set("notifications.position", "custom")
+	end
+end
+
+local function buildMover()
+	if mover then return mover end
+	mover = createToast()
+	-- Named, so Escape puts it away the way it closes every other panel.
+	_G.WhatTheWhisperToastMover = mover
+	if type(_G.UISpecialFrames) == "table" then
+		table.insert(_G.UISpecialFrames, "WhatTheWhisperToastMover")
+	end
+	mover:SetFrameStrata("FULLSCREEN_DIALOG")
+	mover:SetMovable(true)
+	mover:SetClampedToScreen(true)
+	mover:RegisterForDrag("LeftButton")
+	mover:SetScript("OnEnter", nil)
+	mover:SetScript("OnLeave", nil)
+	mover:SetScript("OnDragStart", function(self) self:StartMoving() end)
+	mover:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
+		saveMoverPosition()
+	end)
+	mover:SetScript("OnMouseUp", function(_, button)
+		if button == "RightButton" then Toast.StopMoving() end
+	end)
+	mover.progress:Hide()
+	return mover
+end
+
+function Toast.IsMoving()
+	return mover ~= nil and mover:IsShown()
+end
+
+function Toast.StartMoving()
+	local m = buildMover()
+	local conv = sampleConversation()
+	m.avatar:SetConversation(conv)
+	m.name:SetText(ns.L["Drag to move"])
+	W.SetTextRole(m.name, "textPrimary")
+	m.time:SetText(Format.Clock(ns.Compat.GetServerTime()))
+	local textLeft = ns.S.LG + ns.SZ.AVATAR_MD + ns.S.MD
+	local bodyWidth = ns.SZ.TOAST_W - textLeft - ns.S.LG
+	m.body:SetWidth(bodyWidth)
+	m.body:SetWordWrap(false)
+	Text.Ellipsize(m.body, ns.L["Right-click when done."], bodyWidth)
+	W.SetTextRole(m.body, "accent")
+
+	local corner = placement()
+	m:SetScale(toastScale())
+	m:ClearAllPoints()
+	m:SetPoint(corner.point, UIParent, corner.relPoint or corner.point, corner.x, corner.y)
+	m:Show()
+	Anim.PopIn(m, Theme.Duration("BASE"))
+end
+
+function Toast.StopMoving()
+	if mover and mover:IsShown() then mover:Hide() end
+end
+
+function Toast.ToggleMoving()
+	if Toast.IsMoving() then Toast.StopMoving() else Toast.StartMoving() end
 end
 
 function Toast.DismissFor(convID)

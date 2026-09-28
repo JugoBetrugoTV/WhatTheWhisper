@@ -334,6 +334,24 @@ function UI.BuildConversationMenu(conv)
 		disabled = #conv.messages == 0,
 		onClick = function() UI.ConfirmClear(conv) end,
 	}
+	-- Report, for a character who has written this session. Offered greyed out
+	-- with the reason when their whispers are all from before a reload: the
+	-- line a report is filed against is gone by then, and a menu that simply
+	-- lacked the entry would look as though reporting were not possible at all.
+	if not isBN then
+		local reportable = CM.LatestReportable(conv)
+		local anyIncoming = false
+		for i = #conv.messages, 1, -1 do
+			if conv.messages[i][ns.MSG_DIR] == ns.DIR_IN then anyIncoming = true break end
+		end
+		if reportable then
+			entries[#entries + 1] = { text = L["Report"], icon = "report",
+				onClick = function() UI.ReportMessage(conv, reportable) end }
+		elseif anyIncoming then
+			entries[#entries + 1] = { text = L["Report"], icon = "report", disabled = true,
+				tooltip = L["Only whispers from this session can be reported."] }
+		end
+	end
 	if not isBN and Compat.canIgnore then
 		if Compat.IsIgnored(conv.id) then
 			entries[#entries + 1] = { text = L["Unignore"], icon = "block",
@@ -353,6 +371,20 @@ end
 --------------------------------------------------------------------------------
 -- Dialog helpers
 --------------------------------------------------------------------------------
+
+-- Puts the whisperer's name, as the chat window's own link, into the chat
+-- window, where a right click opens the game's player menu with Report on it --
+-- filed against this very message. The report itself is Blizzard's from that
+-- click on; see Compat.CanReportChatLine for why it cannot be ours.
+function UI.ReportMessage(conv, msg)
+	if not CM.CanReport(conv, msg) then return false end
+	local name = Compat.WireName(conv.id)
+	local link = Compat.PlayerChatLink(name, name, CM.ChatLineOf(msg))
+	local chat = _G.SELECTED_CHAT_FRAME or _G.DEFAULT_CHAT_FRAME
+	if not chat or type(chat.AddMessage) ~= "function" then return false end
+	chat:AddMessage(ns.CHAT_PREFIX .. L["Right-click %s, then choose Report in the menu."]:format(link))
+	return true
+end
 
 function UI.ShowProfileLinks(id)
 	local conv = CM.Get(id)

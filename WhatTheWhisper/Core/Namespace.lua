@@ -360,6 +360,7 @@ ns.EXPORT_README =
 --------------------------------------------------------------------------------
 
 local CHAT_PREFIX = "|cff5A7CFAWhatTheWhisper|r: "
+ns.CHAT_PREFIX = CHAT_PREFIX
 
 function ns.Print(...)
 	local chat = _G.DEFAULT_CHAT_FRAME

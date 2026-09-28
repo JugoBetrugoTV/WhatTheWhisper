@@ -275,7 +275,7 @@ local function onWhisper(text, sender, _, _, _, flags, _, _, _, _, lineID, guid)
 	-- The commit. Everything above is working out where it goes; this is the
 	-- line that means the message exists.
 	local msg = CM.AddMessage(id, ns.DIR_IN, text, kind, replayTimestamp, nil,
-		censoredLine and { censoredLine = censoredLine } or nil)
+		{ censoredLine = censoredLine, chatLine = Compat.ReadableNumber(lineID) })
 	if not msg then return false end
 	Debug.Log("events", "whisper in from %s (%d bytes)", id, #(text or ""))
 	ChatEvents.NoteIncoming(id)

@@ -352,6 +352,38 @@ if Client.HasChatRestrictionAPI(FLAVOUR) then
 			conv and conv.messages[1][ns.MSG_TEXT], "aus der arena")
 		eq("exactly once", conv and #conv.messages, 1)
 	end
+
+	-- A whisper the game's own filter hid: one click on the bubble shows it.
+	-- Every shipping client has UncensorChatLine and GetChatLineText, so this
+	-- is the same click on all of them.
+	do
+		local l = lineID()
+		M.chatLines[l] = { text = "ein echtes schimpfwort", sender = "Grummel", guid = "G-GR" }
+		M.censoredLines[l] = true
+		M.FireEvent("CHAT_MSG_WHISPER",
+			unpack(args("***", "Grummel", { line = l, guid = "G-GR" }), 1, 13))
+		M.RunTimers(2)
+		local id = Compat.NormalizeName("Grummel")
+		CM.Select(id)
+		ns.UI.Show()
+		M.RunFrames(4)
+		local bubble
+		for _, f in ipairs(M.frames) do
+			if f.msg and f:IsVisible() and f.msg == CM.Get(id).messages[1] then bubble = f end
+		end
+		check("the hidden whisper has a bubble", bubble ~= nil)
+		local shown = bubble and bubble.text and bubble.text:GetText() or ""
+		check("which says how to show it", shown:find(ns.L["Click to show"], 1, true) ~= nil, shown)
+		if bubble then
+			bubble._scripts.OnMouseUp(bubble, "LeftButton")
+			M.RunFrames(4)
+		end
+		eq("one click shows the words", CM.MessageText(CM.Get(id).messages[1]),
+			"ein echtes schimpfwort")
+		check("and the offer is gone with the filter", not CM.CanReveal(CM.Get(id).messages[1]))
+		ns.UI.Hide()
+		M.RunFrames(4)
+	end
 	noErrors("nothing raised")
 else
 	-- The artificial fallback: none of those APIs. The addon must behave as

@@ -79,15 +79,25 @@ local function receiptHeight()
 end
 
 local function measure(msg, maxContentW)
+	local censored = msg[ns.MSG_CENSORED] == true
+	-- A hidden message the client will still reveal says how, under the notice:
+	-- one click on the bubble shows it. Asked only of hidden ones, which are
+	-- rare, and part of the key, because a line ages out of the client's store
+	-- and the offer has to go with it.
+	local revealable = censored and ns.ConversationManager.CanReveal(msg) or false
 	local cached = metrics[msg]
 	if cached and cached.maxW == maxContentW and cached.stamp == metricsStamp
-		and cached.censored == (msg[ns.MSG_CENSORED] == true) then
+		and cached.censored == censored and cached.revealable == revealable then
 		return cached
 	end
 
 	local raw = ns.ConversationManager.MessageText(msg)
 	local processed = ns.URLs.Process(raw)
 	processed = ns.Emoticons.Process(processed, Theme.FontSize("BODY"))
+	if revealable then
+		processed = processed .. "\n" .. ns.Color.ToEscape(Theme.Get("link"))
+			.. L["Click to show"] .. "|r"
+	end
 
 	local fs = Theme.Measure("BODY")
 	fs:SetWordWrap(true)
@@ -113,7 +123,8 @@ local function measure(msg, maxContentW)
 		stamp = metricsStamp,
 		-- Part of the key: a message the player has just revealed is a different
 		-- length from the placeholder that stood in for it.
-		censored = msg[ns.MSG_CENSORED] == true,
+		censored = censored,
+		revealable = revealable,
 		contentW = contentW,
 		textH = textH,
 		bubbleW = contentW + ns.SZ.BUBBLE_PAD_X * 2,
@@ -217,7 +228,12 @@ local function createBubble(list)
 		if self.showStamp then Anim.FadeOut(self.stamp, Theme.Duration("FAST")) end
 	end)
 	f:SetScript("OnMouseUp", function(self, button)
-		if button == "RightButton" then list:OpenMessageMenu(self) end
+		if button == "RightButton" then
+			list:OpenMessageMenu(self)
+		elseif button == "LeftButton" and self.msg
+			and ns.ConversationManager.CanReveal(self.msg) then
+			list:RevealMessage(self.msg)
+		end
 	end)
 	return f
 end
@@ -971,6 +987,17 @@ function ML:HandleLinkLeave()
 	if _G.GameTooltip then _G.GameTooltip:Hide() end
 end
 
+-- The player asked to see a message the game's filter hid. The same click on
+-- every client: each of them ships UncensorChatLine and GetChatLineText.
+function ML:RevealMessage(msg)
+	if ns.ConversationManager.RevealMessage(self.conv, msg) then
+		ns.MessageList.InvalidateMetrics()
+		ns.UI.RefreshAll()
+		return true
+	end
+	return false
+end
+
 function ML:OpenMessageMenu(bubble)
 	local msg = bubble.msg
 	local conv = self.conv
@@ -981,12 +1008,12 @@ function ML:OpenMessageMenu(bubble)
 	-- a reload, and not once the line has aged out of the client's own store.
 	if ns.ConversationManager.CanReveal(msg) then
 		entries[#entries + 1] = { text = L["Show hidden message"], icon = "reveal",
-			onClick = function()
-				if ns.ConversationManager.RevealMessage(conv, msg) then
-					ns.MessageList.InvalidateMetrics()
-					ns.UI.RefreshAll()
-				end
-			end }
+			onClick = function() self:RevealMessage(msg) end }
+		entries[#entries + 1] = { separator = true }
+	end
+	if ns.ConversationManager.CanReport(conv, msg) then
+		entries[#entries + 1] = { text = L["Report"], icon = "report",
+			onClick = function() ns.UI.ReportMessage(conv, msg) end }
 		entries[#entries + 1] = { separator = true }
 	end
 	local more = {

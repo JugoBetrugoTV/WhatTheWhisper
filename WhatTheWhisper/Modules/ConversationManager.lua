@@ -242,12 +242,46 @@ function CM.RevealMessage(conv, msg)
 	return true
 end
 
+-- The client's chat line behind each message that arrived this session. The
+-- line is what a report is filed against, and it means nothing after a reload,
+-- so it is kept beside the message rather than in it: nothing here reaches the
+-- saved variables, and a message that goes away takes its entry with it.
+local chatLines = setmetatable({}, { __mode = "k" })
+
+function CM.ChatLineOf(msg)
+	return msg and chatLines[msg] or nil
+end
+
+-- Whether a message can be reported through the game's own menu: one somebody
+-- sent the player this session, from a character -- Blizzard's chat link for a
+-- Battle.net whisper carries no line to report -- on a line the client still
+-- has, and one the client itself says it would take a report for.
+function CM.CanReport(conv, msg)
+	if not conv or not msg or msg[ns.MSG_DIR] ~= ns.DIR_IN then return false end
+	if conv.isBN or Compat.IsBattleNet(conv.id) then return false end
+	local line = chatLines[msg]
+	if type(line) ~= "number" then return false end
+	if Compat.IsValidChatLine(line) == false then return false end
+	return Compat.CanReportChatLine(line)
+end
+
+-- The newest message in a thread that can be reported, or nil.
+function CM.LatestReportable(conv)
+	local messages = conv and conv.messages
+	if not messages then return nil end
+	for i = #messages, 1, -1 do
+		if CM.CanReport(conv, messages[i]) then return messages[i] end
+	end
+	return nil
+end
+
 function CM.AddMessage(id, direction, text, kind, timestamp, status, opts)
 	local conv = CM.GetOrCreate(id, opts)
 	if not conv then return nil end
 
 	local msg = { timestamp or Compat.GetServerTime(), direction, text, kind or ns.MSG_WHISPER }
 	if status then msg[MSG_STATUS] = status end
+	if opts and opts.chatLine then chatLines[msg] = opts.chatLine end
 	-- Only for a line the game's own filter is hiding: that it is hidden, which
 	-- outlives the session, and which line to ask about, which does not.
 	if opts and opts.censoredLine then

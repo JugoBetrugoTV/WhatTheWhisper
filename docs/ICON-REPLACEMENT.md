@@ -83,6 +83,7 @@ nothing in this set does.
 | `person.tga` | Nickname actions | 20px | 64 x 64 | yes | 5px | head and shoulders | not needed | 1 place |
 | `pin.tga` | Pinned conversation marker, and the pin action | 18px | 64 x 64 | yes | 5px | push-pin, filled | not needed | 4 places |
 | `popout.tga` | Detach this conversation into its own window | 22px | 64 x 64 | yes | 6px | square with an arrow leaving it | not needed | 2 places |
+| `report.tga` | Report a whisper | 20px | 64 x 64 | yes | 5px | a triangle with an exclamation mark | not needed | 3 places |
 | `reveal.tga` | Show a message the game has hidden | 20px | 64 x 64 | yes | 5px | an open eye | not needed | 1 place |
 | `search.tga` | Search fields, and the header's search-in-thread button | 22px | 64 x 64 | yes | 6px | magnifier, handle to lower right | not needed | 5 places |
 | `send.tga` | The send button in the composer | 24px | 64 x 64 | yes | 6px | paper plane, pointing up-right | not needed | 1 place |
