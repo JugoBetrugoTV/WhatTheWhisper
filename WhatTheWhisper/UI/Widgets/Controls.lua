@@ -728,8 +728,11 @@ function Controls.SearchBox(parent, opts)
 	box.input.editBox:SetPoint("TOPLEFT", box.input, "TOPLEFT", TEXT_LEFT, 0)
 	box.input.placeholder:SetPoint("LEFT", box.input, "LEFT", TEXT_LEFT, 0)
 
-	box.icon = W.Icon(box, "search", ns.SZ.ICON_GLYPH_SM, "textMuted", "OVERLAY")
-	box.icon:SetPoint("LEFT", box, "LEFT", ns.S.MD, 0)
+	-- On the field, not on the box: the field is a child frame and draws over
+	-- everything its parent draws, so a magnifier on the box sat underneath the
+	-- field's own fill and was never seen.
+	box.icon = W.Icon(box.input, "search", ns.SZ.ICON_GLYPH_SM, "textMuted", "OVERLAY")
+	box.icon:SetPoint("LEFT", box.input, "LEFT", ns.S.MD, 0)
 
 	box.clear = ns.Button.Icon(box, {
 		icon = "close", size = ns.SZ.ICON_BTN_SM - ns.S.XS,

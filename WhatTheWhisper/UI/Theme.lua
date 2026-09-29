@@ -59,38 +59,72 @@ end
 
 local FONT_TOKENS = { "MICRO", "SMALL", "SUBHEAD", "BODY", "TITLE", "DISPLAY" }
 
-local function buildFonts()
-	local ap = appearance()
-	local path = ap.font
-	if not path or path == "" or not Compat.ValidateFont(path) then
+-- Every token also comes in a strong weight, asked for as "BODY_STRONG" and so
+-- on: names, titles and headings. With the addon's own typeface that is its
+-- semibold; with any other font there is only the one weight, and strong text
+-- is set in it like everything else.
+local STRONG = "_STRONG"
+
+-- A Korean or Chinese client receives its whispers in its own script whatever
+-- language the labels are in -- and the labels are English until the player
+-- picks another. The addon's typeface has no glyph for any of it, so on those
+-- clients "Automatic" is the chat font the client keeps for its own writing.
+local function clientWritesOutsideTypeface()
+	local script = ns.ScriptOf(ns.CLIENT_LOCALE)
+	return script ~= "latin" and script ~= "cyrillic"
+end
+
+-- Which faces to draw with. "Automatic" is the addon's own typeface; "game" is
+-- the client's chat font, the way this addon looked before it had one.
+local function resolveFaces(ap)
+	local chosen = ap.font
+	local path, strong
+	if chosen == "game" or ((not chosen or chosen == "") and clientWritesOutsideTypeface()) then
 		path = Compat.GetDefaultFont()
+	elseif chosen and chosen ~= "" and Compat.ValidateFont(chosen) then
+		path = chosen
+	elseif Compat.ValidateFont(ns.FONT_REGULAR) then
+		path = ns.FONT_REGULAR
+	else
+		path = Compat.GetDefaultFont()
+	end
+	if path == ns.FONT_REGULAR and Compat.ValidateFont(ns.FONT_STRONG) then
+		strong = ns.FONT_STRONG
 	end
 	-- Korean and Chinese are drawn with the font the client keeps for them, not
 	-- with the one the player picked: no Latin font has those glyphs, so
 	-- honouring the choice would honour it into a window full of empty boxes.
 	-- Latin and Cyrillic have no entry here and keep whatever was chosen.
 	local scriptFont = Compat.FontForScript(ns.ScriptOf(ns.ActiveLocale()))
-	if scriptFont then path = scriptFont end
-	Theme.fontPath = path
+	if scriptFont then path, strong = scriptFont, nil end
+	return path, strong or path
+end
+
+local function buildFonts()
+	local ap = appearance()
+	local path, strongPath = resolveFaces(ap)
+	Theme.fontPath, Theme.strongFontPath = path, strongPath
 
 	local offset = tonumber(ap.fontScale) or 0
 	local shadowAlpha = (Theme.m.surfaceAlpha or 1) < 1 and 0.45 or 0
+	Theme.fontSizes = Theme.fontSizes or {}
 
 	for i = 1, #FONT_TOKENS do
-		local token = FONT_TOKENS[i]
-		local size = min(28, max(8, (ns.T[token] or 12) + offset))
-		local fo = Theme.fonts[token]
-		if not fo then
-			fo = CreateFont("WhatTheWhisperFont" .. token)
-			Theme.fonts[token] = fo
+		local base = FONT_TOKENS[i]
+		local size = min(28, max(8, (ns.T[base] or 12) + offset))
+		for _, token in ipairs({ base, base .. STRONG }) do
+			local fo = Theme.fonts[token]
+			if not fo then
+				fo = CreateFont("WhatTheWhisperFont" .. token)
+				Theme.fonts[token] = fo
+			end
+			fo:SetFont(token == base and path or strongPath, size, "")
+			fo:SetShadowOffset(shadowAlpha > 0 and 1 or 0, shadowAlpha > 0 and -1 or 0)
+			fo:SetShadowColor(0, 0, 0, shadowAlpha)
+			fo:SetJustifyH("LEFT")
+			fo:SetJustifyV("MIDDLE")
+			Theme.fontSizes[token] = size
 		end
-		fo:SetFont(path, size, "")
-		fo:SetShadowOffset(shadowAlpha > 0 and 1 or 0, shadowAlpha > 0 and -1 or 0)
-		fo:SetShadowColor(0, 0, 0, shadowAlpha)
-		fo:SetJustifyH("LEFT")
-		fo:SetJustifyV("MIDDLE")
-		Theme.fontSizes = Theme.fontSizes or {}
-		Theme.fontSizes[token] = size
 	end
 end
 
@@ -98,8 +132,20 @@ function Theme.Font(token)
 	return Theme.fonts[token] or Theme.fonts.BODY
 end
 
+-- The file a token is drawn with, for the few places that set a font by path.
+function Theme.FontPathOf(token)
+	if type(token) == "string" and token:sub(-#STRONG) == STRONG then
+		return Theme.strongFontPath or Theme.fontPath
+	end
+	return Theme.fontPath
+end
+
 function Theme.FontSize(token)
-	return (Theme.fontSizes and Theme.fontSizes[token]) or ns.T[token] or 12
+	if Theme.fontSizes and Theme.fontSizes[token] then return Theme.fontSizes[token] end
+	if type(token) == "string" and token:sub(-#STRONG) == STRONG then
+		token = token:sub(1, -#STRONG - 1)
+	end
+	return ns.T[token] or 12
 end
 
 -- A hidden FontString per type token, used for measuring without touching a

@@ -184,6 +184,7 @@ ns.RegisterLocale("zhCN", {
 	["Show avatars"] = "显示头像",
 	["Avatar style"] = "头像样式",
 	["Automatic"] = "自动",
+	["The game's chat font"] = "游戏聊天字体",
 	["Class icon"] = "职业图标",
 	["Initials"] = "名字首字",
 	["Chat bubbles"] = "气泡",

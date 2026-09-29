@@ -39,7 +39,7 @@ ns.defaults = {
 			-- own language and discards the rest at load.
 			locale         = "enUS",
 			skin           = "midnight",
-			font           = false,      -- false = the client's own chat font
+			font           = false,      -- false = the addon's own typeface, "game" = the chat font
 			fontScale      = 0,          -- -2 .. +4, applied to the whole type scale
 			opacity        = 0.97,
 			bubbleOpacity  = 1,

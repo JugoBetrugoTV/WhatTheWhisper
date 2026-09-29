@@ -61,7 +61,7 @@ local function createRow(sidebar)
 	row.avatar = ns.Avatar.New(row, ns.SZ.AVATAR_LG)
 	row.avatar:SetSurfaceRole("bg1")
 
-	row.name = W.Text(row, "BODY", "textPrimary")
+	row.name = W.Text(row, "BODY_STRONG", "textPrimary")
 	-- Subheadline, not footnote: an iOS list row sets its second line one step
 	-- under the title, not two. At 13 under a 17 the preview read as a caption
 	-- attached to the name rather than as the message it is.
@@ -177,13 +177,14 @@ function Sidebar.New(parent)
 	--------------------------------------------------------------------- empty
 	sb.empty = CreateFrame("Frame", nil, sb.list.viewport)
 	sb.empty:SetAllPoints()
-	sb.emptyIcon = W.Icon(sb.empty, "chat", ns.SZ.EMPTY_ICON_SM, "textMuted")
-	sb.emptyIcon:SetPoint("CENTER", sb.empty, "CENTER", 0, 28)
-	sb.emptyIcon:SetAlpha(0.22)
-	sb.emptyTitle = W.Text(sb.empty, "BODY", "textSecondary")
-	sb.emptyTitle:SetPoint("TOP", sb.emptyIcon, "BOTTOM", 0, -ns.S.MD)
+	sb.emptyMark = W.EmptyMark(sb.empty, "chat", ns.SZ.EMPTY_MARK_SM, ns.SZ.EMPTY_ICON_SM)
+	sb.emptyMark:SetPoint("CENTER", sb.empty, "CENTER", 0, ns.S.HUGE)
+	sb.emptyIcon = sb.emptyMark.icon
+	sb.emptyTitle = W.Text(sb.empty, "BODY_STRONG", "textPrimary")
+	sb.emptyTitle:SetPoint("TOP", sb.emptyMark, "BOTTOM", 0, -ns.S.MD)
 	sb.emptyTitle:SetJustifyH("CENTER")
 	sb.emptyBody = W.Text(sb.empty, "SMALL", "textMuted")
+	W.SetLineSpacing(sb.emptyBody, ns.CAPTION_SPACING)
 	sb.emptyBody:SetPoint("TOP", sb.emptyTitle, "BOTTOM", 0, -ns.S.XS)
 	sb.emptyBody:SetJustifyH("CENTER")
 
@@ -479,7 +480,7 @@ function S:ApplyTheme()
 	self.header.search:ApplyTheme()
 	self.header.newChat:ApplyTheme()
 	self.list:ApplyTheme()
-	W.RefreshIcon(self.emptyIcon)
+	self.emptyMark:ApplyTheme()
 	W.RefreshText(self.emptyTitle)
 	W.RefreshText(self.emptyBody)
 

@@ -221,6 +221,25 @@ function W.Icon(parent, name, size, role, layer)
 	return tex
 end
 
+-- The mark over an empty state: its glyph in the accent colour on a soft disc
+-- of the same colour. A faint grey glyph said "nothing here"; this says what
+-- the place is for.
+function W.EmptyMark(parent, icon, discSize, glyphSize)
+	local mark = CreateFrame("Frame", nil, parent)
+	mark:SetSize(discSize, discSize)
+	mark.disc = Draw.NewRounded(mark, "ARTWORK", 0)
+	mark.disc:SetRadius(ns.R.PILL)
+	mark.icon = W.Icon(mark, icon, glyphSize, "accent", "OVERLAY")
+	mark.icon:SetPoint("CENTER", mark, "CENTER", 0, 0)
+	function mark:ApplyTheme()
+		local c = Theme.Get("accent")
+		self.disc:SetColor(c[1], c[2], c[3], 0.16)
+		W.RefreshIcon(self.icon)
+	end
+	mark:ApplyTheme()
+	return mark
+end
+
 function W.SetIconRole(tex, role, alpha)
 	tex.__wtwRole = role
 	local c = Theme.Get(role)
@@ -280,7 +299,17 @@ end
 function W.RefreshText(fs)
 	if not fs or not fs.__wtwToken then return end
 	fs:SetFontObject(Theme.Font(fs.__wtwToken))
+	-- A font object brings its own spacing, so a string that asked for more has
+	-- to ask again.
+	if fs.__wtwSpacing then fs:SetSpacing(fs.__wtwSpacing) end
 	W.SetTextRole(fs, fs.__wtwRole or "textPrimary")
+end
+
+-- Space between the lines of a string that wraps, kept across theme changes.
+function W.SetLineSpacing(fs, spacing)
+	fs.__wtwSpacing = spacing
+	fs:SetSpacing(spacing)
+	return fs
 end
 
 -- Draws one string in a font other than the theme's, and puts the theme's back

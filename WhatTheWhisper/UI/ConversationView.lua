@@ -49,7 +49,7 @@ function ConversationView.New(parent, opts)
 	-- bottom made that gap a function of the avatar's height instead: at the
 	-- larger font scales the two lines walked into each other, and with no
 	-- status line at all the name sat high in a header it should be centred in.
-	header.name = W.Text(header, "TITLE", "textPrimary")
+	header.name = W.Text(header, "TITLE_STRONG", "textPrimary")
 	-- The realm, BattleTag or presence under the name. One step below the name
 	-- rather than three: at MICRO under a TITLE it read as a footnote to the
 	-- header instead of as the second line of it.
@@ -128,14 +128,15 @@ function ConversationView.New(parent, opts)
 	-------------------------------------------------------------- empty state
 	v.empty = CreateFrame("Frame", nil, v)
 	v.empty:SetAllPoints()
-	v.emptyIcon = W.Icon(v.empty, "chat", ns.SZ.EMPTY_ICON, "textMuted")
-	v.emptyIcon:SetPoint("CENTER", v.empty, "CENTER", 0, 36)
-	v.emptyIcon:SetAlpha(0.22)
-	v.emptyTitle = W.Text(v.empty, "DISPLAY", "textSecondary")
-	v.emptyTitle:SetPoint("TOP", v.emptyIcon, "BOTTOM", 0, -ns.S.LG)
+	v.emptyMark = W.EmptyMark(v.empty, "chat", ns.SZ.EMPTY_MARK, ns.SZ.EMPTY_ICON)
+	v.emptyMark:SetPoint("CENTER", v.empty, "CENTER", 0, ns.S.HUGE + ns.S.SM)
+	v.emptyIcon = v.emptyMark.icon
+	v.emptyTitle = W.Text(v.empty, "DISPLAY_STRONG", "textPrimary")
+	v.emptyTitle:SetPoint("TOP", v.emptyMark, "BOTTOM", 0, -ns.S.XL)
 	v.emptyTitle:SetJustifyH("CENTER")
 	v.emptyTitle:SetWidth(ns.SZ.EMPTY_TEXT_W)
 	v.emptyBody = W.Text(v.empty, "SMALL", "textMuted")
+	W.SetLineSpacing(v.emptyBody, ns.CAPTION_SPACING)
 	v.emptyBody:SetPoint("TOP", v.emptyTitle, "BOTTOM", 0, -ns.S.SM)
 	v.emptyBody:SetJustifyH("CENTER")
 	v.emptyBody:SetWidth(ns.SZ.EMPTY_TEXT_W)
@@ -550,7 +551,7 @@ function V:ApplyTheme()
 	self.profile:ApplyTheme()
 	self.list:ApplyTheme()
 	self.composer:ApplyTheme()
-	W.RefreshIcon(self.emptyIcon)
+	self.emptyMark:ApplyTheme()
 	W.RefreshText(self.emptyTitle)
 	W.RefreshText(self.emptyBody)
 	self:RefreshHeader()

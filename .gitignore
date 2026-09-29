@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# Pictures from Tools/render
+Tools/render/out/

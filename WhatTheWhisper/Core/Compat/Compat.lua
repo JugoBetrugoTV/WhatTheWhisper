@@ -1657,3 +1657,11 @@ function Compat.SetTooltipHyperlink(tooltip, link)
 end
 
 ns.ART = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Art\\"
+
+-- The addon's own typeface. Inter, under the SIL Open Font License (the licence
+-- is beside the files): a screen face drawn for interfaces, in the two weights
+-- a messenger needs, and with Latin, Cyrillic and Greek. Korean and Chinese are
+-- not in it and keep the client's own fonts -- see Theme.
+ns.FONTS = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Media\\Fonts\\"
+ns.FONT_REGULAR = ns.FONTS .. "Inter-Regular.ttf"
+ns.FONT_STRONG = ns.FONTS .. "Inter-SemiBold.ttf"

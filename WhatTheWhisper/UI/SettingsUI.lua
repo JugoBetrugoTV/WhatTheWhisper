@@ -63,6 +63,26 @@ local frame, schema, activeCategory
 -- Navigation
 --------------------------------------------------------------------------------
 
+-- Each category's glyph sits on a tile of its own colour, white on colour, the
+-- way a settings list on a phone is read: by the colour first and the word
+-- second. The colours are Apple's system palette and belong to the category,
+-- not to the skin -- General is grey and Notifications red in every skin, so
+-- the place is found by the same colour whichever look is on.
+local NAV_TINTS = {
+	general       = "#8E8E93",   -- systemGray
+	appearance    = "#0A84FF",   -- systemBlue
+	messages      = "#30D158",   -- systemGreen
+	layout        = "#5E5CE6",   -- systemIndigo
+	history       = "#FF9F0A",   -- systemOrange
+	sounds        = "#FF375F",   -- systemPink
+	notifications = "#FF453A",   -- systemRed
+	animations    = "#BF5AF2",   -- systemPurple
+	combat        = "#FF6961",   -- a warmer red, apart from Notifications
+	links         = "#64D2FF",   -- systemCyan
+	advanced      = "#636366",   -- systemGray2
+}
+local NAV_TINT_DEFAULT = "#8E8E93"
+
 -- A destination in the category list: a glyph, a label, and a quiet filled pill
 -- when it is the one you are looking at. No marker bar down the side -- the
 -- selected row is already a different surface, and the bar was the one thing in
@@ -71,19 +91,28 @@ local function createNavRow(parent)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetHeight(ns.SZ.SETTINGS_NAV_ROW_H)
 	row.surface = W.Surface(row, { radius = ns.R.MD, insets = { ns.S.SM, ns.S.SM, 0, 0 } })
-	row.icon = W.Icon(row, "bullet", ns.SZ.ICON_GLYPH_SM, "textSecondary")
-	row.icon:SetPoint("LEFT", row, "LEFT", ns.S.LG, 0)
-	row.label = W.Text(row, "BODY", "textSecondary")
-	row.label:SetPoint("LEFT", row.icon, "RIGHT", ns.S.MD, 0)
+	row.tileFrame = CreateFrame("Frame", nil, row)
+	row.tileFrame:SetSize(ns.SZ.SETTINGS_NAV_TILE, ns.SZ.SETTINGS_NAV_TILE)
+	row.tileFrame:SetPoint("LEFT", row, "LEFT", ns.S.LG, 0)
+	row.tile = ns.Draw.NewRounded(row.tileFrame, "ARTWORK", 0)
+	row.tile:SetRadius(ns.R.SM)
+	row.icon = W.Icon(row.tileFrame, "bullet", ns.SZ.SETTINGS_NAV_GLYPH, "onAccent", "OVERLAY")
+	row.icon:SetPoint("CENTER", row.tileFrame, "CENTER", 0, 0)
+	row.label = W.Text(row, "BODY", "textPrimary")
+	row.label:SetPoint("LEFT", row.tileFrame, "RIGHT", ns.S.MD, 0)
 	row.label:SetPoint("RIGHT", row, "RIGHT", -ns.S.MD, 0)
+
+	function row:SetTint(hex)
+		local c = ns.Color.FromHex(hex or NAV_TINT_DEFAULT)
+		self.tile:SetColor(c[1], c[2], c[3], 1)
+	end
+	row:SetTint(NAV_TINT_DEFAULT)
 
 	W.MakeInteractive(row, function(state, instant)
 		local duration = instant and 0 or Theme.Duration("FAST")
 		local role = (state == "selected" and "selected")
 			or ((state == "hover" or state == "pressed") and "hover") or nil
 		W.FadeSurfaceTo(row.surface, row, role, duration)
-		W.SetTextRole(row.label, state == "selected" and "textPrimary" or "textSecondary")
-		W.SetIconRole(row.icon, state == "selected" and "accent" or "textMuted")
 	end)
 	row:HookScript("OnMouseUp", function(self)
 		if self:IsMouseOver() and self.categoryID then
@@ -111,6 +140,7 @@ local function createRowFrame(parent)
 	row.label:SetWordWrap(true)
 	-- Footnote under a body-sized label, which is the iOS grouped-list pair.
 	row.caption = W.Text(row, "SMALL", "textMuted")
+	W.SetLineSpacing(row.caption, ns.CAPTION_SPACING)
 	row.caption:SetJustifyV("TOP")
 	row.caption:SetWordWrap(true)
 	-- Between this row and the next one in the same group. Indented to the
@@ -340,6 +370,7 @@ function factories.info(parent)
 	local holder = CreateFrame("Frame", nil, parent)
 	holder:SetSize(CONTROL_W_BASE, ns.SZ.BADGE_H)
 	holder.text = W.Text(holder, "SUBHEAD", "textSecondary")
+	W.SetLineSpacing(holder.text, ns.CAPTION_SPACING)
 	holder.text:SetPoint("RIGHT", holder, "RIGHT", 0, 0)
 	holder.text:SetJustifyH("RIGHT")
 	function holder:ApplyTheme() W.RefreshText(holder.text) end
@@ -420,6 +451,13 @@ local function build()
 	header:SetPoint("TOPLEFT")
 	header:SetPoint("TOPRIGHT")
 	header:EnableMouse(true)
+	-- The navigation column's surface, carried up under the title, as in the
+	-- messenger window.
+	local edge = Theme.Border(frame)
+	header.surface = W.Surface(header, {
+		color = "bg1", radius = ns.R.LG, insets = { edge, edge, edge, 0 },
+	})
+	header.surface:SetCorners(true, true, false, false)
 	header.divider = W.Hairline(header, "horizontal", { anchor = "BOTTOM", color = "borderSubtle" })
 	W.MakeWindowHandle(header, {
 		onStartMove = function() frame:StartMoving() frame.moving = true end,
@@ -429,7 +467,7 @@ local function build()
 	})
 	frame.header = header
 
-	header.title = W.Text(header, "TITLE", "textPrimary")
+	header.title = W.Text(header, "TITLE_STRONG", "textPrimary")
 	header.title:SetPoint("LEFT", header, "LEFT", ns.S.LG, 0)
 	header.title:SetText(L["Settings"])
 
@@ -471,15 +509,16 @@ local function build()
 	empty:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT")
 	empty:Hide()
 	frame.empty = empty
-	frame.emptyIcon = W.Icon(empty, "search", ns.SZ.EMPTY_ICON, "textMuted")
-	frame.emptyIcon:SetPoint("CENTER", empty, "CENTER", 0, ns.S.XXL)
-	frame.emptyIcon:SetAlpha(0.22)
-	frame.emptyTitle = W.Text(empty, "BODY", "textSecondary")
+	frame.emptyMark = W.EmptyMark(empty, "search", ns.SZ.EMPTY_MARK_SM, ns.SZ.EMPTY_ICON_SM)
+	frame.emptyMark:SetPoint("CENTER", empty, "CENTER", 0, ns.S.HUGE)
+	frame.emptyIcon = frame.emptyMark.icon
+	frame.emptyTitle = W.Text(empty, "BODY_STRONG", "textPrimary")
 	frame.emptyTitle:ClearAllPoints()
-	frame.emptyTitle:SetPoint("TOP", frame.emptyIcon, "BOTTOM", 0, -ns.S.LG)
+	frame.emptyTitle:SetPoint("TOP", frame.emptyMark, "BOTTOM", 0, -ns.S.LG)
 	frame.emptyTitle:SetJustifyH("CENTER")
 	frame.emptyTitle:SetWidth(ns.SZ.EMPTY_TEXT_W)
 	frame.emptyBody = W.Text(empty, "SMALL", "textMuted")
+	W.SetLineSpacing(frame.emptyBody, ns.CAPTION_SPACING)
 	frame.emptyBody:ClearAllPoints()
 	frame.emptyBody:SetPoint("TOP", frame.emptyTitle, "BOTTOM", 0, -ns.S.SM)
 	frame.emptyBody:SetJustifyH("CENTER")
@@ -521,6 +560,7 @@ local function renderNav()
 		row.label:SetText(category.label)
 		ns.Draw.SetIcon(row.icon, category.icon or "bullet")
 		row.icon.__wtwIcon = category.icon or "bullet"
+		row:SetTint(NAV_TINTS[category.id])
 		row:ClearAllPoints()
 		row:SetPoint("TOPLEFT", nav, "TOPLEFT", 0, y)
 		row:SetPoint("TOPRIGHT", nav, "TOPRIGHT", 0, y)
@@ -773,6 +813,9 @@ function SettingsUI.ApplyTheme()
 	-- of the font, and the font is what just changed.
 	frame.nav:SetWidth(navWidth())
 	frame.surface:ApplyTheme()
+	local edge = Theme.Border(frame)
+	frame.header.surface.insets = { edge, edge, edge, 0 }
+	frame.header.surface:ApplyTheme()
 	frame.header.divider:ApplyTheme()
 	W.RefreshText(frame.header.title)
 	frame.header.close:ApplyTheme()
@@ -786,7 +829,7 @@ function SettingsUI.ApplyTheme()
 		W.RefreshIcon(row.icon)
 	end
 	frame.content:ApplyTheme()
-	W.RefreshIcon(frame.emptyIcon)
+	frame.emptyMark:ApplyTheme()
 	W.RefreshText(frame.emptyTitle)
 	W.RefreshText(frame.emptyBody)
 	for _, pool in pairs(controlPools) do

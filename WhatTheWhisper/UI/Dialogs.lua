@@ -55,7 +55,7 @@ local function makeDialog(globalName, width, height)
 		end,
 	})
 
-	d.title = W.Text(d.header, "TITLE", "textPrimary")
+	d.title = W.Text(d.header, "TITLE_STRONG", "textPrimary")
 	d.title:SetPoint("LEFT", d.header, "LEFT", ns.S.LG, 0)
 
 	d.close = ns.Button.Icon(d.header, {
@@ -314,6 +314,7 @@ local function buildConfirm()
 	-- A dialog asks a question and the question is the point of the window, so
 	-- it is set at reading size rather than at the size of a caption.
 	d.body = W.Text(d, "BODY", "textSecondary")
+	W.SetLineSpacing(d.body, ns.CAPTION_SPACING)
 	d.body:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.LG)
 	d.body:SetPoint("TOPRIGHT", d.header, "BOTTOMRIGHT", -ns.S.LG, -ns.S.LG)
 	d.body:SetJustifyH("LEFT")
@@ -543,6 +544,7 @@ local function buildLinks()
 	d.hint:SetJustifyH("LEFT")
 
 	d.note = W.Text(d, "SMALL", "textSecondary")
+	W.SetLineSpacing(d.note, ns.CAPTION_SPACING)
 	d.note:SetJustifyH("LEFT")
 	d.note:SetWordWrap(true)
 

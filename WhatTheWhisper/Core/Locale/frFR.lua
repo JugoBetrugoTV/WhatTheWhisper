@@ -190,6 +190,7 @@ ns.RegisterLocale("frFR", {
 	["Show avatars"] = "Afficher les avatars",
 	["Avatar style"] = "Style d'avatar",
 	["Automatic"] = "Automatique",
+	["The game's chat font"] = "Police du chat du jeu",
 	["Class icon"] = "Icône de classe",
 	["Initials"] = "Initiales",
 	["Chat bubbles"] = "Bulles de discussion",

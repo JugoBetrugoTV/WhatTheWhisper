@@ -168,6 +168,7 @@ ns.RegisterLocale("enUS", {
 	["Show avatars"] = true,
 	["Avatar style"] = true,
 	["Automatic"] = true,
+	["The game's chat font"] = true,
 	["Class icon"] = true,
 	["Initials"] = true,
 	["Chat bubbles"] = true,

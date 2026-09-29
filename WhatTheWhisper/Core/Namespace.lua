@@ -190,7 +190,12 @@ ns.SZ = {
 	SETTINGS_ROW_H    = 44,   -- the iOS table row, unchanged: it was already this
 	-- The category list on the left is a list of destinations, not of controls,
 	-- so its rows are tighter than the settings rows they lead to.
-	SETTINGS_NAV_ROW_H = 36,
+	SETTINGS_NAV_ROW_H = 40,
+	-- The coloured tile behind each category's glyph, and the glyph on it: the
+	-- proportions of a settings icon on a phone, a mark about six tenths of its
+	-- tile.
+	SETTINGS_NAV_TILE  = 28,
+	SETTINGS_NAV_GLYPH = 17,
 	SETTINGS_GROUP_GAP = 28,
 	SETTINGS_MAX_CONTENT = 600,
 
@@ -202,6 +207,9 @@ ns.SZ = {
 	-- where the full-size mark would be the loudest thing on screen.
 	EMPTY_ICON_SM     = 36,
 	EMPTY_TEXT_W      = 340,
+	-- The disc an empty state's glyph sits on, in the window and in the list.
+	EMPTY_MARK        = 80,
+	EMPTY_MARK_SM     = 64,
 
 	-- The iOS switch, at the size iOS draws it: 51 x 31 with a 27 knob. Not
 	-- proportions near those -- these exact ones. It is the single most
@@ -290,6 +298,10 @@ ns.T = {
 -- Message text is read in paragraphs, so it is set looser than a label. iOS body
 -- is 17 over a 22 line box; 5px of leading on a 17px face lands there.
 ns.LINE_SPACING = 5
+-- And a description under a label, which is short and read once: tighter than a
+-- message, but not set solid -- two lines of 13px with nothing between them
+-- read as one smudge.
+ns.CAPTION_SPACING = 3
 
 --------------------------------------------------------------------------------
 -- Motion

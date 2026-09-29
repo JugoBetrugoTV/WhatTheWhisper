@@ -16,8 +16,9 @@ No magic numbers are allowed anywhere else in the codebase.
 
 1. **Calm surfaces, loud content.** Chrome is near-monochrome; colour is reserved for the
    accent (selection, unread, own messages) and class colours. Nothing else is coloured.
-2. **Hierarchy through value, not weight.** WoW ships no bold font cut. Emphasis is created
-   with *brightness* and *size*, never with fake outlines or shadows on text.
+2. **Hierarchy through value first, weight second.** Emphasis is created with *brightness*
+   and *size*, and with the addon's own semibold for names and titles -- never with fake
+   outlines or shadows on text.
 3. **One radius family, one spacing family.** Spacing 4 / 8 / 12 / 16 / 20 / 24 / 32;
    radius 8 / 12 / 16 / 22 (Apple's corner ladder) plus a pill. Nothing else.
 4. **Every interactive element has five states**: rest, hover, pressed, selected, disabled.
@@ -55,7 +56,9 @@ No magic numbers are allowed anywhere else in the codebase.
 ```
 
 Two columns, the way Messages is built on an iPad: the conversation is the deepest
-surface and everything else sits above it. The selected row in the sidebar is an inset
+surface and everything else sits above it. The title bar is the sidebar's surface (`bg1`)
+carried to the top of the window with no rule under it, so title, list and conversation
+header read as one frame around the thread. The selected row in the sidebar is an inset
 rounded card, not a bar in the gutter; the time in the thread is a centred marker, not
 something tucked into a bubble; the send arrow lives inside the composer's field.
 
@@ -144,6 +147,11 @@ A number here that the code does not have fails the build.
 | `SETTINGS_W`             | 900  | |
 | `SETTINGS_H`             | 640  | |
 | `SETTINGS_NAV_W`         | 216  | at the default font; scales with the type ramp |
+| `SETTINGS_NAV_ROW_H`     | 40   | a destination, with its tile |
+| `SETTINGS_NAV_TILE`      | 28   | the coloured tile behind a category's glyph |
+| `SETTINGS_NAV_GLYPH`     | 17   | white, on the tile |
+| `EMPTY_MARK`             | 80   | the disc under an empty state's glyph |
+| `EMPTY_MARK_SM`          | 64   | the same in the list and in settings |
 
 ### 1.3 Responsive rules
 
@@ -165,9 +173,15 @@ and truncates at every step above it.
 ## 2. Typography
 
 Apple's text ramp, by the names Apple gives the steps, because using the real numbers
-rather than numbers near them is most of the difference between "iOS-ish" and iOS. Font
-path is derived from `ChatFontNormal` at runtime so every locale (incl. ruRU / koKR /
-zhCN) gets a valid face; user-selectable faces are validated before use.
+rather than numbers near them is most of the difference between "iOS-ish" and iOS.
+
+The face is the addon's own: **Inter**, a screen typeface drawn for interfaces, shipped in
+`Media/Fonts` in regular and semibold under the SIL Open Font License (the licence is
+beside the files). It covers Latin, Cyrillic and Greek. Korean and Chinese are drawn with
+the client's own font for them, whatever is chosen, because no Latin face has those
+glyphs -- and a Korean or Chinese client keeps its chat font even with English labels,
+because its whispers arrive in its own script. "The game's chat font" (`ChatFontNormal`) is one choice away in Settings, and any
+face a player picks is validated before use.
 
 | Token       | px | iOS style  | Use |
 |-------------|----|------------|-----|
@@ -178,14 +192,15 @@ zhCN) gets a valid face; user-selectable faces are validated before use.
 | `T.title`   | 20 | title 3    | the name in a conversation header |
 | `T.display` | 24 | title 2    | empty-state headline |
 
-iOS separates a title from a body with *weight* as often as with size, and the game ships
-no semibold face for most of the fonts a player can pick. Where Apple would set 17
-semibold over 17 regular, this steps up a size instead — and where two strings share a
-line and one should lead (the day and the clock in a time marker), the emphasis ladder
-carries it instead of the weight.
+Every token also comes in a strong weight, asked for as `BODY_STRONG`, `TITLE_STRONG`
+and so on: the semibold cut with Inter, the same face with any font that has only one.
+Strong is for **names and titles only** — a conversation's name in the list, in the
+header and on a notification card, window and dialog titles, empty-state headlines, and
+the day in a time marker. Everything a person reads at length stays regular.
 
 * Line spacing for message bodies: **5 px** — iOS body is 17 over a 22 line box.
-  Everything else: default.
+  Descriptions that wrap (settings captions, empty-state bodies, a card's preview):
+  **3 px** (`CAPTION_SPACING`). Single lines: none.
 * Nothing is smaller than 11. A timestamp that has to be squinted at is not quiet, it is
   unreadable, and those are different things.
 * No `OUTLINE` flags anywhere in chrome (outlines are the #1 "2010 addon" tell). Optional
@@ -402,7 +417,7 @@ hyperlinks (items, spells, achievements) inside message text, where it is the co
 
 Top-right stack (corner configurable), `TOAST_W` × `TOAST_H`, `bg3`, radius `R.xl` — an
 iOS banner is the roundest thing the system draws outside a bubble — with a shadow and no
-outline. `AVATAR_MD` + name `T.body` + time `T.micro` + one clamped preview line
+outline. `AVATAR_MD` + name `T.body` strong + time `T.micro` + one clamped preview line
 `T.subhead`. Enters with a 16 px slide
 from the edge + fade over 200 ms, auto-dismisses after 5 s with a hairline progress bar in
 `accent`. Hover pauses the timer; click opens the conversation.
@@ -420,7 +435,7 @@ from the edge + fade over 200 ms, auto-dismisses after 5 s with a hairline progr
 
 Centred, max 320 px wide, vertically at 42 % height (optically centred, not mathematically).
 
-| Situation | Headline (`T.display`, `textSecondary`) | Body (`T.small`, `textMuted`) |
+| Situation | Headline (`T.display` strong, `textPrimary`) | Body (`T.small`, `textMuted`) |
 |-----------|------------------------------------------|-------------------------------|
 | no conversations | No conversations yet | Whisper someone to start a conversation. |
 | nothing selected | Pick a conversation | Your whispers stay here, per player. |
@@ -428,14 +443,18 @@ Centred, max 320 px wide, vertically at 42 % height (optically centred, not math
 | history empty | Start the conversation | Say hi to %s. |
 | history disabled | History is off | Enable it in Settings › History to keep messages. |
 
-Each carries a line-art glyph (`EMPTY_ICON` / `EMPTY_ICON_SM`) drawn from the same icon
-primitives, at about a fifth alpha.
+Each carries its glyph (`EMPTY_ICON` / `EMPTY_ICON_SM`) in the accent colour on a disc of
+the same colour at 16 % (`EMPTY_MARK` / `EMPTY_MARK_SM`): what the place is for, rather
+than a faint grey "nothing here".
 
 ### 4.14 Settings
 
 An iOS grouped list. Left nav `SETTINGS_NAV_W` (`bg1`, `SETTINGS_NAV_ROW_H` rows, the
 active one an inset rounded card — no bar in the gutter, same as the sidebar), right
-content on `bg2`, max content width `SETTINGS_MAX_CONTENT` centred.
+content on `bg2`, max content width `SETTINGS_MAX_CONTENT` centred. Each category's glyph
+is white on a `SETTINGS_NAV_TILE` tile (`R.sm`) in an Apple system colour of its own —
+General grey, Appearance blue, Messages green, Notifications red — and the colour belongs
+to the category, not to the skin, so a place is found by the same colour in every look.
 
 Settings are grouped into **cards** (`bg3`, radius `R.lg`) with the section's name above
 the card rather than inside it, `SETTINGS_ROW_H` rows separated by hairlines inset to the

@@ -525,5 +525,29 @@ do
 	ns.Theme.Refresh()
 end
 
+-- The addon's own typeface, and where it must not be used. The labels default
+-- to English on every client, so a Korean or Chinese client with English labels
+-- is the ordinary case -- and its whispers are still Korean or Chinese.
+do
+	ns.Options.Set("appearance.locale", "enUS")
+	ns.Options.Set("appearance.font", false)
+	ns.Theme.Refresh()
+	local script = ns.ScriptOf(ns.CLIENT_LOCALE)
+	if script == "latin" or script == "cyrillic" then
+		eq("automatic is the addon's own typeface", ns.Theme.fontPath, ns.FONT_REGULAR)
+		eq("with its semibold for names and titles", ns.Theme.strongFontPath, ns.FONT_STRONG)
+	else
+		eq("a " .. CLIENT .. " client keeps its own font even with English labels",
+			ns.Theme.fontPath, ns.Compat.GetDefaultFont())
+		check("not the addon's typeface, which cannot draw what it receives",
+			ns.Theme.fontPath ~= ns.FONT_REGULAR and ns.Theme.strongFontPath ~= ns.FONT_STRONG)
+	end
+	ns.Options.Set("appearance.font", "game")
+	ns.Theme.Refresh()
+	eq("the game's chat font is one choice away", ns.Theme.fontPath, ns.Compat.GetDefaultFont())
+	ns.Options.Set("appearance.font", false)
+	ns.Theme.Refresh()
+end
+
 print(("\n%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

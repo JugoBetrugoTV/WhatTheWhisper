@@ -55,16 +55,21 @@ function MainWindow.Get()
 	title:SetPoint("TOPLEFT")
 	title:SetPoint("TOPRIGHT")
 	title:EnableMouse(true)
-	-- The title bar draws no background and no rule: it is the window plate
-	-- showing through, with the sidebar and the thread starting under it. The
-	-- less of it there is, the more this reads as one application rather than a
-	-- game frame with an application inside it.
+	-- The title bar is the sidebar's surface carried up to the top of the
+	-- window, with no rule under it: title, list and conversation header read
+	-- as one piece of chrome around the thread, the way a desktop messenger is
+	-- built. It stops a hairline inside the window's own border.
+	local edge = Theme.Border(frame)
+	title.surface = W.Surface(title, {
+		color = "bg1", radius = ns.R.LG, insets = { edge, edge, edge, 0 },
+	})
+	title.surface:SetCorners(true, true, false, false)
 	frame.titlebar = title
 
 	title.mark = W.Icon(title, "logo", ns.SZ.ICON_LOGO, "accent")
 	title.mark:SetPoint("LEFT", title, "LEFT", ns.S.MD + 1, 0)
 
-	title.label = W.Text(title, "SMALL", "textSecondary")
+	title.label = W.Text(title, "SMALL_STRONG", "textSecondary")
 	title.label:SetPoint("LEFT", title.mark, "RIGHT", ns.S.SM, 0)
 	title.label:SetText(L["WhatTheWhisper"])
 
@@ -385,6 +390,10 @@ end
 
 function M:ApplyTheme()
 	self.surface:ApplyTheme()
+	-- Inside the window's border rather than over it.
+	local edge = Theme.Border(self)
+	self.titlebar.surface.insets = { edge, edge, edge, 0 }
+	self.titlebar.surface:ApplyTheme()
 	W.RefreshIcon(self.titlebar.mark)
 	W.RefreshText(self.titlebar.label)
 	self.titlebar.badge:ApplyTheme()

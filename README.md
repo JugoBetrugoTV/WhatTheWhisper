@@ -24,7 +24,7 @@ Interface/AddOns/
         WhatTheWhisper_TBC.toc        <- TBC Anniversary
         WhatTheWhisper_Vanilla.toc    <- Classic Era
         Libs/             <- LibStub and the five Ace3 libraries it uses
-        Core/  Modules/  UI/  Skins/  Art/
+        Core/  Modules/  UI/  Skins/  Art/  Media/
 ```
 
 One manifest per client, and the client picks its own — the folder is the same
@@ -170,6 +170,13 @@ spacing scale, type scale, colour roles, per-component specs, motion, and the
 per-client parity table. Every number in it exists as a named constant in
 `Core/Namespace.lua`; nothing else is allowed to invent a spacing or a size.
 
+The text is set in **Inter**, a typeface drawn for screens, which ships with the
+addon in regular and semibold (`Media/Fonts`, SIL Open Font License, licence
+beside the files). Names and titles are semibold, everything read at length is
+regular. Korean and Chinese keep the client's own font, since Inter has no
+glyphs for them, and Settings › Appearance › Font switches back to the game's
+chat font for anyone who wants the window to match the rest of their UI.
+
 Six skins ship, each a complete token set rather than a background colour:
 Midnight, Messenger, Dark, Minimal, Glass and Classic. A skin that omits a role
 inherits it from Midnight, so a partial skin cannot render broken.
@@ -199,6 +206,8 @@ UI/                    theme, drawing primitives, motion, widget toolkit,
                        and the views built from them
 Skins/                 six complete token sets
 Art/                   generated .tga atlases and geometry
+Media/Fonts/           Inter, regular and semibold, and its licence
+Media/Icons/           drop-in replacements for any glyph (docs/ICON-REPLACEMENT.md)
 ```
 
 Rule for the rest of the codebase: never call a `C_*` namespace or a
@@ -232,3 +241,15 @@ python3 Tools/design_preview.py midnight sidebar
 `design_preview.py` renders the main window from the addon's real tokens, read
 out of the Lua source. It is a design review instrument: if the preview looks
 wrong, the addon looks wrong.
+
+```sh
+python3 Tools/render/render.py main settings toast --skin midnight
+```
+
+`Tools/render` goes one step further: it loads the real addon into the mock
+client, builds the scene (main, empty, menu, emoji, settings, toast, popout)
+and paints every texture and string the addon created, in the client's draw
+order, with text measured from the real font files. Nothing is laid out by the
+renderer, so the picture is what the addon builds. It is how the search field's
+magnifier was found hiding under the field's own background; `occlusion.lua`
+now fails the build on that whole class of mistake.

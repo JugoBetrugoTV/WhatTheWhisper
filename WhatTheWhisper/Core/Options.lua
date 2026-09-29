@@ -192,7 +192,10 @@ end
 -- Only fonts the client can actually load are offered; each one is validated by
 -- setting it and reading it back.
 function Options.FontOptions()
-	local out = { { value = false, label = L["Automatic"] } }
+	-- Automatic is the addon's own typeface; the game's chat font is offered by
+	-- name for anyone who prefers the window to match the rest of their UI.
+	local out = { { value = false, label = L["Automatic"] },
+		{ value = "game", label = L["The game's chat font"] } }
 	local candidates = {
 		{ "Fonts\\FRIZQT__.TTF", "Friz Quadrata" },
 		{ "Fonts\\ARIALN.TTF", "Arial Narrow" },

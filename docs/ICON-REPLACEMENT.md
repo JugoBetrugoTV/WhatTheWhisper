@@ -59,7 +59,7 @@ nothing in this set does.
 | `bell.tga` | Unmute, in the conversation menu | 22px | 64 x 64 | yes | 6px | plain bell | not needed | 2 places |
 | `block.tga` | Ignore this player | 20px | 64 x 64 | yes | 5px | circle with a diagonal bar | not needed | 2 places |
 | `bullet.tga` | The default menu and settings-category mark, when nothing better fits | 20px | 64 x 64 | yes | 5px | a small filled dot | not needed | 3 places |
-| `chat.tga` | Whisper someone; empty-state illustration | 22px | 64 x 64 | yes | 6px | plain speech bubble | not needed | 6 places |
+| `chat.tga` | Whisper someone; empty-state illustration | 22px | 64 x 64 | yes | 6px | plain speech bubble | not needed | 3 places |
 | `close.tga` | Close buttons: window, popout, dialogs, clearing a search | 22px | 64 x 64 | yes | 6px | a thin X, equal-armed | not needed | 10 places |
 | `combat.tga` | Settings category: Combat | 22px | 64 x 64 | yes | 6px | shield outline | not needed | 1 place |
 | `copy.tga` | Copy name, copy message, copy URL | 20px | 64 x 64 | yes | 5px | two overlapping rounded squares | not needed | 3 places |
@@ -86,7 +86,7 @@ nothing in this set does.
 | `popout.tga` | Detach this conversation into its own window | 22px | 64 x 64 | yes | 6px | square with an arrow leaving it | not needed | 2 places |
 | `report.tga` | Report a whisper | 20px | 64 x 64 | yes | 5px | a triangle with an exclamation mark | not needed | 3 places |
 | `reveal.tga` | Show a message the game has hidden | 20px | 64 x 64 | yes | 5px | an open eye | not needed | 1 place |
-| `search.tga` | Search fields, and the header's search-in-thread button | 22px | 64 x 64 | yes | 6px | magnifier, handle to lower right | not needed | 5 places |
+| `search.tga` | Search fields, and the header's search-in-thread button | 22px | 64 x 64 | yes | 6px | magnifier, handle to lower right | not needed | 4 places |
 | `send.tga` | The send button in the composer | 24px | 64 x 64 | yes | 6px | paper plane, pointing up-right | not needed | 1 place |
 | `sent.tga` | Delivery line: sent, waiting for the server's echo | 16px | 64 x 64 | yes | 4px | single check | not needed | 4 places |
 | `settings.tga` | Opens the settings window; the Appearance-level settings category | 22px | 64 x 64 | yes | 6px | two horizontal sliders | not needed | 3 places |

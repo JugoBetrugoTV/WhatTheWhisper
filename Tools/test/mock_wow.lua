@@ -278,13 +278,17 @@ local function geometry(region)
 		if region._wordWrap == false then
 			naturalH = size + 2
 		else
-			local lines = math.max(1, math.ceil((naturalW or 0) / math.max(w, 1)))
+			local lines = M.WrapLines and M.WrapLines(region, math.max(w, 1))
+				or math.max(1, math.ceil((naturalW or 0) / math.max(w, 1)))
 			naturalH = lines * (size + (region._spacing or 0)) + 2
 		end
 	end
 	local bottom, h = axis(yConstraints, height or naturalH)
 	if width then w = width end
 	if height then h = height end
+	-- Opposing anchors that meet leave nothing to draw; the client draws no
+	-- pixels there. Measured as one so nothing divides by zero, but flagged.
+	region._gEmpty = (w <= 0 or h <= 0) or nil
 	if w <= 0 then w = 1 end
 	if h <= 0 then h = 1 end
 
@@ -446,6 +450,7 @@ function regionMethods:SetDrawLayer(layer, sub)
 	assert(sub == nil or (type(sub) == "number" and sub >= -8 and sub <= 7),
 		"draw sub-level must be -8..7, got " .. tostring(sub))
 	self._layer = layer
+	self._sub = sub
 end
 function regionMethods:GetObjectType() return self._kind end
 function regionMethods:SetIgnoreParentAlpha() end
@@ -515,16 +520,30 @@ function textureMethods:GetVertexColor()
 	local v = self._vertex or { 1, 1, 1, 1 }
 	return v[1], v[2], v[3], v[4]
 end
-function textureMethods:SetRotation() end
-function textureMethods:SetDesaturated() end
-function textureMethods:SetBlendMode() end
+-- Kept for Tools/render, which draws what the addon built: a mask, a gradient
+-- or a blend mode dropped here would render as something the client never shows.
+function textureMethods:SetRotation(radians) self._rotation = radians end
+function textureMethods:SetDesaturated(v) self._desaturated = v and true or nil end
+function textureMethods:SetBlendMode(mode) self._blend = mode end
 function textureMethods:SetVertexOffset() end
-function textureMethods:SetMask() end
-function textureMethods:AddMaskTexture() end
-function textureMethods:RemoveMaskTexture() end
+function textureMethods:SetMask(path) self._maskPath = path end
+function textureMethods:AddMaskTexture(mask)
+	self._masks = self._masks or {}
+	self._masks[#self._masks + 1] = mask
+end
+function textureMethods:RemoveMaskTexture(mask)
+	for i = #(self._masks or {}), 1, -1 do
+		if self._masks[i] == mask then table.remove(self._masks, i) end
+	end
+end
+local function colourOf(c)
+	if c.GetRGBA then return { c:GetRGBA() } end
+	return { c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1, c.a or c[4] or 1 }
+end
 function textureMethods:SetGradient(orientation, a, b)
 	assert(type(orientation) == "string", "SetGradient orientation must be a string")
 	assert(type(a) == "table" and type(b) == "table", "SetGradient needs colour objects")
+	self._gradient = { orientation, colourOf(a), colourOf(b) }
 end
 function textureMethods:SetHorizTile() end
 function textureMethods:SetVertTile() end
@@ -532,12 +551,13 @@ function textureMethods:SetVertTile() end
 function textureMethods:SetGradientAlpha(orientation, r1, g1, b1, a1, r2, g2, b2, a2)
 	assert(type(orientation) == "string", "SetGradientAlpha orientation must be a string")
 	assert(type(a2) == "number", "SetGradientAlpha needs eight colour components")
+	self._gradient = { orientation, { r1, g1, b1, a1 }, { r2, g2, b2, a2 } }
 end
 
 local texProto, texMT = makeObject("Texture", textureMethods)
 
-local function newTexture(parent, layer)
-	local t = setmetatable({ _kind = "Texture", _parent = parent, _layer = layer }, texMT)
+local function newTexture(parent, layer, sub)
+	local t = setmetatable({ _kind = "Texture", _parent = parent, _layer = layer, _sub = sub }, texMT)
 	M.regions[#M.regions + 1] = t
 	return t
 end
@@ -578,7 +598,20 @@ M.fontFiles = {
 	["Fonts\\SKURRI.TTF"] = true,
 	["Fonts\\NIM_____.ttf"] = true,
 }
+-- The addon's own fonts are installed exactly when the files are in the
+-- addon folder: one that was never committed is missing here too.
+local ADDON_ROOT = "/home/user/WhatTheWhisper/WhatTheWhisper/"
+local addonFontCache = {}
 local function fontInstalled(path)
+	if type(path) == "string" and path:find("^Interface\\AddOns\\WhatTheWhisper\\") then
+		if addonFontCache[path] == nil then
+			local rel = path:gsub("^Interface\\AddOns\\WhatTheWhisper\\", ""):gsub("\\", "/")
+			local fh = io.open(ADDON_ROOT .. rel, "rb")
+			addonFontCache[path] = fh ~= nil
+			if fh then fh:close() end
+		end
+		return addonFontCache[path]
+	end
 	if not M.fontFiles then return true end
 	return M.fontFiles[path] == true
 end
@@ -595,6 +628,8 @@ function fsMethods:GetFont()
 	return "Fonts\\FRIZQT__.TTF", 12, ""
 end
 function fsMethods:GetStringWidth()
+	-- Tools/render swaps in measurement from the real font files.
+	if M.MeasureText then return M.MeasureText(self) end
 	local size = select(2, self:GetFont()) or 12
 	return visibleLength(self._text) * size * 0.52
 end
@@ -603,7 +638,8 @@ function fsMethods:GetStringHeight()
 	local width = self._w
 	if not width or width <= 0 then return size + 2 end
 	local natural = self:GetStringWidth()
-	local lines = math.max(1, math.ceil(natural / width))
+	local lines = M.WrapLines and M.WrapLines(self, width)
+		or math.max(1, math.ceil(natural / width))
 	return lines * (size + (self._spacing or 0)) + 2
 end
 function fsMethods:SetJustifyH(v) self._justifyH = v end
@@ -630,8 +666,8 @@ function fsMethods:SetShadowColor() end
 
 local fsProto, fsMT = makeObject("FontString", fsMethods)
 
-local function newFontString(parent, layer)
-	local fs = setmetatable({ _kind = "FontString", _parent = parent, _layer = layer }, fsMT)
+local function newFontString(parent, layer, sub)
+	local fs = setmetatable({ _kind = "FontString", _parent = parent, _layer = layer, _sub = sub }, fsMT)
 	M.regions[#M.regions + 1] = fs
 	return fs
 end
@@ -746,9 +782,13 @@ agProto, agMT = makeObject("AnimationGroup", agMethods)
 local frameMethods = {}
 for k, v in pairs(regionMethods) do frameMethods[k] = v end
 
-function frameMethods:CreateTexture(name, layer) return newTexture(self, layer) end
-function frameMethods:CreateFontString(name, layer) return newFontString(self, layer) end
-function frameMethods:CreateMaskTexture(name, layer) return newTexture(self, layer) end
+function frameMethods:CreateTexture(_, layer, _, sub) return newTexture(self, layer, sub) end
+function frameMethods:CreateFontString(_, layer) return newFontString(self, layer) end
+function frameMethods:CreateMaskTexture(_, layer)
+	local mask = newTexture(self, layer)
+	mask._isMask = true
+	return mask
+end
 function frameMethods:CreateAnimationGroup()
 	return setmetatable({ _kind = "AnimationGroup", _parent = self }, agMT)
 end
@@ -1002,7 +1042,7 @@ function frameMethods:SetMultiLine(v) self._multiline = v end
 function frameMethods:IsMultiLine() return self._multiline or false end
 function frameMethods:SetAutoFocus() end
 function frameMethods:SetFontObject(fo) self._font = fo end
-function frameMethods:SetTextInsets() end
+function frameMethods:SetTextInsets(l, r, t, b) self._textInsets = { l, r, t, b } end
 function frameMethods:SetMaxLetters() end
 function frameMethods:SetCountInvisibleLetters() end
 function frameMethods:SetTextColor(r, g, b, a)

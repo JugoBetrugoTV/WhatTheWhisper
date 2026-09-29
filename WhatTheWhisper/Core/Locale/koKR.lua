@@ -190,6 +190,7 @@ ns.RegisterLocale("koKR", {
 	["Show avatars"] = "아이콘 표시",
 	["Avatar style"] = "아이콘 모양",
 	["Automatic"] = "자동",
+	["The game's chat font"] = "게임 채팅 글꼴",
 	["Class icon"] = "직업 아이콘",
 	["Initials"] = "이름 첫 글자",
 	["Chat bubbles"] = "말풍선",

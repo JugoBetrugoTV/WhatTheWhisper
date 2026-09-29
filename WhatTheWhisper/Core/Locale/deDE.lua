@@ -172,6 +172,7 @@ ns.RegisterLocale("deDE", {
 	["Show avatars"] = "Avatare anzeigen",
 	["Avatar style"] = "Avatar-Stil",
 	["Automatic"] = "Automatisch",
+	["The game's chat font"] = "Chat-Schrift des Spiels",
 	["Class icon"] = "Klassensymbol",
 	["Initials"] = "Initialen",
 	["Chat bubbles"] = "Sprechblasen",

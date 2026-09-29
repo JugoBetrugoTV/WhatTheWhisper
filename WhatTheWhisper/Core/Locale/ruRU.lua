@@ -190,6 +190,7 @@ ns.RegisterLocale("ruRU", {
 	["Show avatars"] = "Показывать аватары",
 	["Avatar style"] = "Вид аватара",
 	["Automatic"] = "Автоматически",
+	["The game's chat font"] = "Шрифт чата игры",
 	["Class icon"] = "Значок класса",
 	["Initials"] = "Инициалы",
 	["Chat bubbles"] = "Облачка сообщений",

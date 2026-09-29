@@ -50,7 +50,7 @@ local function createToast()
 
 	-- Name and message are one block centred on the avatar, the same shape a
 	-- sidebar row has. The time hangs off the name's baseline at the far right.
-	t.name = W.Text(t, "BODY", "textPrimary")
+	t.name = W.Text(t, "BODY_STRONG", "textPrimary")
 	t.name:SetPoint("BOTTOMLEFT", t.avatar, "RIGHT", ns.S.MD, 1)
 
 	t.time = W.Text(t, "MICRO", "textMuted")
@@ -59,6 +59,7 @@ local function createToast()
 	t.time:SetJustifyH("RIGHT")
 
 	t.body = W.Text(t, "SUBHEAD", "textSecondary")
+	W.SetLineSpacing(t.body, ns.CAPTION_SPACING)
 	t.body:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -ns.S.XS / 2)
 
 	-- Hairline progress bar showing the remaining time. It rides inside the
