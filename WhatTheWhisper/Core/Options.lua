@@ -430,6 +430,15 @@ function Options.BuildSchema()
 					},
 				},
 				{
+					title = L["Quick replies"],
+					rows = {
+						{ type = "button", label = L["Quick replies"],
+							caption = L["Lines you send often, one click away in the message box."],
+							buttonText = L["Edit"],
+							onClick = function() ns.Dialogs.QuickReplies() end },
+					},
+				},
+				{
 					title = L["Delivery"],
 					rows = {
 						toggle("messages.deliveryStatus", L["Show delivery state"],

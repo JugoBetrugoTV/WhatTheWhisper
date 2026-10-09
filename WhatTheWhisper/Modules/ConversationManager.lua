@@ -74,6 +74,8 @@ local function newConversation(id, opts)
 		conv.muted = rec.m and true or false
 		conv.filtered = rec.fl and true or false
 		conv.notSpam = rec.ns and true or false
+		-- Half a message, left in the box when the game was closed or reloaded.
+		if type(rec.dr) == "string" then conv.draft = rec.dr end
 	else
 		conv.messages = {}
 	end
@@ -485,9 +487,23 @@ function CM.SetFiltered(id, filtered)
 	ns.Bus.Fire(ns.EV.LAYOUT_CHANGED)
 end
 
+-- The longest draft that is kept: four whispers' worth. Anything past that is
+-- somebody pasting a document, and a document is not something to carry in a
+-- saved-variables file between sessions. It is not cut short to fit either --
+-- half a message with a link sliced open is worse than none.
+local DRAFT_KEEP_BYTES = 1100
+
 function CM.SetDraft(id, text)
 	local conv = conversations[id]
-	if conv then conv.draft = text or "" end
+	if not conv then return end
+	text = text or ""
+	conv.draft = text
+	if conv.record then
+		-- Kept with the thread so that a reload does not lose it. Whitespace on
+		-- its own is not a draft.
+		local keep = ns.Text.Trim(text) ~= "" and #text <= DRAFT_KEEP_BYTES
+		conv.record.dr = keep and text or nil
+	end
 end
 
 --------------------------------------------------------------------------------

@@ -61,6 +61,9 @@ ns.defaults = {
 
 		messages = {
 			openOnSend         = true,
+			-- false: the starters, in the language the addon is in. A table of
+			-- strings once the player has written their own; see QuickReplies.
+			quickReplies       = false,
 			autoSwitch         = false,
 			-- A messenger that stays shut when somebody writes to you is a
 			-- messenger you miss messages in, so both directions open it: a
@@ -183,6 +186,7 @@ ns.defaults = {
 --           u  = 2,                 unread count
 --           p  = true,              pinned
 --           m  = false,             muted
+--           dr = "on my wa",        draft: half a message, kept across a reload
 --           lv = 70,                last known level
 --           f  = "Horde",           faction, when derivable
 --           msgs = {                array, oldest first

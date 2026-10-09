@@ -213,7 +213,7 @@ function History.Prune()
 
 	-- Empty, unpinned records carry no value.
 	for id, rec in pairs(conv) do
-		if (not rec.msgs or #rec.msgs == 0) and not rec.p then
+		if (not rec.msgs or #rec.msgs == 0) and not rec.p and not rec.dr then
 			conv[id] = nil
 			removedConversations = removedConversations + 1
 		end

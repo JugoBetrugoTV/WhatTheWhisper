@@ -524,6 +524,13 @@ def _(p):
     p.line(24, 37, 40, 37, 3.2)
 
 
+@icon("bolt")
+def _(p):
+    # A lightning bolt: the one-click line. Filled, like the send mark, so it
+    # still reads at the 19 px it is drawn at.
+    p.poly([(37, 10), (16, 37), (29, 37), (25, 54), (48, 25), (34, 25)])
+
+
 def main():
     atlas = Image.new("RGBA", (CELL * COLS, CELL * ROWS), (255, 255, 255, 0))
     names = []

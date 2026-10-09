@@ -827,6 +827,9 @@ function ChatEvents.Init()
 	if not Compat.HookReply(ChatEvents.OnReply) then
 		Debug.Log("compat", "reply hook unavailable on this client")
 	end
+	if not Compat.HookInsertLink(function(link) ns.Composer.InsertLink(link) end) then
+		Debug.Log("compat", "link insertion hook unavailable on this client")
+	end
 
 	-- Registered once; the filter itself checks the setting so toggling it never
 	-- has to add or remove filters (which is where double-registration bugs live).

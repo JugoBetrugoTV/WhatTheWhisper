@@ -1649,6 +1649,50 @@ function Compat.HookReply(callback)
 	return installed
 end
 
+-- The game's own chat box that has the keyboard, if one does. Where it exists
+-- it is what a shift-clicked link goes into, and nothing else needs to.
+function Compat.ActiveChatBox()
+	local util = _G.ChatFrameUtil
+	local get = (type(util) == "table" and util.GetActiveWindow) or _G.ChatEdit_GetActiveWindow
+	if type(get) ~= "function" then return nil end
+	local ok, box = pcall(get)
+	if ok and type(box) == "table" then return box end
+	return nil
+end
+
+-- Shift-clicking an item, a spell, a quest or a name in the world sends its link
+-- to the game's chat box through ChatFrameUtil.InsertLink (ChatEdit_InsertLink
+-- before it, which is still the real function on the Classic clients). The
+-- messenger's own box is not one of the game's, so the link goes nowhere unless
+-- somebody is told.
+--
+-- A hook, not a replacement: replacing a Blizzard function taints every secure
+-- path that calls it, and the bags and the auction house are among them. The
+-- hook runs after the game has had its turn, so it only has to ask whether the
+-- game found a box; if it did, the link is already where it belongs.
+-- `callback(link)`. Both names are hooked -- on the clients that have both, one
+-- calls the other -- so the callback has to cope with hearing about a link twice.
+function Compat.HookInsertLink(callback)
+	local hook = _G.hooksecurefunc
+	if type(hook) ~= "function" then return false end
+	local function fire(link)
+		if type(link) ~= "string" or link == "" then return end
+		if Compat.ActiveChatBox() then return end
+		ns.Guard("Compat.HookInsertLink", callback, link)
+	end
+	local installed = false
+	local util = _G.ChatFrameUtil
+	if type(util) == "table" and type(util.InsertLink) == "function" then
+		hook(util, "InsertLink", fire)
+		installed = true
+	end
+	if type(_G.ChatEdit_InsertLink) == "function" then
+		hook("ChatEdit_InsertLink", fire)
+		installed = true
+	end
+	return installed
+end
+
 function Compat.SetTooltipHyperlink(tooltip, link)
 	if tooltip and tooltip.SetHyperlink then
 		return pcall(tooltip.SetHyperlink, tooltip, link)

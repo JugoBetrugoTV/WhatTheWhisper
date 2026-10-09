@@ -24,6 +24,12 @@ local CLOSE_TO_LIMIT = 20
 
 local C = {}
 
+-- Every composer there is (the messenger's, each window's), and the one that
+-- had the keyboard last. Weak, so a composer that is thrown away is not kept
+-- alive by being listed.
+local instances = setmetatable({}, { __mode = "k" })
+local lastFocused
+
 function Composer.New(parent, opts)
 	opts = opts or {}
 	local c = CreateFrame("Frame", nil, parent)
@@ -35,6 +41,11 @@ function Composer.New(parent, opts)
 	-- No rule above the composer. The composer's own surface is a shade darker
 	-- than the thread it sits under, which is separation enough -- a line as
 	-- well is the belt-and-braces look that makes an interface feel heavy.
+	c.quick = ns.Button.Icon(c, {
+		icon = "quick", size = ns.SZ.ICON_BTN, radius = ns.R.PILL,
+		tooltip = L["Quick replies"],
+		onClick = function(self) c:OpenQuickReplies(self) end,
+	})
 	c.emoji = ns.Button.Icon(c, {
 		icon = "emoji", size = ns.SZ.ICON_BTN, radius = ns.R.PILL,
 		tooltip = L["Emoji"],
@@ -78,6 +89,7 @@ function Composer.New(parent, opts)
 		-- Room kept clear for the send arrow, which is drawn inside the field.
 		insetRight = ns.SZ.SEND_BTN,
 		onEnter = function() c:Submit() end,
+		onFocus = function(focused) if focused then lastFocused = c end end,
 		onChange = function(value) c:OnTextChanged(value) end,
 		onResize = function() c:Relayout() end,
 		onEscape = function()
@@ -106,8 +118,39 @@ function Composer.New(parent, opts)
 	c.counter:SetJustifyH("RIGHT")
 	c.counter:Hide()
 
+	instances[c] = true
 	c:Relayout()
 	return c
+end
+
+-- Whether this composer is somewhere a person could be typing: on screen, with a
+-- conversation in it.
+local function usable(composer)
+	return composer and composer.conv ~= nil and composer:IsVisible()
+end
+
+local lastLink, lastLinkAt
+
+-- A link that was shift-clicked somewhere in the game while no chat box of the
+-- game's was open: it goes into the composer the person is typing in, or the
+-- last one they typed in if that is still on screen. Returns whether it went in.
+function Composer.InsertLink(link)
+	if type(link) ~= "string" or link == "" then return false end
+	-- One click can reach this twice, through the new function and through the
+	-- old name for it, and a link in the box twice is not what anybody meant.
+	local now = GetTime and GetTime() or nil
+	if now and lastLink == link and lastLinkAt == now then return true end
+
+	local target
+	for composer in pairs(instances) do
+		if usable(composer) and composer:HasFocus() then target = composer break end
+	end
+	if not target and usable(lastFocused) then target = lastFocused end
+	if not target then return false end
+
+	lastLink, lastLinkAt = link, now
+	target:Insert(link)
+	return true
 end
 
 -- Both buttons sit on the last line of the field, not on the middle of it: once
@@ -121,9 +164,11 @@ end
 function C:PositionButtons(fieldHeight)
 	local line = math.min(fieldHeight, self.input:SingleLineHeight())
 	local function lift(size) return PAD + (line - size) / 2 end
-	self.emoji:ClearAllPoints()
-	self.emoji:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT",
+	self.quick:ClearAllPoints()
+	self.quick:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT",
 		self.margins.left, lift(ns.SZ.ICON_BTN))
+	self.emoji:ClearAllPoints()
+	self.emoji:SetPoint("BOTTOMLEFT", self.quick, "BOTTOMRIGHT", 0, 0)
 	-- The same gap under the arrow as beside it, so it sits in the field's
 	-- corner rather than on its edge.
 	local inset = math.max(2, (line - ns.SZ.SEND_BTN) / 2)
@@ -281,9 +326,35 @@ function C:Insert(value)
 	self.input:Insert(value)
 end
 
+-- The player's saved lines as a menu under the button. Choosing one puts it in
+-- the box and leaves the sending to the player. The last entry is the way to
+-- write their own, which is also the only way to find out that they can.
+function C:OpenQuickReplies(anchor)
+	local entries = {}
+	for _, line in ipairs(ns.QuickReplies.List()) do
+		entries[#entries + 1] = {
+			text = line,
+			onClick = function()
+				-- Into an empty box as it is; after something already written,
+				-- with a space between, so two sentences are not run together.
+				local current = self.input:GetText() or ""
+				if current ~= "" and not current:find("%s$") then line = " " .. line end
+				self:Insert(line)
+			end,
+		}
+	end
+	if #entries > 0 then entries[#entries + 1] = { separator = true } end
+	entries[#entries + 1] = {
+		text = L["Edit quick replies..."], icon = "edit",
+		onClick = function() ns.Dialogs.QuickReplies() end,
+	}
+	ns.Menu.Open(entries, { anchor = anchor or self.quick })
+end
+
 -- The player changed the language. Everything below was written once, when the
 -- frame was built, which is exactly why none of it can notice on its own.
 function C:Relocalize()
+	W.SetTooltip(self.quick, L["Quick replies"])
 	W.SetTooltip(self.emoji, L["Emoji"])
 	W.SetTooltip(self.send, L["Send"])
 	self:RefreshPlaceholder()
@@ -292,6 +363,7 @@ end
 
 function C:ApplyTheme()
 	self.surface:ApplyTheme()
+	self.quick:ApplyTheme()
 	self.emoji:ApplyTheme()
 	self.send:ApplyTheme()
 	self.input:ApplyTheme()

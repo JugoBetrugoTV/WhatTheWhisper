@@ -1792,6 +1792,30 @@ function ChatFrameUtil.ReplyTell()
 end
 
 _G.CHAT_FRAMES = {}
+
+-- The game's chat box that has the keyboard, and what a shift-clicked link does:
+-- goes into that box and says so, or finds none and says that. Where a link goes
+-- when nobody is typing is the addon's business, which is what is being tested.
+function ChatFrameUtil.GetActiveWindow()
+	for _, name in ipairs(_G.CHAT_FRAMES) do
+		local frame = _G[name]
+		local box = frame and frame.editBox
+		if box and box:HasFocus() then return box end
+	end
+	return nil
+end
+function ChatFrameUtil.InsertLink(text)
+	if not text then return false end
+	local box = ChatFrameUtil.GetActiveWindow()
+	if box then
+		box:Insert(text)
+		return true
+	end
+	return false
+end
+_G.ChatEdit_InsertLink = ChatFrameUtil.InsertLink
+_G.ChatEdit_GetActiveWindow = ChatFrameUtil.GetActiveWindow
+
 local function makeEditBox(chatFrame)
 	local box = CreateFrame("EditBox", chatFrame:GetName() .. "EditBox", chatFrame)
 	for k, v in pairs(ChatFrameEditBoxMixin) do box[k] = v end
@@ -1842,6 +1866,7 @@ end
 M.DEPRECATED_ALIASES = {
 	"ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
 	"ChatEdit_UpdateHeader", "SendChatMessage", "BNSendWhisper", "NUM_CHAT_WINDOWS",
+	"ChatEdit_InsertLink", "ChatEdit_GetActiveWindow",
 }
 function M.DropDeprecationFallbacks()
 	for _, name in ipairs(M.DEPRECATED_ALIASES) do _G[name] = nil end

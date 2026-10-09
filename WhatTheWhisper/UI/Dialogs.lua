@@ -364,6 +364,95 @@ function Dialogs.Confirm(title, body, confirmLabel, onConfirm, danger)
 	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
 end
 
+--------------------------------------------------------------------------------
+-- Quick replies
+--------------------------------------------------------------------------------
+
+-- One field per line, always the full set: an empty field is a line not used.
+-- A list editor that adds and removes rows is a great deal more machinery than
+-- ten boxes, and ten is the most there can be.
+local QUICK_W = 460
+local QUICK_FIELD_H = 30
+
+function Dialogs.QuickReplies()
+	local QR = ns.QuickReplies
+	local d = Dialogs.quickDialog
+	if not d then
+		local height = ns.SZ.TITLEBAR_H + 4 + ns.S.MD + ns.S.XL
+			+ QR.MAX * (QUICK_FIELD_H + ns.S.XS) + ns.S.LG + 36 + ns.S.LG
+		d = makeDialog("WhatTheWhisperQuickRepliesDialog", QUICK_W, height)
+		d.hint = W.Text(d, "SMALL", "textSecondary")
+		d.hint:SetPoint("TOPLEFT", d.header, "BOTTOMLEFT", ns.S.LG, -ns.S.MD)
+		d.hint:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
+		d.hint:SetJustifyH("LEFT")
+
+		d.fields = {}
+		for i = 1, QR.MAX do
+			local field = ns.Input.New(d, { minHeight = QUICK_FIELD_H, radius = ns.R.SM,
+				fontToken = "SMALL" })
+			if i == 1 then
+				field:SetPoint("TOPLEFT", d.hint, "BOTTOMLEFT", 0, -ns.S.MD)
+			else
+				field:SetPoint("TOPLEFT", d.fields[i - 1], "BOTTOMLEFT", 0, -ns.S.XS)
+			end
+			field:SetPoint("RIGHT", d, "RIGHT", -ns.S.LG, 0)
+			d.fields[i] = field
+		end
+
+		d.save = ns.Button.Text(d, {
+			text = L["Save"], variant = "primary", minWidth = 96,
+			onClick = function()
+				local lines = {}
+				for i = 1, QR.MAX do lines[i] = d.fields[i]:GetText() end
+				QR.Set(lines)
+				d:Hide()
+			end,
+		})
+		d.save:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -ns.S.LG, ns.S.LG)
+
+		d.cancel = ns.Button.Text(d, {
+			text = L["Cancel"], variant = "ghost", minWidth = 88,
+			onClick = function() d:Hide() end,
+		})
+		d.cancel:SetPoint("RIGHT", d.save, "LEFT", -ns.S.SM, 0)
+
+		d.restore = ns.Button.Text(d, {
+			text = L["Restore the starters"], variant = "ghost", minWidth = 140,
+			onClick = function()
+				QR.Reset()
+				d:Fill()
+			end,
+		})
+		d.restore:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", ns.S.LG, ns.S.LG)
+
+		function d:Fill()
+			local list = QR.List()
+			for i = 1, QR.MAX do d.fields[i]:SetText(list[i] or "") end
+		end
+
+		function d:ApplyTheme()
+			d.surface:ApplyTheme()
+			d.header.divider:ApplyTheme()
+			W.RefreshText(d.title)
+			W.RefreshText(d.hint)
+			d.close:ApplyTheme()
+			for i = 1, QR.MAX do d.fields[i]:ApplyTheme() end
+			d.save:ApplyTheme()
+			d.cancel:ApplyTheme()
+			d.restore:ApplyTheme()
+		end
+
+		Dialogs.quickDialog = d
+	end
+
+	d.title:SetText(L["Quick replies"])
+	d.hint:SetText(L["Lines you send often. Choosing one puts it in the message box, ready to change. Leave a field empty to not use it."])
+	d:Fill()
+	d:Show()
+	Anim.PopIn(d, Theme.Duration("SLOW"), 0.98)
+	d.fields[1]:Focus()
+end
+
 -- Closes whichever dialog is open, without the caller having to know which one
 -- it was. Built lazily and kept, so this is written the same way ApplyTheme is.
 function Dialogs.HideAll()
@@ -371,6 +460,7 @@ function Dialogs.HideAll()
 	if confirmDialog then confirmDialog:Hide() end
 	if ns.Dialogs.promptDialog then ns.Dialogs.promptDialog:Hide() end
 	if ns.Dialogs.linksDialog then ns.Dialogs.linksDialog:Hide() end
+	if ns.Dialogs.quickDialog then ns.Dialogs.quickDialog:Hide() end
 end
 
 function Dialogs.ApplyTheme()
@@ -378,6 +468,7 @@ function Dialogs.ApplyTheme()
 	if confirmDialog then confirmDialog:ApplyTheme() end
 	if ns.Dialogs.promptDialog then ns.Dialogs.promptDialog:ApplyTheme() end
 	if ns.Dialogs.linksDialog then ns.Dialogs.linksDialog:ApplyTheme() end
+	if ns.Dialogs.quickDialog then ns.Dialogs.quickDialog:ApplyTheme() end
 end
 
 --------------------------------------------------------------------------------

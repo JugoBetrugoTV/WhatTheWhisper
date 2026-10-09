@@ -108,6 +108,10 @@ function Migrations.Repair(history)
 				if type(record) ~= "table" then
 					store.conv[id] = nil
 					repaired = repaired + 1
+				elseif record.dr ~= nil and type(record.dr) ~= "string" then
+					-- A draft is text or nothing.
+					record.dr = nil
+					repaired = repaired + 1
 				elseif type(record.msgs) ~= "table" then
 					if record.msgs ~= nil then repaired = repaired + 1 end
 					record.msgs = {}

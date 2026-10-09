@@ -50,6 +50,11 @@ Icons.REPLACEABLE = {
 		note = "simple round smile",
 		use = "Opens the emoji picker, left of the composer field",
 	},
+	quick = {
+		size = "ICON_GLYPH",
+		note = "lightning bolt",
+		use = "Opens the quick replies, left of the emoji button",
+	},
 
 	-- Navigation and window chrome.
 	search = {
@@ -278,6 +283,7 @@ Icons.REPLACEABLE = {
 -- name, which is how the rest of the sheet stays reachable.
 local ATLAS_ALIAS = {
 	emoji = "smiley",
+	quick = "bolt",
 	more = "dots",
 	settings = "sliders",
 	up = "chevron_up",

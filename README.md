@@ -81,7 +81,12 @@ the real windows, not by drawing fake previews.
 messenger, even when the whisper never reached the chat window. In the composer,
 Up and Down bring back what you already said in that thread — a message that did
 not arrive is one key away from being sent again — and Tab or Shift+Tab move to
-the next or previous conversation.
+the next or previous conversation. Shift-clicking an item, spell, quest or name in
+the game puts its link in the box you are typing in, which is the messenger's own
+composer and not only the game's chat box. A half-written message is still there
+after a reload, and a button beside the emoji one holds up to ten quick replies —
+starters in your language until you write your own — that go into the box, ready to
+change, rather than straight out.
 
 **Spam.** A list of words in the settings: a stranger's whisper containing one
 is kept, silently — no sound, card, window or unread count, out of the chat
