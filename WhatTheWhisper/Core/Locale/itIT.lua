@@ -136,6 +136,12 @@ ns.RegisterLocale("itIT", {
 	["Cancel"] = "Annulla",
 	["Confirm"] = "Conferma",
 	["Delete"] = "Elimina",
+	["Delete conversation"] = "Elimina conversazione",
+	["Delete this conversation?"] = "Eliminare questa conversazione?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Questo elimina la conversazione con %s e i suoi %d messaggi salvati. Non si può annullare.",
+	["Delete all conversations"] = "Elimina tutte le conversazioni",
+	["Delete all conversations?"] = "Eliminare tutte le conversazioni?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Questo elimina tutte le %d conversazioni e ogni messaggio salvato. I soprannomi vengono mantenuti. Non si può annullare.",
 
 	-- Categorie delle impostazioni
 	["General"] = "Generale",

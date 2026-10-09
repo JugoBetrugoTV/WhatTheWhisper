@@ -123,6 +123,12 @@ ns.RegisterLocale("deDE", {
 	["Cancel"] = "Abbrechen",
 	["Confirm"] = "Bestätigen",
 	["Delete"] = "Löschen",
+	["Delete conversation"] = "Unterhaltung löschen",
+	["Delete this conversation?"] = "Diese Unterhaltung löschen?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Damit werden die Unterhaltung mit %s und ihre %d gespeicherten Nachrichten entfernt. Das lässt sich nicht rückgängig machen.",
+	["Delete all conversations"] = "Alle Unterhaltungen löschen",
+	["Delete all conversations?"] = "Alle Unterhaltungen löschen?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Damit werden alle %d Unterhaltungen und sämtliche gespeicherten Nachrichten entfernt. Spitznamen bleiben erhalten. Das lässt sich nicht rückgängig machen.",
 
 	-- Einstellungskategorien
 	["General"] = "Allgemein",

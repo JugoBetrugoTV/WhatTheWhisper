@@ -350,6 +350,12 @@ function UI.BuildConversationMenu(conv)
 		disabled = #conv.messages == 0,
 		onClick = function() UI.ConfirmClear(conv) end,
 	}
+	-- Clearing the history keeps the thread, and a thread with no messages is
+	-- still a row in the list. Taking the row away is its own act.
+	entries[#entries + 1] = {
+		text = L["Delete conversation"], icon = "trash", danger = true,
+		onClick = function() UI.ConfirmDelete(conv) end,
+	}
 	-- Report, for a character who has written this session. Offered greyed out
 	-- with the reason when their whispers are all from before a reload: the
 	-- line a report is filed against is gone by then, and a menu that simply
@@ -416,6 +422,37 @@ function UI.ConfirmClear(conv)
 		L["Delete"],
 		function()
 			ns.History.Clear(conv.id)
+			UI.RefreshAll()
+		end, true)
+end
+
+-- Removes the conversation itself: its row, its tab, its window and everything
+-- stored for it. A nickname is something the player wrote about a person rather
+-- than part of the conversation, so it stays.
+function UI.ConfirmDelete(conv)
+	ns.Dialogs.Confirm(
+		L["Delete this conversation?"],
+		L["This removes the conversation with %s and its %d stored messages. It cannot be undone."]
+			:format(CM.DisplayName(conv), #conv.messages),
+		L["Delete"],
+		function()
+			CM.Remove(conv.id)
+			UI.RefreshAll()
+		end, true)
+end
+
+function UI.ConfirmDeleteAll()
+	local conversations = ns.History.Stats()
+	ns.Dialogs.Confirm(
+		L["Delete all conversations?"],
+		L["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."]
+			:format(conversations),
+		L["Delete"],
+		function()
+			local ids = {}
+			for id in pairs(CM.All()) do ids[#ids + 1] = id end
+			for i = 1, #ids do CM.Remove(ids[i]) end
+			ns.History.ClearAll()
 			UI.RefreshAll()
 		end, true)
 end
@@ -640,6 +677,8 @@ function UI.Init()
 		for i = 1, #tabOrder do if tabOrder[i] == id then index = i break end end
 		if index then table.remove(tabOrder, index) end
 		ns.Popout.Close(id)
+		-- A card for a conversation that no longer exists would open nothing.
+		ns.Toast.DismissFor(id)
 		local window = existing()
 		if window then
 			window.sidebar:Refresh()

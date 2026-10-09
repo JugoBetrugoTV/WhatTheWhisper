@@ -526,6 +526,13 @@ function Options.BuildSchema()
 							buttonText = L["Clear all history"], danger = true,
 							onClick = function() ns.UI.ConfirmClearAll() end,
 						},
+						-- Clearing keeps every conversation as an empty row;
+						-- this takes the rows away too.
+						{
+							type = "button", label = L["Delete all conversations"],
+							buttonText = L["Delete all conversations"], danger = true,
+							onClick = function() ns.UI.ConfirmDeleteAll() end,
+						},
 					},
 				},
 			},

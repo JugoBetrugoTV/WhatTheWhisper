@@ -136,6 +136,12 @@ ns.RegisterLocale("esMX", {
 	["Cancel"] = "Cancelar",
 	["Confirm"] = "Confirmar",
 	["Delete"] = "Eliminar",
+	["Delete conversation"] = "Eliminar conversación",
+	["Delete this conversation?"] = "¿Eliminar esta conversación?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Esto elimina la conversación con %s y sus %d mensajes guardados. No se puede deshacer.",
+	["Delete all conversations"] = "Eliminar todas las conversaciones",
+	["Delete all conversations?"] = "¿Eliminar todas las conversaciones?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Esto elimina las %d conversaciones y todos los mensajes guardados. Los apodos se conservan. No se puede deshacer.",
 
 	-- Categorías de ajustes
 	["General"] = "General",

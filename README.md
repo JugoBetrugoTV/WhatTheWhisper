@@ -104,7 +104,12 @@ per-instance-type muting.
 **History.** Off, session-only, 1/7/30 days, or unlimited, with a message cap per
 conversation and a conversation cap, pruned at login and logout. The settings
 panel shows how many messages are stored and roughly what they cost on disk, so
-nobody discovers a 40 MB Lua file the hard way.
+nobody discovers a 40 MB Lua file the hard way. Three different things take
+something away, and each says what it does: *Close conversation* shuts the tab,
+*Clear history* empties the thread but keeps the row in the list, and *Delete
+conversation* removes the thread itself with everything stored for it. Settings
+› History has *Clear all history* (keeps the rows) and *Delete all
+conversations* (does not).
 
 **Export.** Plain text, Markdown, BBCode or CSV, into a box that is already
 focused and already selected.

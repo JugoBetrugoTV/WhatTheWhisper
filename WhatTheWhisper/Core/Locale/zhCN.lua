@@ -131,6 +131,12 @@ ns.RegisterLocale("zhCN", {
 	["Cancel"] = "取消",
 	["Confirm"] = "确定",
 	["Delete"] = "删除",
+	["Delete conversation"] = "删除对话",
+	["Delete this conversation?"] = "删除此对话？",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "这将删除与 %s 的对话及其 %d 条已保存的消息。此操作无法撤销。",
+	["Delete all conversations"] = "删除所有对话",
+	["Delete all conversations?"] = "删除所有对话？",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "这将删除全部 %d 个对话和所有已保存的消息。昵称会保留。此操作无法撤销。",
 
 	-- 设置分类
 	["General"] = "常规",

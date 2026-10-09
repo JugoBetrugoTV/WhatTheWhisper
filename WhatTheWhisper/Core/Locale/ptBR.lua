@@ -136,6 +136,12 @@ ns.RegisterLocale("ptBR", {
 	["Cancel"] = "Cancelar",
 	["Confirm"] = "Confirmar",
 	["Delete"] = "Excluir",
+	["Delete conversation"] = "Excluir conversa",
+	["Delete this conversation?"] = "Excluir esta conversa?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Isto exclui a conversa com %s e suas %d mensagens salvas. Não é possível desfazer.",
+	["Delete all conversations"] = "Excluir todas as conversas",
+	["Delete all conversations?"] = "Excluir todas as conversas?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Isto exclui todas as %d conversas e todas as mensagens salvas. Os apelidos são mantidos. Não é possível desfazer.",
 
 	-- Categorias das configurações
 	["General"] = "Geral",

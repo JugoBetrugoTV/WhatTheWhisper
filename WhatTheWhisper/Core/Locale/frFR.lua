@@ -136,6 +136,12 @@ ns.RegisterLocale("frFR", {
 	["Cancel"] = "Annuler",
 	["Confirm"] = "Confirmer",
 	["Delete"] = "Supprimer",
+	["Delete conversation"] = "Supprimer la conversation",
+	["Delete this conversation?"] = "Supprimer cette conversation ?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Cela supprime la conversation avec %s et ses %d messages enregistrés. Action irréversible.",
+	["Delete all conversations"] = "Supprimer toutes les conversations",
+	["Delete all conversations?"] = "Supprimer toutes les conversations ?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Cela supprime les %d conversations et tous les messages enregistrés. Les surnoms sont conservés. Action irréversible.",
 
 	-- Catégories de réglages
 	["General"] = "Général",

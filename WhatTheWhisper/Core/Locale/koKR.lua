@@ -136,6 +136,12 @@ ns.RegisterLocale("koKR", {
 	["Cancel"] = "취소",
 	["Confirm"] = "확인",
 	["Delete"] = "삭제",
+	["Delete conversation"] = "대화 삭제",
+	["Delete this conversation?"] = "이 대화를 삭제할까요?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "%s님과의 대화와 저장된 메시지 %d개가 삭제됩니다. 되돌릴 수 없습니다.",
+	["Delete all conversations"] = "모든 대화 삭제",
+	["Delete all conversations?"] = "모든 대화를 삭제할까요?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "대화 %d개와 저장된 모든 메시지가 삭제됩니다. 별명은 유지됩니다. 되돌릴 수 없습니다.",
 
 	-- 설정 분류
 	["General"] = "일반",

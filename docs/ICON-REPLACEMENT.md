@@ -93,7 +93,7 @@ nothing in this set does.
 | `sounds.tga` | Settings category: Sounds | 22px | 64 x 64 | yes | 6px | speaker with one wave | not needed | 1 place |
 | `spam.tga` | Mark a thread as spam, or not | 20px | 64 x 64 | yes | 5px | a funnel | not needed | 2 places |
 | `star.tga` | Add friend | 20px | 64 x 64 | yes | 5px | five-pointed star, outline | not needed | 2 places |
-| `trash.tga` | Clear or delete a conversation | 20px | 64 x 64 | yes | 5px | waste bin with a lid | not needed | 1 place |
+| `trash.tga` | Clear or delete a conversation | 20px | 64 x 64 | yes | 5px | waste bin with a lid | not needed | 2 places |
 | `unpin.tga` | Unpin, in the conversation menu | 20px | 64 x 64 | yes | 5px | push-pin, outline only | not needed | 2 places |
 | `up.tga` | Previous search match | 19px | 64 x 64 | yes | 5px | chevron pointing up | not needed | 1 place |
 

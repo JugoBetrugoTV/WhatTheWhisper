@@ -136,6 +136,12 @@ ns.RegisterLocale("ruRU", {
 	["Cancel"] = "Отмена",
 	["Confirm"] = "Подтвердить",
 	["Delete"] = "Удалить",
+	["Delete conversation"] = "Удалить беседу",
+	["Delete this conversation?"] = "Удалить эту беседу?",
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = "Будут удалены беседа с %s и её сохранённые сообщения (%d). Это нельзя отменить.",
+	["Delete all conversations"] = "Удалить все беседы",
+	["Delete all conversations?"] = "Удалить все беседы?",
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = "Будут удалены все беседы (%d) и все сохранённые сообщения. Прозвища сохранятся. Это нельзя отменить.",
 
 	-- Разделы настроек
 	["General"] = "Общие",

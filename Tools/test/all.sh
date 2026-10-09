@@ -67,6 +67,7 @@ suite "reporting"             Tools/test/report.lua
 suite "notification cards"    Tools/test/toasts.lua
 suite "spam, instances, guild" Tools/test/spam.lua
 suite "nothing painted over"   Tools/test/occlusion.lua
+suite "deleting conversations" Tools/test/delete.lua
 suite "history"               Tools/test/history.lua
 suite "leaks and churn"       Tools/test/perf.lua
 suite "combat lockdown"       Tools/test/combat.lua

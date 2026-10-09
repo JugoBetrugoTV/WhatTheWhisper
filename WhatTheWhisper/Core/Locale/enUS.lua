@@ -119,6 +119,12 @@ ns.RegisterLocale("enUS", {
 	["Cancel"] = true,
 	["Confirm"] = true,
 	["Delete"] = true,
+	["Delete conversation"] = true,
+	["Delete this conversation?"] = true,
+	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = true,
+	["Delete all conversations"] = true,
+	["Delete all conversations?"] = true,
+	["This removes all %d conversations and every stored message. Nicknames are kept. It cannot be undone."] = true,
 
 	-- Settings categories
 	["General"] = true,
