@@ -1,0 +1,14 @@
+## Interface: 20506
+## Title: WhatTheWhisper
+## Notes: A modern messenger for whispers: one thread per player, with history, search, popouts and notifications.
+## Notes-deDE: Ein moderner Messenger für Flüsternachrichten: ein Verlauf pro Spieler, mit History, Suche, Popouts und Benachrichtigungen.
+## Author: WhatTheWhisper
+## Version: 1.0.0
+## X-Flavor: TBC
+## X-Category: Chat & Communication
+## IconTexture: Interface\AddOns\WhatTheWhisper\Art\Logo
+## X-Embeds: LibStub, CallbackHandler-1.0, AceAddon-3.0, AceConsole-3.0, AceEvent-3.0, AceDB-3.0
+## SavedVariables: WhatTheWhisperDB, WhatTheWhisperHistoryDB, WhatTheWhisperExportDB
+
+Libs\Libs.xml
+WhatTheWhisper.xml

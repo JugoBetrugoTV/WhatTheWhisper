@@ -1,0 +1,2163 @@
+-- UI audit: measures what the addon actually builds.
+--
+-- Every check here reads geometry and colour off the constructed frames rather
+-- than off the source, because the gap between "the code says 16" and "the pixel
+-- is at 16" is exactly where layout bugs live. Four things are checked:
+--
+--   * containment  -- nothing sticks out of its parent, nothing lands off screen
+--   * alignment    -- shared edges line up, and coordinates land on whole pixels
+--   * targets      -- anything clickable is big enough to click
+--   * contrast     -- every text colour is legible on the surface behind it
+--
+-- Run at three UI scales and across every skin, because a value that happens to
+-- be integral at scale 1.0 usually is not at 0.64.
+
+local ROOT = "/home/user/WhatTheWhisper/"
+dofile(ROOT .. "Tools/test/mock_wow.lua")
+local M = _G.WOWMOCK
+
+_G.SlashCmdList = {}
+_G.UnitRace = function() return "Human", "Human" end
+_G.UnitFactionGroup = function() return "Alliance", "Alliance" end
+_G.UnitSex = function() return 2 end
+_G.GetCurrentRegion = function() return 3 end
+
+local pass, fail = 0, 0
+local failed = {}
+local function check(label, ok, detail)
+	if ok then pass = pass + 1 else
+		fail = fail + 1
+		if not failed[label] then
+			failed[label] = true
+			print("FAIL " .. label .. (detail and ("\n      " .. tostring(detail)) or ""))
+		end
+	end
+end
+local function eq(label, got, want)
+	check(label, got == want, ("got %s, want %s"):format(tostring(got), tostring(want)))
+end
+
+-- Libraries and addon files both come from the shipped manifests, so these
+-- tests load exactly what a player who unzipped only WhatTheWhisper/ gets.
+local Harness = dofile(ROOT .. "Tools/test/harness.lua")
+local ns = Harness.Load()
+
+M.loggedIn = true
+M.FireEvent("ADDON_LOADED", "WhatTheWhisper")
+M.FireEvent("PLAYER_LOGIN")
+
+local CM = ns.ConversationManager
+local guid = "G-THRALL"
+M.guids = {
+	[guid] = { class = "SHAMAN", race = "Orc", name = "Thrall", realm = "Blackrock" },
+	["G-JAINA"] = { class = "MAGE", race = "Human", name = "Jaina", realm = "Blackrock" },
+}
+
+--------------------------------------------------------------------------------
+-- Build a populated interface to measure
+--------------------------------------------------------------------------------
+
+local function whisper(text, from, sender)
+	M.FireEvent("CHAT_MSG_WHISPER", text, from, "Common", "", from, "", 0, 0, "", 0, 1, sender)
+end
+
+whisper("hey", "Thrall", guid)
+whisper("Are you around for the raid tonight? We are short two healers.", "Thrall", guid)
+whisper("kurz", "Jaina", "G-JAINA")
+whisper("https://example.com/a/very/long/path/that/keeps/going and some words after it",
+	"Jaina", "G-JAINA")
+whisper("Übergrößenträger Straße ünnötig", "Thrall", guid)
+-- A third thread, so the sidebar has a row that is neither the selected one nor
+-- the last one: the hairline between rows is only drawn there, and with two
+-- conversations every check of it skipped.
+whisper("kommst du?", "Sylvanas", "G-SYLV")
+
+ns.UI.Show()
+local thrall = ns.Compat.NormalizeName("Thrall")
+CM.Select(thrall)
+-- A message that did not go, with more written after it. The delivery state of
+-- the newest message is one line under the thread; a failure further back has
+-- only its own mark, and that mark has to survive being buried.
+CM.SendMessage(thrall, "are you getting these?")
+M.RunTimers(1)
+M.FireEvent("CHAT_MSG_SYSTEM", "No player named 'Thrall' is currently playing.")
+M.RunTimers(1)
+CM.SendMessage(thrall, "on my way")
+CM.SendMessage(thrall, "this one is a good deal longer, long enough to wrap onto a "
+	.. "second line inside the bubble so the padding is measured on a multi-line body")
+M.RunFrames(20)
+
+local window = ns.MainWindow.Get()
+
+--------------------------------------------------------------------------------
+-- Geometry helpers
+--------------------------------------------------------------------------------
+
+local function rect(f)
+	local l, b, w, h = M.Geometry(f)
+	return l, b, w, h, l + w, b + h
+end
+
+local function describe(node)
+	local trail, hops = {}, 0
+	local up = node
+	while up and hops < 6 do
+		trail[#trail + 1] = (up._name or up._wtwTag or up._kind or "?")
+		up = up._parent
+		hops = hops + 1
+	end
+	return ("%s[%s] text=%q at %.2f,%.2f %.2fx%.2f"):format(
+		node._kind or "?", table.concat(trail, "<"), tostring(node._text or ""),
+		select(1, rect(node)), select(2, rect(node)),
+		select(3, rect(node)), select(4, rect(node)))
+end
+
+-- Nodes worth auditing: shown, sized, and actually under the window.
+local function auditable(root)
+	local out = {}
+	local nodes = M.Descendants(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if M.EffectivelyShown(node, root) then
+			local _, _, w, h = rect(node)
+			if w > 1 and h > 1 then out[#out + 1] = node end
+		end
+	end
+	return out
+end
+
+--------------------------------------------------------------------------------
+-- Containment: nothing may spill out of the window
+--------------------------------------------------------------------------------
+
+-- Shadows and glows are drawn deliberately outside their frame, and scroll
+-- viewports hold content taller than themselves. Both are legitimate.
+local function allowedOverflow(node)
+	-- Checked before anything else: inside a scroll viewport the client clips,
+	-- so content taller than the window is the mechanism working rather than
+	-- something spilling out.
+	local parent = node._parent
+	while parent do
+		if parent.__wtwViewport then return math.huge end
+		parent = parent._parent
+	end
+	-- Shadows and glows are drawn deliberately outside the frame they belong to.
+	if node._kind ~= "Frame" and node._layer == "BACKGROUND" then return 40 end
+	return 2
+end
+
+local function checkContainment(label, root)
+	local rl, rb, rw, rh = rect(root)
+	local rr, rt = rl + rw, rb + rh
+	local worst, worstNode = 0, nil
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		local l, b, w, h = rect(node)
+		local slack = allowedOverflow(node)
+		if slack ~= math.huge then
+			local over = math.max(rl - l, rb - b, (l + w) - rr, (b + h) - rt) - slack
+			if over > worst then worst, worstNode = over, node end
+		end
+	end
+	check(label .. ": nothing spills out of the window", worst <= 0,
+		worstNode and (describe(worstNode) .. " overflows by " .. ("%.2f"):format(worst)
+			.. " (window " .. ("%.0f,%.0f %.0fx%.0f"):format(rl, rb, rw, rh) .. ")"))
+end
+
+checkContainment("main window", window)
+
+--------------------------------------------------------------------------------
+-- On screen: the window must never open where it cannot be grabbed
+--------------------------------------------------------------------------------
+
+local screenW, screenH = _G.UIParent:GetWidth(), _G.UIParent:GetHeight()
+local wl, wb, ww, wh = rect(window)
+check("the window opens on screen horizontally", wl < screenW and wl + ww > 0,
+	("left %.0f width %.0f screen %.0f"):format(wl, ww, screenW))
+check("the window opens on screen vertically", wb < screenH and wb + wh > 0,
+	("bottom %.0f height %.0f screen %.0f"):format(wb, wh, screenH))
+check("the title bar is reachable", wb + wh <= screenH + 1 and wb + wh > 0,
+	("top %.0f screen %.0f"):format(wb + wh, screenH))
+
+--------------------------------------------------------------------------------
+-- Alignment: shared edges must actually be shared
+--------------------------------------------------------------------------------
+
+local EPS = 0.51
+
+local function alignsX(label, a, b, edge)
+	local av = edge == "left" and select(1, rect(a)) or select(5, rect(a))
+	local bv = edge == "left" and select(1, rect(b)) or select(5, rect(b))
+	check(label, math.abs(av - bv) < EPS, ("%.3f vs %.3f"):format(av, bv))
+end
+
+local sidebar, view = window.sidebar, window.view
+
+alignsX("the sidebar and the header start at the same left edge",
+	sidebar, window.titlebar, "left")
+check("the conversation view begins exactly where the sidebar ends",
+	math.abs(select(5, rect(sidebar)) - select(1, rect(view))) < EPS,
+	("sidebar right %.3f, view left %.3f"):format(select(5, rect(sidebar)), select(1, rect(view))))
+check("the view reaches the right edge of the window",
+	math.abs(select(5, rect(view)) - select(5, rect(window))) < EPS)
+
+local composer, list = view.composer, view.list
+check("the composer sits at the bottom of the view",
+	math.abs(select(2, rect(composer)) - select(2, rect(view))) < EPS)
+check("the message list ends where the composer begins",
+	select(2, rect(list)) >= select(6, rect(composer)) - EPS,
+	("list bottom %.3f, composer top %.3f"):format(
+		select(2, rect(list)), select(6, rect(composer))))
+check("the list and the composer share a left edge",
+	math.abs(select(1, rect(list)) - select(1, rect(view))) < EPS)
+
+--------------------------------------------------------------------------------
+-- Hit targets
+--------------------------------------------------------------------------------
+
+-- 20px at scale 1.0 is roughly a 5mm target on a 1080p 24" display. Anything
+-- smaller is a coin toss with a mouse.
+--
+-- A drag strip is the exception, and a real one rather than a loophole: a
+-- splitter or a scrollbar is aimed at along one axis only, so it needs height
+-- but not width. Those get a 10px minor axis, which is what desktop toolkits
+-- use, and only when the major axis is long enough to aim at.
+local MIN_TARGET = 20
+local MIN_STRIP_MINOR = 10
+local MIN_STRIP_MAJOR = 100
+-- A handle *inside* its own track -- a scrollbar thumb -- is the one case where
+-- a short major axis is not a fault. You aim at the track, which is long, and a
+-- miss lands on it and pages towards the cursor. So the handle is judged on
+-- being a comfortable grab rather than on the track's length.
+local MIN_HANDLE_MAJOR = 32
+
+local function targetIsBigEnough(w, h)
+	if w >= MIN_TARGET and h >= MIN_TARGET then return true end
+	local minor, major = math.min(w, h), math.max(w, h)
+	return minor >= MIN_STRIP_MINOR and major >= MIN_STRIP_MAJOR
+end
+
+-- Structural, not a name check: a mouse-enabled frame that fits inside a
+-- mouse-enabled parent which is itself a long enough strip.
+-- `w` and `h` are the effective clickable size, hit-rect insets already applied,
+-- because that is what the hand actually gets.
+local function isHandleInTrack(node, w, h)
+	local parent = node._parent
+	if not parent or not parent._mouseEnabled then return false end
+	local _, _, nodeW, nodeH = rect(node)
+	local _, _, parentW, parentH = rect(parent)
+	if nodeW > parentW + EPS or nodeH > parentH + EPS then return false end
+	local minor, major = math.min(w, h), math.max(w, h)
+	if minor < MIN_STRIP_MINOR or major < MIN_HANDLE_MAJOR then return false end
+	return math.max(parentW, parentH) >= MIN_STRIP_MAJOR
+end
+
+local function checkTargets(label, root)
+	local small, sample = 0, nil
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "Frame" and node._mouseEnabled then
+			local _, _, w, h = rect(node)
+			local hl, hr, ht, hb = node._hitLeft or 0, node._hitRight or 0,
+				node._hitTop or 0, node._hitBottom or 0
+			-- Negative hit-rect insets shrink; positive ones (WoW's convention
+			-- for SetHitRectInsets is inward) are what the addon uses to grow a
+			-- thin control's clickable area, stored negative.
+			local tw, th = w - hl - hr, h - ht - hb
+			if not targetIsBigEnough(tw, th) and not isHandleInTrack(node, tw, th) then
+				small = small + 1
+				sample = sample or (describe(node) .. (" target %.1fx%.1f"):format(tw, th))
+			end
+		end
+	end
+	check(label, small == 0, sample)
+end
+
+checkTargets("every clickable element is big enough to hit", window)
+
+--------------------------------------------------------------------------------
+-- The 1-2px pass: baselines, optical centring, markers inside their cards
+--------------------------------------------------------------------------------
+
+-- A row's name and its timestamp are different sizes. Anchored by their tops
+-- they would sit on different baselines by a couple of pixels, which is exactly
+-- the kind of thing that reads as "off" without anyone being able to say why.
+local function baselineOf(fs, reference)
+	local size = ns.Theme.FontSize(fs.__wtwToken) or 12
+	local top = select(6, rect(fs))
+	-- The drawn baseline sits one ascent below the top of the box.
+	return top - size * 0.78, size, reference
+end
+
+local rows = {}
+for row in sidebar.rowPool:EnumerateActive() do rows[#rows + 1] = row end
+check("the sidebar built rows to measure", #rows > 0)
+
+for i = 1, math.min(#rows, 3) do
+	local row = rows[i]
+	if row.name and row.time and row.time:IsShown() then
+		local nameBase = baselineOf(row.name)
+		local timeBase = baselineOf(row.time)
+		check("row " .. i .. ": the name and its timestamp share a baseline",
+			math.abs(nameBase - timeBase) <= 1.0,
+			("name baseline %.2f, timestamp baseline %.2f"):format(nameBase, timeBase))
+	end
+	-- The hairline between rows starts where the text does, not at the panel
+	-- edge: a rule running the full width reads as a table, an indented one
+	-- reads as a list. And it is never drawn under the row you are on, where it
+	-- would cut across the selection wash.
+	if row.separator and row.avatar then
+		local ruleLeft = select(1, rect(row.separator.tex))
+		local textLeft = select(1, rect(row.avatar)) + select(3, rect(row.avatar)) + ns.S.MD
+		if row.separator.tex:IsShown() then
+			check("row " .. i .. ": the separator starts on the text column",
+				math.abs(ruleLeft - textLeft) <= 1.01,
+				("rule at %.2f, text at %.2f"):format(ruleLeft, textLeft))
+		end
+	end
+	-- Left edges of the stacked text must agree exactly; a one pixel step
+	-- between a name and the preview under it is visible as a ragged column.
+	if row.name and row.preview then
+		check("row " .. i .. ": the name and preview share a left edge",
+			math.abs(select(1, rect(row.name)) - select(1, rect(row.preview))) < EPS)
+	end
+end
+
+-- ...and at least one of them is actually drawn. With no card around a row and
+-- no marker beside it, the hairline between rows is the only thing giving the
+-- list structure, and "shown when resting" is a condition two separate places
+-- used to evaluate -- one of them wrongly, so it was never drawn at all and
+-- every per-row check above skipped silently.
+if #rows >= 3 then
+	local drawn = 0
+	for i = 1, #rows do
+		local separator = rows[i].separator
+		if separator and separator.tex:IsShown() then drawn = drawn + 1 end
+	end
+	check("the conversation list draws separators between its rows", drawn > 0,
+		("%d rows, no separator drawn on any of them"):format(#rows))
+end
+
+-- Every row in the list must use the same margins: one row indented differently
+-- from its neighbours is the most visible layout bug there is.
+if #rows > 1 then
+	local lefts, rights = {}, {}
+	for i = 1, #rows do
+		lefts[i] = select(1, rect(rows[i])) 
+		rights[i] = select(5, rect(rows[i]))
+	end
+	local sameLeft, sameRight = true, true
+	for i = 2, #rows do
+		if math.abs(lefts[i] - lefts[1]) > EPS then sameLeft = false end
+		if math.abs(rights[i] - rights[1]) > EPS then sameRight = false end
+	end
+	check("every sidebar row starts at the same left edge", sameLeft)
+	check("every sidebar row ends at the same right edge", sameRight)
+end
+
+-- Icons must sit optically centred in the buttons that hold them, or a row of
+-- title bar controls looks like it was assembled by hand.
+local function checkIconCentring(label, root)
+	local offenders, sample = 0, nil
+	local fills = {}
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "Frame" and node._mouseEnabled then
+			local kids = M.Descendants(node)
+			for k = 1, #kids do
+				local kid = kids[k]
+				-- __wtwIcon is the marker W.Icon puts on a glyph. Without it this
+				-- would also pick up the quads and bands the rounded-rectangle
+				-- surface is assembled from, which tile the button on purpose.
+				if kid.__wtwIcon and M.EffectivelyShown(kid, node) then
+					local bl, bb, bw, bh = rect(node)
+					local il, ib, iw, ih = rect(kid)
+					-- Only icon buttons: a frame not much bigger than the glyph
+					-- it holds. A sidebar row also contains textures, but a pin
+					-- badge in its corner is not meant to be centred in the row.
+					local isIconButton = bw <= iw * 2.5 and bh <= ih * 2.5
+					if iw > 4 and ih > 4 and iw <= bw and ih <= bh and isIconButton then
+						local dx = (il + iw / 2) - (bl + bw / 2)
+						local dy = (ib + ih / 2) - (bb + bh / 2)
+						if math.abs(dx) > 1.0 or math.abs(dy) > 1.0 then
+							offenders = offenders + 1
+							sample = sample or (describe(kid)
+								.. (" off centre by %.2f,%.2f in its button"):format(dx, dy))
+						end
+						fills[#fills + 1] = { node = kid, ratio = iw / bw,
+							clearance = (bw - iw) / 2 }
+					end
+				end
+			end
+		end
+	end
+	check(label, offenders == 0, sample)
+	return fills
+end
+
+local iconFills = checkIconCentring("icons are centred in their buttons", window)
+
+-- ...and they fill their buttons properly. Bounded at both ends, because both
+-- ends are wrong in a way that is hard to argue about afterwards.
+--
+-- Too small and the mark is a grey suggestion nobody can read -- which is what
+-- 56% turned out to be once real artwork went in the folder, rather than the
+-- heavier system glyphs the proportion was borrowed from. Too large and it
+-- touches the edge of its own hover wash, which reads as a rendering fault.
+--
+-- The floor sits at 60%. The buttons proper run 67-69%; the tightest thing that
+-- counts as one is the search field's clear button at 63%, which is a small X
+-- inside a small circle and right at that size.
+if #iconFills > 0 then
+	local thin, fat, thinSample, fatSample = 0, 0, nil, nil
+	for i = 1, #iconFills do
+		local fill = iconFills[i]
+		if fill.ratio < 0.60 then
+			thin = thin + 1
+			thinSample = thinSample or (describe(fill.node)
+				.. (" fills %.0f%% of its button"):format(fill.ratio * 100))
+		elseif fill.clearance < 2 then
+			fat = fat + 1
+			fatSample = fatSample or (describe(fill.node)
+				.. (" leaves %.1fpx of clearance"):format(fill.clearance))
+		end
+	end
+	check("icons are large enough to read in their buttons", thin == 0, thinSample)
+	check("and not so large they touch the edges", fat == 0, fatSample)
+	check("there were icon buttons to measure", #iconFills >= 4, tostring(#iconFills))
+end
+
+--------------------------------------------------------------------------------
+-- Bubbles: padding, alignment and the rhythm they share with the composer
+--------------------------------------------------------------------------------
+
+local bubbles = {}
+for bubble in view.list.bubblePool:EnumerateActive() do
+	if M.EffectivelyShown(bubble, window) then bubbles[#bubbles + 1] = bubble end
+end
+check("the thread rendered bubbles to measure", #bubbles >= 4, tostring(#bubbles))
+
+local incoming, outgoing = {}, {}
+for i = 1, #bubbles do
+	local b = bubbles[i]
+	local bl, _, bw = rect(b)
+	local tl = select(1, rect(b.text))
+	-- Text inset from the bubble's own edges, both sides.
+	check("a bubble pads its text on the left by the named amount",
+		math.abs((tl - bl) - ns.SZ.BUBBLE_PAD_X) < EPS,
+		("%.2f, want %d"):format(tl - bl, ns.SZ.BUBBLE_PAD_X))
+	-- On the right the text is inset by the same padding plus whatever the time
+	-- and the delivery mark reserved beside it, so the floor is the padding and
+	-- anything more is the meta row. Text running closer than the padding would
+	-- be text touching the bubble's edge; text running *under* the meta row is
+	-- what reserving the space exists to prevent, and is caught below.
+	local rightPad = (bl + bw) - select(5, rect(b.text))
+	check("a bubble never lets its text reach the right edge",
+		rightPad >= ns.SZ.BUBBLE_PAD_X - 1.01,
+		("%.2f, want at least %d"):format(rightPad, ns.SZ.BUBBLE_PAD_X))
+	check("a bubble is never wider than the cap",
+		bw <= ns.SZ.BUBBLE_MAX_ABS + EPS, ("%.1f"):format(bw))
+
+	if b.msg and b.msg[ns.MSG_DIR] == ns.DIR_OUT then
+		outgoing[#outgoing + 1] = b
+	else
+		incoming[#incoming + 1] = b
+	end
+end
+
+-- One column each side. A bubble that starts a pixel off from the one above it
+-- is the single most visible defect a chat client can have.
+local function sharedEdge(list, label, pick)
+	if #list < 2 then return end
+	local first = pick(list[1])
+	local same = true
+	local worst
+	for i = 2, #list do
+		local v = pick(list[i])
+		if math.abs(v - first) > EPS then
+			same = false
+			worst = worst or ("%.2f vs %.2f"):format(v, first)
+		end
+	end
+	check(label, same, worst)
+end
+
+sharedEdge(incoming, "every incoming bubble starts on the same left edge",
+	function(b) return (select(1, rect(b))) end)
+sharedEdge(outgoing, "every outgoing bubble ends on the same right edge",
+	function(b) return (select(5, rect(b))) end)
+
+-- The thread and the composer under it are one column. The field itself is
+-- inset by the two buttons flanking it, so what has to line up is the row: the
+-- emoji button with the avatar column, and the send button with the right edge
+-- of the outgoing bubbles.
+if composer.emoji and #incoming > 0 then
+	local avatar = incoming[1].avatar
+	if avatar and M.EffectivelyShown(avatar, window) then
+		check("the emoji button sits on the avatar column",
+			math.abs(select(1, rect(composer.emoji)) - select(1, rect(avatar))) <= 2.01,
+			("emoji at %.2f, avatar at %.2f"):format(
+				select(1, rect(composer.emoji)), select(1, rect(avatar))))
+	end
+end
+if composer.input and #outgoing > 0 then
+	check("the composer's field ends on the outgoing bubbles' right edge",
+		math.abs(select(5, rect(composer.input)) - select(5, rect(outgoing[1]))) <= 2.01,
+		("field ends %.2f, bubble ends %.2f"):format(
+			select(5, rect(composer.input)), select(5, rect(outgoing[1]))))
+end
+
+-- The send arrow is drawn inside the field, the way Messages draws it, so it is
+-- contained by the field on every side and the text stops before it rather than
+-- running underneath.
+if composer.send and composer.input then
+	local fl, fb, _, _, fr, ftop = rect(composer.input)
+	local sl, sb, _, _, sr, stop = rect(composer.send)
+	check("the send arrow sits inside the composer's field",
+		sl >= fl - EPS and sr <= fr + EPS and sb >= fb - EPS and stop <= ftop + EPS,
+		("arrow x %.1f..%.1f y %.1f..%.1f in field x %.1f..%.1f y %.1f..%.1f")
+			:format(sl, sr, sb, stop, fl, fr, fb, ftop))
+	check("with the same gap beside it as under it",
+		math.abs((fr - sr) - (sb - fb)) <= EPS,
+		("beside %.2f, under %.2f"):format(fr - sr, sb - fb))
+	local caret = composer.input.editBox
+	if caret then
+		check("and the text in the field stops before it",
+			select(5, rect(caret)) <= sl - EPS,
+			("text ends %.2f, arrow starts %.2f"):format(select(5, rect(caret)), sl))
+	end
+	local placeholder = composer.input.placeholder
+	if placeholder and M.EffectivelyShown(placeholder, window) then
+		check("and so does the placeholder",
+			select(5, rect(placeholder)) <= sl - EPS,
+			("placeholder ends %.2f, arrow starts %.2f"):format(
+				select(5, rect(placeholder)), sl))
+	end
+end
+
+-- ...and both of them are centred on the line of the field between them, not on
+-- the constant the field was once assumed to be. A button one pixel off the
+-- field it sits beside is the kind of thing nobody can name and everybody sees.
+do
+	local function middle(f)
+		local _, b, _, h = rect(f)
+		return b + h / 2
+	end
+	local fieldMiddle = middle(composer.input)
+	for _, pair in ipairs({ { composer.emoji, "emoji" }, { composer.send, "send" } }) do
+		local button = pair[1]
+		if button and M.EffectivelyShown(button, window) then
+			check(("the %s button is centred on the composer's field"):format(pair[2]),
+				-- Half a pixel is the most an odd height difference can force; a whole
+				-- one means somebody centred on a number rather than on the field.
+				math.abs(middle(button) - fieldMiddle) <= 0.51,
+				("%.2f vs %.2f"):format(middle(button), fieldMiddle))
+		end
+	end
+end
+
+-- The thread, in the shape Messages gives one. A bubble holds its text and the
+-- padding around it and nothing else: the time is a centred marker above the
+-- group it speaks for, the delivery state is one line under the newest message
+-- you sent, and a message that did not go keeps a mark outside its bubble.
+--
+-- That division is the whole difference between a conversation and a chat log,
+-- so every part of it is measured rather than eyeballed.
+-- rect() is (left, bottom, width, height, right, top): WoW's y grows upward, so
+-- "bottom" is the low edge and "top" the high one.
+local lastOutgoing
+for i = 1, #bubbles do
+	local b = bubbles[i]
+	local bl, _, _, _, br = rect(b)
+
+	check("no bubble carries a time inside it",
+		not (b.stamp and M.EffectivelyShown(b.stamp, window)), describe(b))
+
+	local mark = b.status and M.EffectivelyShown(b.status, window) and b.status
+	if mark then
+		local ml, mb, _, _, mr, mtop = rect(mark)
+		check("a failure mark hangs beside its bubble, never inside it",
+			mr <= bl + EPS or ml >= br - EPS,
+			("mark x %.1f..%.1f, bubble x %.1f..%.1f"):format(ml, mr, bl, br))
+		-- Beside, not above or below it: a mark floating off the message's line
+		-- reads as belonging to the one under it.
+		local _, bb, _, _, _, btop = rect(b)
+		check("and on the same line as the message it marks",
+			mtop <= btop + EPS and mb >= bb - EPS,
+			("mark y %.1f..%.1f, bubble y %.1f..%.1f"):format(mb, mtop, bb, btop))
+	end
+
+	if b.entry and b.msg and b.msg[ns.MSG_DIR] == ns.DIR_OUT then
+		if not lastOutgoing or b.entry.index > lastOutgoing.entry.index then
+			lastOutgoing = b
+		end
+	end
+end
+
+check("a message in the thread did not go, so the failure mark was measured",
+	(function()
+		for i = 1, #bubbles do
+			if bubbles[i].status and M.EffectivelyShown(bubbles[i].status, window) then
+				return true
+			end
+		end
+		return false
+	end)())
+
+-- The receipt: one line, under the newest message you sent, right aligned to its
+-- edge. Once in the thread and never more -- a delivery state on every bubble is
+-- what this replaced.
+local receipts = {}
+for f in list.receiptPool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then receipts[#receipts + 1] = f end
+end
+eq("the thread names its delivery state exactly once", #receipts, 1)
+
+if receipts[1] and lastOutgoing then
+	local rl, rb, _, _, rr, rtop = rect(receipts[1])
+	local _, bb, _, _, br = rect(lastOutgoing)
+	check("the receipt ends on the edge of the message it speaks for",
+		math.abs(rr - br) <= EPS, ("receipt ends %.2f, bubble ends %.2f"):format(rr, br))
+	check("and sits under it, by the named gap",
+		math.abs((bb - rtop) - ns.SZ.RECEIPT_GAP) <= 1.01,
+		("%.2f, want %d"):format(bb - rtop, ns.SZ.RECEIPT_GAP))
+
+	local mark = receipts[1].mark
+	local label = receipts[1].label
+	check("the receipt draws its mark", M.EffectivelyShown(mark, window), describe(receipts[1]))
+	check("and names the state in words", (label._text or "") ~= "", describe(label))
+	if M.EffectivelyShown(mark, window) then
+		local ml, mb, _, mh, mr = rect(mark)
+		local cl, cb, _, ch = rect(label)
+		check("the mark is read before the word", mr <= cl + EPS,
+			("mark ends %.2f, word starts %.2f"):format(mr, cl))
+		check("the mark and the word share a centre line",
+			math.abs((mb + mh / 2) - (cb + ch / 2)) <= EPS,
+			("%.2f vs %.2f"):format(mb + mh / 2, cb + ch / 2))
+		check("and the whole line stays inside its own frame",
+			ml >= rl - EPS and cl >= rl - EPS and rtop >= rb,
+			describe(receipts[1]))
+	end
+
+	for j = 1, #bubbles do
+		local jb, jtop = select(2, rect(bubbles[j])), select(6, rect(bubbles[j]))
+		check("the receipt never overlaps a message",
+			jb >= rtop - EPS or jtop <= rb + EPS,
+			("receipt y %.1f..%.1f, bubble y %.1f..%.1f"):format(rb, rtop, jb, jtop))
+	end
+end
+-- The centred time marker. One line of small grey text with air around it: no
+-- pill, no rule, nothing drawn behind it.
+--
+-- It sits at the head of the thread, which a populated conversation has already
+-- scrolled off the top, so the view goes up to meet it and comes back after.
+list:SetOffset(0, false)
+M.RunFrames(2)
+local separators, topBubbles = {}, {}
+for f in list.sepPool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then separators[#separators + 1] = f end
+end
+for f in list.bubblePool:EnumerateActive() do
+	if M.EffectivelyShown(f, window) then topBubbles[#topBubbles + 1] = f end
+end
+check("the thread opens with a time marker", #separators >= 1, tostring(#separators))
+
+for i = 1, #separators do
+	local f = separators[i]
+	local fl, fb, _, _, fr, ftop = rect(f)
+	-- Centred on the thread, allowing for the scrollbar gutter on the right.
+	local vl, _, vw = rect(list.viewport)
+	local wanted = vl + (vw - ns.SZ.SCROLLBAR_HIT) / 2
+	check("the time marker is centred on the thread",
+		math.abs((fl + fr) / 2 - wanted) <= 1.01,
+		("centre %.2f, want %.2f"):format((fl + fr) / 2, wanted))
+
+	local day = f.day and M.EffectivelyShown(f.day, window) and f.day
+	local clock = f.clock and M.EffectivelyShown(f.clock, window) and f.clock
+	check("the marker says something", day ~= nil or clock ~= nil, describe(f))
+	if day and clock then
+		local _, db, _, dh, dr = rect(day)
+		local cl, cb, _, ch = rect(clock)
+		check("the day is read before the time", dr <= cl + EPS,
+			("day ends %.2f, time starts %.2f"):format(dr, cl))
+		check("and the two sit on one line",
+			math.abs((db + dh / 2) - (cb + ch / 2)) <= EPS,
+			("%.2f vs %.2f"):format(db + dh / 2, cb + ch / 2))
+		check("a word apart, not a gap apart",
+			math.abs((cl - dr) - ns.SZ.SEP_WORD_GAP) <= 1.01,
+			("%.2f, want %d"):format(cl - dr, ns.SZ.SEP_WORD_GAP))
+	end
+
+	-- Nothing shares the marker's line. It is a paragraph break, and a bubble
+	-- level with it would read as a caption on that message.
+	for j = 1, #topBubbles do
+		local bb, btop = select(2, rect(topBubbles[j])), select(6, rect(topBubbles[j]))
+		check("nothing else sits on the time marker's line",
+			bb >= ftop - EPS or btop <= fb + EPS,
+			("marker y %.1f..%.1f, bubble y %.1f..%.1f"):format(fb, ftop, bb, btop))
+	end
+end
+
+
+list:ScrollToBottom(false)
+M.RunFrames(2)
+
+
+--------------------------------------------------------------------------------
+-- The rhythm: one spacing scale, one type scale, one set of control sizes
+--------------------------------------------------------------------------------
+
+-- The three audits below are the difference between "each screen looks fine on
+-- its own" and "this is one application". They do not measure whether something
+-- is pretty; they measure whether it agrees with everything beside it, which is
+-- the part that stops being true one careless commit at a time.
+
+-- Every icon button in the window is one of the two sizes the design has. A
+-- third size, invented at one call site, is invisible in isolation and obvious
+-- in a row.
+do
+	local nodes = auditable(window)
+	local sizes, offenders = {}, {}
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.icon and node._kind == "Frame" and M.EffectivelyShown(node, window) then
+			local _, _, w, h = rect(node)
+			-- Square, mouse-enabled and holding a glyph: an icon button.
+			if node._mouseEnabled and math.abs(w - h) < 1.01 and w >= 16 then
+				local rounded = math.floor(w + 0.5)
+				sizes[rounded] = (sizes[rounded] or 0) + 1
+				if rounded ~= ns.SZ.ICON_BTN and rounded ~= ns.SZ.ICON_BTN_SM
+					and rounded ~= ns.SZ.SEND_BTN then
+					offenders[#offenders + 1] = describe(node)
+						.. (" is %dpx"):format(rounded)
+				end
+			end
+		end
+	end
+	local found = 0
+	for _ in pairs(sizes) do found = found + 1 end
+	check("icon buttons come in the sizes the design has", #offenders == 0,
+		offenders[1])
+	check("and there are some to check", found > 0)
+end
+
+-- Every font string uses one of the five sizes in the type scale. A label set at
+-- a size between two of them reads as a mistake even when nobody can say which
+-- two.
+do
+	local allowed, names = {}, {}
+	for _, token in ipairs({ "MICRO", "SMALL", "SUBHEAD", "BODY", "TITLE", "DISPLAY" }) do
+		allowed[ns.Theme.FontSize(token)] = true
+		names[#names + 1] = ("%s=%d"):format(token, ns.Theme.FontSize(token))
+	end
+	local offenders, inspected = {}, 0
+	local nodes = M.Descendants(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= ""
+			and M.EffectivelyShown(node, window) then
+			-- What the engine will actually draw with, which is not always what
+			-- the font object says: a direct SetFont on the string overrides it,
+			-- and that is exactly the way a stray size gets in.
+			local size = select(2, node:GetFont())
+			if size then
+				inspected = inspected + 1
+				if not allowed[math.floor(size + 0.5)] then
+					offenders[#offenders + 1] = describe(node) .. (" at %s"):format(size)
+				end
+			end
+		end
+	end
+	check("every visible label is set at a size from the type scale",
+		#offenders == 0, (offenders[1] or "") .. " (scale: " .. table.concat(names, " ") .. ")")
+	check("and there were labels to check", inspected > 10, tostring(inspected))
+end
+
+-- The window is one column system, not three. The sidebar's text, the thread
+-- header's text and the message column all start at their panel's own margin,
+-- and those margins are the same number.
+do
+	local sidebar = window.sidebar
+	local header = view.header
+	local sidebarPad = select(1, rect(sidebar.rowPool.free[1] or sidebar))
+	local firstRow
+	for row in sidebar.rowPool:EnumerateActive() do
+		if M.EffectivelyShown(row, window) then firstRow = firstRow or row end
+	end
+	if firstRow and M.EffectivelyShown(firstRow.avatar, window) then
+		sidebarPad = select(1, rect(firstRow.avatar)) - select(1, rect(firstRow))
+		check("the sidebar row's avatar sits on the panel margin",
+			math.abs(sidebarPad - ns.S.LG) < 1.01,
+			("%.2f, want %d"):format(sidebarPad, ns.S.LG))
+	end
+	if M.EffectivelyShown(header.avatar, window) then
+		local headerPad = select(1, rect(header.avatar)) - select(1, rect(header))
+		check("the conversation header's avatar sits on the same margin",
+			math.abs(headerPad - ns.S.LG) < 1.01,
+			("%.2f, want %d"):format(headerPad, ns.S.LG))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Animation timing: one vocabulary, not a duration per call site
+--------------------------------------------------------------------------------
+
+local durations = {}
+for _, token in ipairs({ "FAST", "BASE", "SLOW", "WINDOW" }) do
+	local d = ns.Theme.Duration(token)
+	if d then durations[#durations + 1] = { token = token, value = d } end
+end
+check("the motion scale is defined", #durations >= 3)
+for i = 1, #durations do
+	local d = durations[i]
+	check(("%s is a plausible duration"):format(d.token),
+		d.value >= 0 and d.value <= 0.6,
+		tostring(d.value) .. "s")
+	if i > 1 then
+		check(("%s is longer than %s"):format(d.token, durations[i - 1].token),
+			d.value >= durations[i - 1].value,
+			("%s=%.3f vs %s=%.3f"):format(d.token, d.value,
+				durations[i - 1].token, durations[i - 1].value))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Pixel quality: even heights, centred text, no half-pixel edges
+--------------------------------------------------------------------------------
+
+-- Rows in one list must all be the same height. One row a pixel taller than
+-- its neighbours is the most visible kind of sloppiness there is.
+if #rows > 1 then
+	local heights = {}
+	for i = 1, #rows do heights[i] = select(4, rect(rows[i])) end
+	local uneven, worst = 0, nil
+	for i = 2, #heights do
+		if math.abs(heights[i] - heights[1]) > EPS then
+			uneven = uneven + 1
+			worst = worst or ("%.2f vs %.2f"):format(heights[i], heights[1])
+		end
+	end
+	check("every sidebar row is the same height", uneven == 0, worst)
+end
+
+-- Text that is meant to sit in the middle of a control has to actually sit
+-- there. A label a pixel or two high in its row reads as misaligned even when
+-- nobody can say why.
+-- A label stacked with another one -- a name with a status line under it -- is
+-- deliberately off its container's middle, because it is the top half of a block
+-- that is centred as a pair. Detected from the anchors rather than from a marker
+-- the addon would have to carry for the tests' benefit.
+local function stackedLabels(root)
+	local stacked, nodes = {}, auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		for _, point in ipairs(node._points or {}) do
+			local target = point[2]
+			if target and target._kind == "FontString" and node._kind == "FontString" then
+				stacked[node] = true
+				stacked[target] = true
+			end
+		end
+	end
+	return stacked
+end
+
+local function checkVerticalCentring(label, root)
+	local off, sample, inspected = 0, nil, 0
+	local nodes = auditable(root)
+	local stacked = stackedLabels(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= ""
+			and not stacked[node]
+			and node._justifyV == "MIDDLE" then
+			local parent = node._parent
+			if parent and M.EffectivelyShown(parent, root) then
+				local _, pb, _, ph = rect(parent)
+				local _, nb, _, nh = rect(node)
+				-- Only judge a label that is meant to fill its parent's height.
+				if ph > nh and ph < nh * 4 then
+					inspected = inspected + 1
+					local drift = ((nb + nh / 2) - (pb + ph / 2))
+					if math.abs(drift) > 1.01 then
+						off = off + 1
+						sample = sample or (describe(node)
+							.. (" sits %.2f off its container's middle"):format(drift))
+					end
+				end
+			end
+		end
+	end
+	check(label, off == 0, sample)
+	return inspected
+end
+
+local centred = checkVerticalCentring("centred text really is centred", window)
+check("centred text was actually inspected", centred > 4,
+	("only %d labels considered; this check has stopped covering anything"):format(centred))
+
+-- Every edge the addon positions itself must land on a whole pixel at the
+-- current scale. A border on a half pixel is drawn across two rows of pixels
+-- at half strength each, which is what "blurry 1px border" means.
+do
+	local px = ns.Pixel.Size(_G.UIParent)
+	local blurry, sample = 0, nil
+	local nodes = auditable(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.__wtwHairline then
+			local l, b, w, h = rect(node)
+			for _, edge in ipairs({ l, b, l + w, b + h }) do
+				local inPixels = edge / px
+				if math.abs(inPixels - math.floor(inPixels + 0.5)) > 0.02 then
+					blurry = blurry + 1
+					sample = sample or (describe(node)
+						.. (" has an edge at %.4f, which is %.3f pixels"):format(edge, inPixels))
+					break
+				end
+			end
+		end
+	end
+	check("no hairline lands on a fractional pixel", blurry == 0, sample)
+end
+
+--------------------------------------------------------------------------------
+-- Truncation: constrained text must be ellipsized, never drawn past its box
+--------------------------------------------------------------------------------
+
+-- A font string given an explicit width or anchored on both sides has agreed to
+-- fit. If its natural text is wider than that box the client clips it, so the
+-- addon has to shorten the string itself -- which is what Text.Ellipsize is for.
+local function checkTruncation(label, root)
+	local overflowing, sample = 0, nil
+	local nodes = auditable(root)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node._kind == "FontString" and (node._text or "") ~= "" then
+			local points = node._points or {}
+			local bounded = node._w ~= nil
+			local hasLeft, hasRight = false, false
+			for p = 1, #points do
+				local anchor = points[p][1]
+				if anchor:find("LEFT") or anchor == "LEFT" then hasLeft = true end
+				if anchor:find("RIGHT") or anchor == "RIGHT" then hasRight = true end
+			end
+			if bounded or (hasLeft and hasRight) then
+				local box = select(3, rect(node))
+				local natural = node:GetStringWidth()
+				-- Word wrap is a legitimate answer to not fitting on one line.
+				if node._wordWrap == false and natural > box + 1 then
+					overflowing = overflowing + 1
+					sample = sample or (describe(node)
+						.. (" needs %.1f but has %.1f"):format(natural, box))
+				end
+			end
+		end
+	end
+	check(label, overflowing == 0, sample)
+end
+
+checkTruncation("no single-line text is drawn wider than its box", window)
+
+--------------------------------------------------------------------------------
+-- Scrollbar: the track lives in its gutter, never over the content
+--------------------------------------------------------------------------------
+
+local scroll = view.list
+if scroll and scroll.track then
+	local trackLeft, _, trackW = rect(scroll.track)
+	local trackRight = trackLeft + trackW
+	check("the scrollbar track sits at the right edge of the list",
+		math.abs(trackRight - select(5, rect(scroll))) <= ns.S.SM + EPS,
+		("track ends %.2f, list ends %.2f"):format(trackRight, select(5, rect(scroll))))
+	check("the scrollbar track is the full grab width",
+		math.abs(trackW - ns.SZ.SCROLLBAR_HIT) < EPS,
+		("%.2f, want %d"):format(trackW, ns.SZ.SCROLLBAR_HIT))
+	if #outgoing > 0 then
+		-- The gutter is reserved: no bubble may run under the scrollbar.
+		check("no bubble reaches into the scrollbar gutter",
+			select(5, rect(outgoing[1])) <= trackLeft + EPS,
+			("bubble ends %.2f, gutter starts %.2f"):format(
+				select(5, rect(outgoing[1])), trackLeft))
+	end
+	if scroll.thumb then
+		local thumbLeft, _, thumbW = rect(scroll.thumb)
+		check("the scrollbar thumb is centred in its track",
+			math.abs((thumbLeft + thumbW / 2) - (trackLeft + trackW / 2)) < EPS,
+			("thumb centre %.2f, track centre %.2f"):format(
+				thumbLeft + thumbW / 2, trackLeft + trackW / 2))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Hover hitboxes must match what they highlight
+--------------------------------------------------------------------------------
+
+-- A row that accepts the mouse outside its own bounds steals hovers from its
+-- neighbour, and the highlight then appears under the wrong row.
+if #rows > 1 then
+	local overlapping, sample = 0, nil
+	for i = 1, #rows - 1 do
+		local aBottom, aTop = select(2, rect(rows[i])), select(6, rect(rows[i]))
+		local bBottom, bTop = select(2, rect(rows[i + 1])), select(6, rect(rows[i + 1]))
+		-- Rows are stacked; whichever is above, their spans must not overlap.
+		local overlap = math.min(aTop, bTop) - math.max(aBottom, bBottom)
+		if overlap > EPS then
+			overlapping = overlapping + 1
+			sample = sample or ("rows %d and %d overlap by %.2f"):format(i, i + 1, overlap)
+		end
+	end
+	check("no two sidebar rows overlap each other's hover area",
+		overlapping == 0, sample)
+end
+
+--------------------------------------------------------------------------------
+-- Seams: a hairline divider is exactly one hairline
+--------------------------------------------------------------------------------
+
+-- Two panels that each draw their own border at the same boundary produce a
+-- two-pixel seam that reads as a mistake. Every hairline the addon draws is one
+-- physical pixel; anything thicker at the same place is a doubled border.
+do
+	local px = ns.Pixel.Size(_G.UIParent)
+	local hairlines = {}
+	-- Straight off the descendant list rather than through `auditable`: that
+	-- filter drops anything under a pixel tall, which is every hairline.
+	local nodes = M.Descendants(window)
+	for i = 1, #nodes do
+		local node = nodes[i]
+		if node.__wtwHairline and M.EffectivelyShown(node, window) then
+			local _, _, w, h = rect(node)
+			local thickness = math.min(w, h)
+			hairlines[#hairlines + 1] = { node = node, thickness = thickness }
+		end
+	end
+	local thick, sample = 0, nil
+	for i = 1, #hairlines do
+		local entry = hairlines[i]
+		if entry.thickness > px * 1.51 then
+			thick = thick + 1
+			sample = sample or (describe(entry.node)
+				.. (" is %.3f thick, one pixel is %.3f"):format(entry.thickness, px))
+		end
+	end
+	check("every hairline is one physical pixel", thick == 0, sample)
+	check("the window draws hairline dividers at all", #hairlines > 0)
+end
+
+--------------------------------------------------------------------------------
+-- Closing a window must take everything it owns with it
+--------------------------------------------------------------------------------
+
+-- A drop shadow cannot be a child of the window it belongs to, because a child
+-- cannot draw behind its parent's own background. That makes it a sibling, and
+-- a sibling is not hidden when the window is -- which left a dark rectangle
+-- sitting on the world after every close until it was fixed. Anything else
+-- anchored to a window from outside it has the same hazard, so the test is
+-- about the general shape rather than about shadows.
+local function framesAnchoredTo(target)
+	local out = {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		if frame ~= target and frame._parent ~= target then
+			for p = 1, #(frame._points or {}) do
+				if frame._points[p][2] == target then
+					out[#out + 1] = frame
+					break
+				end
+			end
+		end
+	end
+	return out
+end
+
+do
+	local attached = framesAnchoredTo(window)
+	check("something outside the window is anchored to it", #attached > 0,
+		"nothing found; this check has stopped covering anything")
+
+	ns.UI.Hide()
+	M.RunFrames(20)
+	local ghosts, sample = 0, nil
+	for i = 1, #attached do
+		if attached[i]:IsShown() then
+			ghosts = ghosts + 1
+			sample = sample or describe(attached[i])
+		end
+	end
+	check("nothing anchored to the window is left on screen after closing it",
+		ghosts == 0, sample)
+
+	ns.UI.Show()
+	M.RunFrames(20)
+	local restored = 0
+	for i = 1, #attached do
+		if attached[i]:IsShown() then restored = restored + 1 end
+	end
+	check("and it comes back when the window reopens", restored == #attached,
+		("%d of %d returned"):format(restored, #attached))
+end
+
+-- The same for a popout, which is created and destroyed far more often.
+do
+	ns.UI.TogglePopout(thrall)
+	M.RunFrames(20)
+	local popoutWindow = ns.Popout.Get(thrall)
+	if popoutWindow then
+		local attached = framesAnchoredTo(popoutWindow)
+		ns.UI.DockConversation(thrall)
+		M.RunFrames(20)
+		-- "Left on screen" means effectively visible: a child of the window
+		-- that closed still reports IsShown, it is simply not drawn any more.
+		local ghosts = 0
+		for i = 1, #attached do
+			if M.EffectivelyVisible(attached[i]) then ghosts = ghosts + 1 end
+		end
+		check("docking a popout leaves nothing of it on screen", ghosts == 0,
+			("%d of %d still shown"):format(ghosts, #attached))
+	end
+end
+
+-- The context menu, which is also what a dropdown opens. Its close path used to
+-- clear OnHide outright to avoid recursing, and that removed every hook on the
+-- frame -- including the one the drop shadow follows, so a closed menu left its
+-- shadow behind. Every dropdown in the settings window did it.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(8)
+	local menuFrame = _G.WhatTheWhisperContextMenu
+	check("the context menu opened", ns.Menu.IsOpen())
+
+	local attached = {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		for p = 1, #(frame._points or {}) do
+			local ref = frame._points[p][2]
+			if ref and ref ~= frame and menuFrame and ref == menuFrame then
+				attached[#attached + 1] = frame
+				break
+			end
+		end
+	end
+
+	ns.Menu.Close()
+	M.RunFrames(20)
+	check("the menu closed", not ns.Menu.IsOpen())
+	local ghosts = 0
+	for i = 1, #attached do
+		if M.EffectivelyVisible(attached[i]) then ghosts = ghosts + 1 end
+	end
+	local ghostDesc
+	for i = 1, #attached do
+		if M.EffectivelyVisible(attached[i]) then
+			ghostDesc = ghostDesc or describe(attached[i])
+		end
+	end
+	check("closing the menu leaves nothing of it on screen", ghosts == 0,
+		("%d of %d still shown: %s"):format(ghosts, #attached, tostring(ghostDesc)))
+
+	-- Reopening has to work after all that, which is what a guard buys over
+	-- clearing the script.
+	ns.Menu.Open(ns.UI.BuildConversationMenu(conv))
+	M.RunFrames(8)
+	check("the menu reopens afterwards", ns.Menu.IsOpen())
+
+	-- The label leads and the mark trails, the way iOS and macOS set a menu.
+	-- Icon-first is the other platform's arrangement and it turns every menu
+	-- into a column of symbols with words after them.
+	local rows = {}
+	for _, row in ipairs(M.Children(menuFrame) or {}) do
+		if M.EffectivelyShown(row, menuFrame) and row.label and row.icon
+			and M.EffectivelyShown(row.label, menuFrame) then
+			rows[#rows + 1] = row
+		end
+	end
+	check("the menu has entries to measure", #rows >= 3, tostring(#rows))
+	local labelLeft, iconRight
+	for i = 1, #rows do
+		local row = rows[i]
+		local ll = select(1, rect(row.label))
+		labelLeft = labelLeft or ll
+		check("every entry's text starts on the same column",
+			math.abs(ll - labelLeft) <= EPS, describe(row.label))
+		if M.EffectivelyShown(row.icon, menuFrame) then
+			local il, ir = select(1, rect(row.icon)), select(5, rect(row.icon))
+			iconRight = iconRight or ir
+			check("the entry's text is read before its mark",
+				select(5, rect(row.label)) <= il + EPS,
+				("text ends %.1f, mark starts %.1f"):format(
+					select(5, rect(row.label)), il))
+			check("and every mark ends on the same column",
+				math.abs(ir - iconRight) <= EPS, describe(row.icon))
+			check("the mark stays inside the panel",
+				ir <= select(5, rect(menuFrame)) + EPS, describe(row.icon))
+		end
+	end
+
+	ns.Menu.Close()
+	M.RunFrames(20)
+	check("and closes again", not ns.Menu.IsOpen())
+end
+
+--------------------------------------------------------------------------------
+-- The toast: a card floating over the game
+--------------------------------------------------------------------------------
+
+-- The one surface drawn at the sheet radius, which is round enough that things
+-- anchored a fixed margin from its edge start on the curve. The remaining-time
+-- hairline rides inside the bottom corners, and a bar that pokes out of them
+-- reads as a rendering fault rather than as a timer.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	ns.Toast.DismissAll()
+	M.RunFrames(10)
+	ns.Toast.Show(conv, conv.messages[#conv.messages], false)
+	M.RunFrames(2)
+	local toast = ns.Toast.Active()[1]
+	check("a toast was shown to measure", toast ~= nil)
+	if toast then
+		local tl, tb, _, _, tr = rect(toast)
+		local bl, bb, _, bh = rect(toast.progress)
+		local corner = ns.Theme.Radius(ns.R.XL)
+		check("the remaining-time bar starts clear of the toast's corner",
+			bl - tl >= corner - EPS,
+			("inset %.2f, corner %.2f"):format(bl - tl, corner))
+		check("and ends clear of the other one",
+			tr - (bl + select(3, rect(toast.progress))) >= corner - EPS,
+			("inset %.2f, corner %.2f"):format(
+				tr - (bl + select(3, rect(toast.progress))), corner))
+		check("and rides inside the bottom edge rather than on it",
+			bb > tb + EPS and bb + bh < tb + select(4, rect(toast)) - EPS,
+			("bar y %.1f..%.1f in toast y %.1f.."):format(bb, bb + bh, tb))
+	end
+	ns.Toast.DismissAll()
+	M.RunFrames(10)
+end
+
+--------------------------------------------------------------------------------
+-- Controls: the switch and the segmented control
+--------------------------------------------------------------------------------
+
+-- Plain perceived luminance, enough to answer "is this one lighter than that
+-- one". The WCAG version further down is for contrast ratios and is defined
+-- after this section.
+local function luma(c) return 0.2126 * c[1] + 0.7152 * c[2] + 0.0722 * c[3] end
+
+-- Both are shapes with something sliding inside them, and both are read by the
+-- relationship between the two rather than by either on its own. That
+-- relationship is geometry and colour, so it can be measured.
+do
+	local host = CreateFrame("Frame", nil, _G.UIParent)
+	host:SetSize(400, 200)
+	host:SetPoint("CENTER")
+	host:Show()
+
+	local toggle = ns.Controls.Toggle(host, {})
+	toggle:SetPoint("TOPLEFT", host, "TOPLEFT", 0, 0)
+	toggle:Show()
+
+	local segmented = ns.Controls.Segmented(host, {
+		options = {
+			{ value = 1, label = "Square" },
+			{ value = 2, label = "Normal" },
+			{ value = 3, label = "Round" },
+		},
+	})
+	segmented:SetWidth(ns.SZ.SEGMENT_MIN_W * 3)
+	segmented:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -60)
+	segmented:Show()
+	M.RunFrames(4)
+
+	-- The knob rides in the track with the same rim all the way round, in both
+	-- states, and never leaves it.
+	for _, value in ipairs({ false, true }) do
+		toggle:SetValue(value, false)
+		M.RunFrames(4)
+		local tl, tb, _, th, tr, ttop = rect(toggle)
+		local kl, kb, _, kh, kr, ktop = rect(toggle.knob)
+		check(("the knob stays inside the track (%s)"):format(tostring(value)),
+			kl >= tl - EPS and kr <= tr + EPS and kb >= tb - EPS and ktop <= ttop + EPS,
+			("knob x %.1f..%.1f y %.1f..%.1f in track x %.1f..%.1f y %.1f..%.1f")
+				:format(kl, kr, kb, ktop, tl, tr, tb, ttop))
+		check(("and is centred across it (%s)"):format(tostring(value)),
+			math.abs((kb + kh / 2) - (tb + th / 2)) <= EPS,
+			("%.2f vs %.2f"):format(kb + kh / 2, tb + th / 2))
+		check(("with the rim it travels within (%s)"):format(tostring(value)),
+			math.abs((value and (tr - kr) or (kl - tl)) - (th - kh) / 2) <= EPS,
+			("%.2f, want %.2f"):format(value and (tr - kr) or (kl - tl), (th - kh) / 2))
+	end
+	-- White in both states: an iOS switch never dims its handle, and a grey
+	-- handle on a grey track is a switch you have to look for.
+	--
+	-- Read off the drawn rectangle rather than off the role the code asked for,
+	-- because the role is the thing under test.
+	do
+		local function drawn(surface)
+			local fill = surface and surface.rect and surface.rect.fill
+			local c = fill and fill.color
+			return c and { c[1], c[2], c[3], c[4] } or nil
+		end
+		toggle:SetValue(true, false)
+		M.RunFrames(6)
+		local on = drawn(toggle.knob.surface)
+		toggle:SetValue(false, false)
+		M.RunFrames(6)
+		local off = drawn(toggle.knob.surface)
+		check("the knob's colour was measurable", on ~= nil and off ~= nil)
+		if on and off then
+			check("the knob is the same colour switched off as switched on",
+				math.abs(off[1] - on[1]) < 0.01 and math.abs(off[2] - on[2]) < 0.01
+				and math.abs(off[3] - on[3]) < 0.01,
+				("off %.2f %.2f %.2f, on %.2f %.2f %.2f"):format(
+					off[1], off[2], off[3], on[1], on[2], on[3]))
+			check("and it is the lightest thing on the control",
+				luma(off) > luma(drawn(toggle.surface) or { 0, 0, 0, 1 }),
+				("knob %.3f, track %.3f"):format(luma(off),
+					luma(drawn(toggle.surface) or { 0, 0, 0, 1 })))
+		end
+	end
+
+	-- The thumb is a raised thing in a groove, so it is lighter than the groove
+	-- and inset from it on every side. It used to be `bg3`, which is darker than
+	-- the track in every dark palette: the selected segment looked like a hole.
+	for _, index in ipairs({ 1, 2, 3 }) do
+		segmented:SetValue(index, false)
+		M.RunFrames(4)
+		local sl, sb, _, sh, sr, stop = rect(segmented)
+		local hl, hb, _, hh, hr, htop = rect(segmented.thumb)
+		check(("the thumb stays inside the track (%d)"):format(index),
+			hl >= sl - EPS and hr <= sr + EPS and hb >= sb - EPS and htop <= stop + EPS,
+			("thumb x %.1f..%.1f in track x %.1f..%.1f"):format(hl, hr, sl, sr))
+		check(("and keeps the rim above and below it (%d)"):format(index),
+			math.abs((sh - hh) / 2 - ns.SZ.SEGMENT_RIM) <= EPS,
+			("%.2f, want %d"):format((sh - hh) / 2, ns.SZ.SEGMENT_RIM))
+		-- Lighter than the groove it runs in, measured off what is drawn. A
+		-- thumb darker than its track reads as a hole punched in the control.
+		do
+			local function drawn(surface)
+				local fill = surface and surface.rect and surface.rect.fill
+				local c = fill and fill.color
+				return c and { c[1], c[2], c[3], c[4] } or nil
+			end
+			local thumb, track = drawn(segmented.thumb.surface), drawn(segmented.surface)
+			check(("the thumb is lighter than its track (%d)"):format(index),
+				thumb ~= nil and track ~= nil and luma(thumb) > luma(track),
+				thumb and track
+					and ("thumb %.3f, track %.3f"):format(luma(thumb), luma(track))
+					or "no colour drawn")
+		end
+
+		local caption = segmented.segments[index] and segmented.segments[index].label
+		if caption and M.EffectivelyShown(caption, host) then
+			local cl, cr = select(1, rect(caption)), select(5, rect(caption))
+			check(("the chosen caption sits on its thumb (%d)"):format(index),
+				cl >= hl - EPS and cr <= hr + EPS,
+				("caption %.1f..%.1f, thumb %.1f..%.1f"):format(cl, cr, hl, hr))
+		end
+	end
+	segmented:Hide()
+	toggle:Hide()
+	host:Hide()
+end
+
+-- Copy and export. There is no clipboard API in the client, so the entire
+-- feature is one gesture: the text selected, the keyboard focus in the box,
+-- Ctrl+C. Focus is the part that silently fails -- the client ignores SetFocus
+-- on an edit box that is not on screen yet -- and both dialogs used to fill
+-- themselves and take focus before showing, which is a dialog full of text that
+-- Ctrl+C does nothing with.
+do
+	local conv = ns.ConversationManager.Get(thrall)
+	check("the conversation has something to export", #conv.messages > 0)
+
+	ns.Dialogs.ShowExport(conv)
+	M.RunFrames(8)
+	local dialog = _G.WhatTheWhisperCopyDialog
+	check("the export dialog opened", dialog ~= nil and dialog:IsShown())
+
+	local body = dialog.edit:GetText()
+	check("the export dialog has the conversation in it",
+		body:find(conv.messages[1][ns.MSG_TEXT], 1, true) ~= nil,
+		("%d characters"):format(#body))
+	check("the export box has keyboard focus", dialog.edit:HasFocus())
+	local highlight = dialog.edit:GetHighlight()
+	check("all of it is selected, so Ctrl+C takes the lot",
+		highlight ~= nil and highlight[1] == 0 and highlight[2] == -1)
+
+	-- Switching format refills the box, and has to leave it just as copyable.
+	for _, format in ipairs({ "markdown", "bbcode", "csv", "text" }) do
+		local out = ns.Export.Conversation(conv, format)
+		check("export produces " .. format, type(out) == "string" and #out > 0)
+		dialog:SetContent(out)
+		check(format .. ": the box keeps focus after a format change",
+			dialog.edit:HasFocus())
+	end
+
+	-- The box is a scroll child, and a frame is 0x0 until told otherwise: with
+	-- no height there is nothing to draw and nothing to scroll, which is an
+	-- export window that comes up empty however much text is in it.
+	check("the export box has a real height",
+		(dialog.edit:GetHeight() or 0) > 1,
+		("%.1f"):format(dialog.edit:GetHeight() or 0))
+	check("and a real width", (dialog.edit:GetWidth() or 0) > 1)
+	check("it is at least as tall as the viewport",
+		(dialog.edit:GetHeight() or 0) >= (dialog.scroll:GetHeight() or 0) - EPS,
+		("%.1f vs %.1f"):format(dialog.edit:GetHeight() or 0, dialog.scroll:GetHeight() or 0))
+
+	-- Long enough to overflow: the box has to grow with it, not clip it.
+	local shortHeight = dialog.edit:GetHeight()
+	for i = 1, 400 do
+		ns.ConversationManager.AddMessage(conv.id, ns.DIR_IN,
+			"eine ziemlich lange Zeile Nummer " .. i, ns.MSG_WHISPER)
+	end
+	dialog:SetContent(ns.Export.Conversation(conv, "text"))
+	M.RunFrames(4)
+	check("a long export makes the box taller",
+		(dialog.edit:GetHeight() or 0) > shortHeight,
+		("%.1f -> %.1f"):format(shortHeight, dialog.edit:GetHeight() or 0))
+	check("and there is something to scroll", (dialog.scrollRange or 0) > 0)
+
+	-- Saving to a file is a saved variable, which is a real file on disk after
+	-- the session ends. It is the only export the client can actually perform.
+	_G.WhatTheWhisperExportDB = nil
+	dialog:SaveToFile()
+	local store = _G.WhatTheWhisperExportDB
+    check("the export reached the saved variable",
+		type(store) == "table" and type(store.exports) == "table")
+	if store and store.exports then
+		local saved
+		for _, entry in pairs(store.exports) do saved = entry end
+		check("with the conversation in it",
+			saved ~= nil and saved.text:find(conv.messages[1][ns.MSG_TEXT], 1, true) ~= nil)
+		check("and a note saying what the file is", type(store.readme) == "string")
+	end
+	check("the dialog says where it went",
+		(dialog.hint:GetText() or ""):find("SavedVariables", 1, true) ~= nil,
+		dialog.hint:GetText())
+	ns.Export.ClearFile()
+
+	dialog:Hide()
+	M.RunFrames(8)
+	-- A focused edit box eats the movement keys; leaving one focused behind a
+	-- closed dialog is how an addon locks a player in place.
+	check("closing the dialog gives the keyboard back", not dialog.edit:HasFocus())
+
+	-- The plain copy path takes the same route.
+	ns.Dialogs.ShowCopy("https://example.com/some/path", "Copy URL")
+	M.RunFrames(8)
+	check("the copy dialog has focus too", dialog.edit:HasFocus())
+	eq("and holds exactly what was asked for",
+		dialog.edit:GetText(), "https://example.com/some/path")
+	dialog:Hide()
+	M.RunFrames(8)
+end
+
+--------------------------------------------------------------------------------
+-- Contrast
+--------------------------------------------------------------------------------
+
+-- WCAG relative luminance and contrast ratio. Body text wants 4.5:1, large or
+-- secondary text 3:1; a chat client that fails these is unreadable at night.
+local function luminance(c)
+	local function channel(v)
+		if v <= 0.03928 then return v / 12.92 end
+		return ((v + 0.055) / 1.055) ^ 2.4
+	end
+	return 0.2126 * channel(c[1]) + 0.7152 * channel(c[2]) + 0.0722 * channel(c[3])
+end
+
+local function contrast(fg, bg)
+	local a, b = luminance(fg), luminance(bg)
+	if a < b then a, b = b, a end
+	return (a + 0.05) / (b + 0.05)
+end
+
+-- Alpha-blended roles (hover, borders) are composited over their base first,
+-- otherwise the ratio is measured against a colour nobody ever sees.
+local function over(fg, bg)
+	local alpha = fg[4] or 1
+	if alpha >= 1 then return fg end
+	return {
+		fg[1] * alpha + bg[1] * (1 - alpha),
+		fg[2] * alpha + bg[2] * (1 - alpha),
+		fg[3] * alpha + bg[3] * (1 - alpha), 1,
+	}
+end
+
+local CONTRAST_PAIRS = {
+	{ "textPrimary", "bg1", 4.5, "body text on the window" },
+	{ "textPrimary", "bg2", 4.5, "body text on a panel" },
+	{ "textSecondary", "bg1", 3.0, "secondary text on the window" },
+	{ "textSecondary", "bg2", 3.0, "secondary text on a panel" },
+	{ "textMuted", "bg1", 2.2, "muted text on the window" },
+	{ "bubbleInText", "bubbleIn", 4.5, "incoming bubble text" },
+	{ "bubbleOutText", "bubbleOut", 4.5, "outgoing bubble text" },
+	{ "onAccent", "accent", 3.0, "text on an accent button" },
+	{ "link", "bg1", 3.0, "links on the window" },
+	{ "link", "bubbleIn", 3.0, "links in an incoming bubble" },
+	{ "danger", "bg1", 3.0, "the danger colour" },
+	{ "success", "bg1", 3.0, "the online dot" },
+	{ "warning", "bg1", 3.0, "the away dot" },
+}
+
+for _, id in ipairs(ns.Skins.order) do
+	ns.Options.Set("appearance.skin", id)
+	ns.UI.RefreshAll()
+	M.RunFrames(4)
+	for _, pair in ipairs(CONTRAST_PAIRS) do
+		local role, base, want, what = pair[1], pair[2], pair[3], pair[4]
+		local bg = over(ns.Theme.Get(base), { 0, 0, 0, 1 })
+		local fg = over(ns.Theme.Get(role), bg)
+		local ratio = contrast(fg, bg)
+		check(("%s: %s is legible"):format(id, what), ratio >= want,
+			("%s on %s is %.2f:1, want %.1f:1"):format(role, base, ratio, want))
+	end
+
+	-- A bubble has to read as a surface sitting on the panel, not as text
+	-- floating on it. Contrast guidance for a non-text boundary is about
+	-- 1.3:1 to be perceptible at all; below that the rounded rectangle is
+	-- there in the code and invisible on screen.
+	for _, pair in ipairs({
+		-- On bg2, which is the conversation surface bubbles are actually drawn
+		-- on. It was bg1, the sidebar, where no bubble has ever appeared -- and
+		-- since bg1 is the darker of the two, the check was reading a contrast
+		-- ratio slightly better than the one on screen.
+		{ "bubbleIn", "bg2", "the incoming bubble" },
+		{ "bubbleOut", "bg2", "the outgoing bubble" },
+		-- Which conversation you are in, read from across the window. There is
+		-- no marker bar beside the row any more, so this wash is the entire
+		-- signal -- and a selected row you have to hunt for is worse than no
+		-- selection at all.
+		{ "selected", "bg1", "the selected sidebar row" },
+		{ "selected", "bg3", "the selected row on a raised panel" },
+		-- The groove of a slider or a switch is the same kind of boundary: it
+		-- has to be visible before anyone knows there is a control there. Using
+		-- the hover tint for it left an off switch with no switch in it.
+		{ "trackBg", "bg3", "the groove of a slider or switch" },
+		-- ...and the thumb running in that groove has to separate from the
+		-- groove, or the selected segment is the one you cannot find.
+		{ "thumbBg", "trackBg", "the thumb of a segmented control" },
+	}) do
+		local bg = over(ns.Theme.Get(pair[2]), { 0, 0, 0, 1 })
+		local surface = over(ns.Theme.Get(pair[1]), bg)
+		local separation = contrast(surface, bg)
+		check(("%s: %s separates from what is behind it"):format(id, pair[3]),
+			separation >= 1.35,
+			("%s on %s is only %.2f:1"):format(pair[1], pair[2], separation))
+	end
+
+	-- ...and it has to separate upwards. A thumb darker than its track reads as
+	-- a hole punched in the control rather than as a raised thing sitting in it,
+	-- which is what `bg3` gave in every dark palette.
+	do
+		local track = over(ns.Theme.Get("trackBg"), { 0, 0, 0, 1 })
+		local thumb = over(ns.Theme.Get("thumbBg"), track)
+		check(("%s: the segmented thumb is lighter than its track"):format(id),
+			luminance(thumb) > luminance(track),
+			("thumb %.3f, track %.3f"):format(luminance(thumb), luminance(track)))
+	end
+
+	-- Which tab you are on must be visible in every skin. The fill alone is not
+	-- enough: the active tab takes the header's colour so that it reads as
+	-- continuous with what is under the strip, and in Midnight and Minimal that
+	-- is the strip's own colour -- so the fill says nothing at all there. The
+	-- marker carries it, and it has to separate from both surfaces it crosses.
+	for _, base in ipairs({ "bg1", "headerBg" }) do
+		local bg = over(ns.Theme.Get(base), { 0, 0, 0, 1 })
+		local marker = over(ns.Theme.Get("accent"), bg)
+		check(("%s: the active tab marker is visible on %s"):format(id, base),
+			contrast(marker, bg) >= 1.35,
+			("accent on %s is only %.2f:1"):format(base, contrast(marker, bg)))
+	end
+
+	-- An unresolved colour role renders magenta on purpose; none may survive.
+	for _, pair in ipairs(CONTRAST_PAIRS) do
+		for _, role in ipairs({ pair[1], pair[2] }) do
+			local c = ns.Theme.Get(role)
+			check(("%s: %s is a real colour"):format(id, role),
+				not (c[1] == 1 and c[2] == 0 and c[3] == 1),
+				role .. " is unresolved in " .. id)
+		end
+	end
+end
+
+ns.Options.Set("appearance.skin", "midnight")
+ns.UI.RefreshAll()
+M.RunFrames(4)
+
+-- ...and it is on exactly one tab: the one that is selected.
+do
+	local strip = window.tabs
+	if strip and strip.rendered then
+		ns.ConversationManager.Select(thrall)
+		ns.UI.RefreshAll()
+		M.RunFrames(6)
+		local marked, active, wrong = 0, 0, nil
+		for i = 1, #strip.rendered do
+			local tab = strip.rendered[i]
+			if tab.active then active = active + 1 end
+			if tab.marker:IsShown() then
+				marked = marked + 1
+				if not tab.active then wrong = tab.label:GetText() end
+			end
+		end
+		check("there are tabs to check", #strip.rendered > 0, tostring(#strip.rendered))
+		eq("exactly one tab is marked active", marked, active)
+		check("and it is the selected one", wrong == nil, tostring(wrong))
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Pixel snapping across UI scales
+--------------------------------------------------------------------------------
+
+-- ns.Pixel.Size is the width of one physical pixel in the addon's coordinate
+-- space; every border and divider has to be a whole multiple of it or it will
+-- shimmer. The addon must produce a usable value at every scale the client
+-- allows, not just at 1.0.
+for _, scale in ipairs({ 0.64, 0.71, 0.85, 1.0 }) do
+
+	_G.UIParent:SetScale(scale)
+	ns.Compat.ResetPhysicalHeight()
+	ns.Theme.Refresh()
+	M.RunFrames(4)
+	local px = ns.Pixel.Size(_G.UIParent)
+	check(("scale %.2f: one pixel is a sane size"):format(scale),
+		px > 0 and px < 4, tostring(px))
+	check(("scale %.2f: snapping is idempotent"):format(scale),
+		ns.Pixel.Snap(ns.Pixel.Snap(13.37, _G.UIParent), _G.UIParent)
+			== ns.Pixel.Snap(13.37, _G.UIParent))
+	local snapped = ns.Pixel.Snap(13.37, _G.UIParent)
+	check(("scale %.2f: snapping lands on a pixel boundary"):format(scale),
+		math.abs(snapped / px - math.floor(snapped / px + 0.5)) < 1e-6,
+		("%.6f is %.4f pixels"):format(snapped, snapped / px))
+	check(("scale %.2f: snapping moves a value less than one pixel"):format(scale),
+		math.abs(snapped - 13.37) <= px)
+
+	checkContainment(("scale %.2f"):format(scale), window)
+end
+
+
+_G.UIParent:SetScale(1)
+ns.Compat.ResetPhysicalHeight()
+ns.Theme.Refresh()
+M.RunFrames(4)
+
+--------------------------------------------------------------------------------
+-- Density and font scale must not break containment either
+--------------------------------------------------------------------------------
+
+for _, density in ipairs({ "comfortable", "compact" }) do
+	ns.Options.Set("appearance.density", density)
+	ns.UI.RefreshLayout()
+	ns.UI.RefreshAll()
+	M.RunFrames(6)
+	checkContainment("density " .. density, window)
+	checkTargets("density " .. density .. ": targets stay clickable", window)
+end
+ns.Options.Set("appearance.density", "comfortable")
+
+for _, fontScale in ipairs({ -2, 0, 4 }) do
+	ns.Options.Set("appearance.fontScale", fontScale)
+	ns.UI.RefreshAll()
+	M.RunFrames(6)
+	checkContainment("font scale " .. fontScale, window)
+end
+ns.Options.Set("appearance.fontScale", 0)
+ns.UI.RefreshAll()
+M.RunFrames(6)
+
+--------------------------------------------------------------------------------
+-- The window at its extremes
+--------------------------------------------------------------------------------
+
+for _, size in ipairs({
+	{ ns.SZ.WINDOW_MIN_W, ns.SZ.WINDOW_MIN_H, "minimum" },
+	{ ns.SZ.WINDOW_W, ns.SZ.WINDOW_H, "default" },
+	{ ns.SZ.WINDOW_MAX_W, ns.SZ.WINDOW_MAX_H, "maximum" },
+}) do
+	ns.Options.Set("layout.width", size[1])
+	ns.Options.Set("layout.height", size[2])
+	ns.UI.RefreshLayout()
+	ns.UI.RefreshAll()
+	M.RunFrames(6)
+	checkContainment("window at its " .. size[3], window)
+	checkTargets(size[3] .. " window: targets stay clickable", window)
+	check(size[3] .. " window: the sidebar keeps a usable width",
+		select(3, rect(sidebar)) >= ns.SZ.SIDEBAR_RAIL_W - EPS,
+		("%.1f"):format(select(3, rect(sidebar))))
+	check(size[3] .. " window: the composer keeps a usable width",
+		select(3, rect(composer)) >= 120,
+		("%.1f"):format(select(3, rect(composer))))
+end
+ns.Options.Set("layout.width", ns.SZ.WINDOW_W)
+ns.Options.Set("layout.height", ns.SZ.WINDOW_H)
+ns.UI.RefreshLayout()
+M.RunFrames(6)
+
+--------------------------------------------------------------------------------
+-- The composer with something in it
+--------------------------------------------------------------------------------
+
+-- An empty composer is the only state the audit used to see, because the byte
+-- counter is hidden until the message is long -- and a hidden frame is not
+-- measured. The counter was tucked into the gap between the send button and the
+-- divider and stuck straight through it into the message list.
+do
+	local composer = window.view.composer
+	local before = composer:GetHeight()
+
+	composer.input:SetText(("a"):rep(220))
+	composer:OnTextChanged(composer.input:GetText())
+	M.RunFrames(6)
+	check("a long message shows the counter", composer.counter:IsShown())
+	check("and the composer made room for it",
+		composer:GetHeight() > before,
+		("%.1f -> %.1f"):format(before, composer:GetHeight()))
+	local cb = select(2, rect(composer.counter))
+	local ch = select(4, rect(composer.counter))
+	local compTop = select(2, rect(composer)) + select(4, rect(composer))
+	check("the counter stays inside the composer", cb + ch <= compTop + EPS,
+		("counter top %.1f, composer top %.1f"):format(cb + ch, compTop))
+	checkContainment("composer with a counter", window)
+
+	-- Long enough to split, which is a different, wider string in the same spot.
+	composer.input:SetText(("Ein ziemlich langer Satz. "):rep(30))
+	composer:OnTextChanged(composer.input:GetText())
+	M.RunFrames(6)
+	check("a message that will split says so", composer.counter:IsShown())
+	checkContainment("composer with a split warning", window)
+
+	composer.input:SetText("")
+	composer:OnTextChanged("")
+	M.RunFrames(6)
+	check("and it goes away again", not composer.counter:IsShown())
+end
+
+--------------------------------------------------------------------------------
+-- The conversation header
+--------------------------------------------------------------------------------
+
+-- The name and the line under it were anchored to the avatar's top and bottom
+-- edges, which made the gap between them a function of the avatar's height
+-- rather than of the type. At the larger font scales they overlapped.
+do
+	local header = window.view.header
+	for _, scale in ipairs({ 0, 2, 4 }) do
+		ns.Options.Set("appearance.fontScale", scale)
+		ns.UI.RefreshAll()
+		M.RunFrames(6)
+		local _, nameBottom, _, nameHeight = rect(header.name)
+		local _, statusBottom, _, statusHeight = rect(header.status)
+		if header.status:IsShown() then
+			check(("font scale %d: the name clears the line under it"):format(scale),
+				statusBottom + statusHeight <= nameBottom + EPS,
+				("status top %.1f, name bottom %.1f"):format(
+					statusBottom + statusHeight, nameBottom))
+			-- And the pair as a whole sits in the middle of the header, which is
+			-- what makes it read as one block rather than two stray labels.
+			local hb, hh = select(2, rect(header)), select(4, rect(header))
+			local blockCentre = (statusBottom + nameBottom + nameHeight) / 2
+			check(("font scale %d: the name and status centre as a pair"):format(scale),
+				math.abs(blockCentre - (hb + hh / 2)) <= 2,
+				("block centre %.1f, header centre %.1f"):format(blockCentre, hb + hh / 2))
+		end
+		checkContainment(("header at font scale %d"):format(scale), window)
+	end
+	ns.Options.Set("appearance.fontScale", 0)
+	ns.UI.RefreshAll()
+	M.RunFrames(6)
+
+	-- With nothing known about the player there is no second line, and the name
+	-- should then be centred rather than sitting where the pair used to start.
+	local plain = ns.ConversationManager.GetOrCreate("Nobodyknown-Blackrock")
+	ns.ConversationManager.Select(plain.id)
+	M.RunFrames(8)
+	if not header.status:IsShown() then
+		local hb, hh = select(2, rect(header)), select(4, rect(header))
+		local nb, nh = select(2, rect(header.name)), select(4, rect(header.name))
+		local nameCentre = nb + nh / 2
+		check("a name with no status line is centred in the header",
+			math.abs(nameCentre - (hb + hh / 2)) <= 2,
+			("name centre %.1f, header centre %.1f"):format(nameCentre, hb + hh / 2))
+	end
+	ns.ConversationManager.Select(thrall)
+	M.RunFrames(8)
+end
+
+--------------------------------------------------------------------------------
+-- Other surfaces
+--------------------------------------------------------------------------------
+
+ns.SettingsUI.Show()
+M.RunFrames(8)
+-- The settings window is a globally named frame, which is how the audit reaches
+-- it without the module having to expose an accessor just for the tests.
+local settings = _G.WhatTheWhisperSettings
+check("the settings window was built", settings ~= nil and settings:IsShown())
+if settings then
+	local schema = ns.Options.BuildSchema()
+	for i = 1, #schema do
+		ns.SettingsUI.SelectCategory(schema[i].id)
+		M.RunFrames(4)
+		checkContainment("settings: " .. schema[i].id, settings)
+		checkTargets("settings: " .. schema[i].id .. " targets", settings)
+		checkTruncation("settings: " .. schema[i].id .. " text fits", settings)
+		checkIconCentring("settings: " .. schema[i].id .. " icons are centred", settings)
+
+		-- Every control in a category shares one right column; a ragged edge
+		-- down a settings list is the loudest thing on the screen.
+		local controls = {}
+		for control in settings.rowPool:EnumerateActive() do
+			if control.control and M.EffectivelyShown(control.control, settings) then
+				controls[#controls + 1] = control.control
+			end
+		end
+		if #controls > 1 then
+			local first = select(5, rect(controls[1]))
+			local ragged, worst = 0, nil
+			for k = 2, #controls do
+				local edge = select(5, rect(controls[k]))
+				if math.abs(edge - first) > EPS then
+					ragged = ragged + 1
+					worst = worst or ("%.2f vs %.2f"):format(edge, first)
+				end
+			end
+			check("settings: " .. schema[i].id .. " controls share a right column",
+				ragged == 0, worst)
+		end
+
+		-- The other edge of the same rule. A label column that wanders is just
+		-- as loud as a control column that does, and nothing was checking it.
+		local labels, cards = {}, {}
+		for row in settings.rowPool:EnumerateActive() do
+			if row.label and M.EffectivelyShown(row.label, settings) then
+				labels[#labels + 1] = row
+			end
+		end
+		for card in settings.cardPool:EnumerateActive() do
+			if M.EffectivelyShown(card, settings) then cards[#cards + 1] = card end
+		end
+		if #labels > 1 then
+			local first = select(1, rect(labels[1].label))
+			local ragged, worst = 0, nil
+			for k = 2, #labels do
+				local edge = select(1, rect(labels[k].label))
+				if math.abs(edge - first) > EPS then
+					ragged = ragged + 1
+					worst = worst or ("%.2f vs %.2f"):format(edge, first)
+				end
+			end
+			check("settings: " .. schema[i].id .. " labels share a left column",
+				ragged == 0, worst)
+		end
+
+		-- And a label must stop before the control it belongs to starts, or the
+		-- two overlap at the long end of a translation.
+		local collisions, sample = 0, nil
+		for k = 1, #labels do
+			local row = labels[k]
+			if row.control and M.EffectivelyShown(row.control, settings) then
+				local labelRight = select(5, rect(row.label))
+				local controlLeft = select(1, rect(row.control))
+				if labelRight > controlLeft + EPS then
+					collisions = collisions + 1
+					sample = sample or (tostring(row.label:GetText())
+						.. (" ends at %.1f, control starts at %.1f"):format(
+							labelRight, controlLeft))
+				end
+			end
+		end
+		eq("settings: " .. schema[i].id .. " no label runs into its control",
+			collisions, 0, sample)
+
+		-- Cards are one column: a card that starts somewhere else reads as a
+		-- different panel rather than the next section of this one.
+		if #cards > 1 then
+			local first = select(1, rect(cards[1]))
+			local ragged = 0
+			for k = 2, #cards do
+				if math.abs(select(1, rect(cards[k])) - first) > EPS then
+					ragged = ragged + 1
+				end
+			end
+			eq("settings: " .. schema[i].id .. " cards share a left edge", ragged, 0)
+		end
+	end
+end
+ns.SettingsUI.Hide()
+
+ns.UI.TogglePopout(thrall)
+M.RunFrames(8)
+local popout = ns.Popout.Get(thrall)
+check("a popout window exists", popout ~= nil)
+if popout then
+	checkContainment("popout", popout)
+	checkTargets("popout targets", popout)
+	checkTruncation("popout text fits", popout)
+	checkIconCentring("popout icons are centred", popout)
+end
+ns.UI.DockConversation(thrall)
+M.RunFrames(6)
+
+--------------------------------------------------------------------------------
+-- The overview
+--------------------------------------------------------------------------------
+
+-- Real windows moved into a grid, each with its name written above it. Toggling
+-- it and asserting nothing errored is not a design check: what matters is that
+-- the labels stay off the hint and off each other, and that a card and its name
+-- are both on the screen.
+do
+	-- Enough windows for more than one row, so the grid is actually exercised.
+	for _, id in ipairs({ thrall, ns.Compat.NormalizeName("Jaina") }) do
+		ns.UI.TogglePopout(id)
+	end
+	M.RunFrames(10)
+
+	-- The button that opens it only exists when there is more than one window:
+	-- on a single window it darkens the screen and puts that window back in the
+	-- middle of it, which reads as a bug rather than a feature.
+	check("the overview button is there with several windows open",
+		window.titlebar.expose:IsShown())
+
+	ns.Expose.Open()
+	M.RunFrames(12)
+	check("the overview opened", ns.Expose.IsOpen())
+
+	local scrimFrame = _G.WhatTheWhisperExpose
+	local cards, labels = {}, {}
+	for i = 1, #M.frames do
+		local frame = M.frames[i]
+		if frame.restingRing and M.EffectivelyVisible(frame) then
+			cards[#cards + 1] = frame
+			labels[#labels + 1] = frame.label
+		end
+	end
+	check("every window is on the board", #cards >= 3, tostring(#cards))
+
+	local sw, sh = _G.UIParent:GetWidth(), _G.UIParent:GetHeight()
+	local hintFrame
+	for i = 1, #M.frames do
+		if M.frames[i] == scrimFrame then hintFrame = nil end
+	end
+	-- The hint is the only FontString parented straight to the scrim.
+	for _, region in ipairs(M.regions or {}) do
+		if region._parent == scrimFrame and region._kind == "FontString" then
+			hintFrame = region
+		end
+	end
+
+	local offScreen, collided, overHint = 0, 0, 0
+	for i = 1, #cards do
+		local cl, cb, cw, ch = rect(cards[i])
+		if cl < 0 or cb < 0 or cl + cw > sw or cb + ch > sh then offScreen = offScreen + 1 end
+		local ll, lb, lw, lh = rect(labels[i])
+		if ll < 0 or lb < 0 or ll + lw > sw or lb + lh > sh then offScreen = offScreen + 1 end
+		if hintFrame then
+			local hl, hb, hw, hh = rect(hintFrame)
+			if ll < hl + hw and ll + lw > hl and lb < hb + hh and lb + lh > hb then
+				overHint = overHint + 1
+			end
+		end
+		for j = i + 1, #cards do
+			local ol, ob, ow, oh = rect(labels[j])
+			if ll < ol + ow and ll + lw > ol and lb < ob + oh and lb + lh > ob then
+				collided = collided + 1
+			end
+		end
+	end
+	eq("nothing on the board is off screen", offScreen, 0)
+	eq("no two window names overlap", collided, 0)
+	eq("and none of them is written over the hint", overHint, 0)
+
+	-- The ring is the affordance: a card with no edge until you touch it reads
+	-- as a picture rather than a target.
+	local ringed = 0
+	for i = 1, #cards do
+		if (cards[i].ring and cards[i].ring.thickness or 0) > 0 then ringed = ringed + 1 end
+	end
+	eq("every card has a resting outline", ringed, #cards)
+
+	ns.Expose.Close()
+	M.RunFrames(12)
+	check("the overview closed", not ns.Expose.IsOpen())
+	for _, id in ipairs({ thrall, ns.Compat.NormalizeName("Jaina") }) do
+		ns.UI.DockConversation(id)
+	end
+	M.RunFrames(10)
+	check("and it goes away when only one window is left",
+		not window.titlebar.expose:IsShown())
+end
+
+--------------------------------------------------------------------------------
+-- Icon atlas: every icon the UI asks for has to be inside the sheet
+--------------------------------------------------------------------------------
+
+local atlas = ns.ICON_ATLAS
+check("the icon atlas is loaded", type(atlas) == "table" and next(atlas) ~= nil)
+if type(atlas) == "table" then
+	local bad, sample = 0, nil
+	local tooSmall, smallSample = 0, nil
+	for name, c in pairs(atlas) do
+		local l, r, t, b = c[1], c[2], c[3], c[4]
+		if not (l >= 0 and r <= 1 and t >= 0 and b <= 1 and r > l and b > t) then
+			bad = bad + 1
+			sample = sample or (name .. " -> " .. table.concat(c, ", "))
+		end
+		-- A half-texel inset on each side is what stops a neighbouring icon
+		-- bleeding in when the sheet is filtered; a zero-width icon means the
+		-- generator and the lookup table disagree.
+		if (r - l) <= 0 or (b - t) <= 0 then
+			tooSmall = tooSmall + 1
+			smallSample = smallSample or name
+		end
+	end
+	eq("every icon's coordinates are inside the sheet", bad, 0)
+	eq("no icon is degenerate", tooSmall, 0)
+end
+
+--------------------------------------------------------------------------------
+-- A window remembered from a bigger screen
+--------------------------------------------------------------------------------
+
+-- A window remembers where it was; it does not remember what the screen was. A
+-- position saved at one resolution, or on another character with a different UI
+-- scale, can come back with the title bar past the edge -- and a title bar you
+-- cannot reach is a window you cannot move, close, or get out of the way.
+do
+	local window = ns.MainWindow.Get()
+	local screenW = UIParent:GetWidth()
+	local screenH = UIParent:GetHeight()
+
+	local function restoredAt(left, top)
+		ns.db.profile.layout.point = { left = left, top = top }
+		window:RestoreGeometry()
+		M.RunFrames(2)
+		local l, b, w, h = M.Geometry(window)
+		return l, b + h, w, h
+	end
+
+	local cases = {
+		{ "far off the right", screenW + 500, screenH * 0.6 },
+		{ "far off the left", -2000, screenH * 0.6 },
+		{ "below the bottom", 200, -800 },
+		{ "above the top", 200, screenH + 900 },
+	}
+	for i = 1, #cases do
+		local label, left, top = cases[i][1], cases[i][2], cases[i][3]
+		local l, t, w = restoredAt(left, top)
+		check("a window saved " .. label .. " comes back with something on screen",
+			l < screenW and (l + w) > 0, ("left %.0f width %.0f"):format(l, w))
+		check("and with its title bar reachable " .. label,
+			t > 0 and t <= screenH + 1, ("top %.0f of %.0f"):format(t, screenH))
+	end
+
+	-- And a position that is already fine is left exactly where it was: a rescue
+	-- that moves windows nobody asked it to move is its own bug.
+	local l, t = restoredAt(220, screenH - 80)
+	check("an on-screen window is not moved", math.abs(l - 220) < 0.5
+		and math.abs(t - (screenH - 80)) < 0.5, ("%.1f, %.1f"):format(l, t))
+
+	ns.db.profile.layout.point = nil
+	window:RestoreGeometry()
+	M.RunFrames(2)
+end
+
+--------------------------------------------------------------------------------
+-- Opening a window
+--------------------------------------------------------------------------------
+
+-- What the player actually watches, rather than what is left behind once it is
+-- over. An animation that only ends in the right place because its OnFinished
+-- put it there is one the player sees snap.
+do
+	ns.db.profile.appearance.animations = "normal"
+	ns.Theme.Refresh()
+
+	local function opens(label, frame, show, hide, from)
+		hide()
+		M.RunFrames(4)
+		show()
+		M.RunFrames(1)
+		local first, last = M.AnimationFrames(frame)
+		if not first then
+			check(label .. " animates when it opens", false, "nothing played")
+			return
+		end
+		local base = frame.__wtwBaseScale or 1
+		check(label .. " starts small", math.abs(first.scale - base * from) < 0.001,
+			("%.4f, wanted %.4f"):format(first.scale, base * from))
+		check(label .. " ends at its own size, with nothing left to correct",
+			math.abs(last.scale - base) < 0.001,
+			("%.4f, wanted %.4f"):format(last.scale, base))
+		check(label .. " starts invisible", math.abs(first.alpha) < 0.001, first.alpha)
+		check(label .. " ends fully visible", math.abs(last.alpha - 1) < 0.001, last.alpha)
+		check(label .. " is left visible", math.abs((frame:GetAlpha() or 1) - 1) < 0.001,
+			frame:GetAlpha())
+		check(label .. " is left at its own size",
+			math.abs((frame:GetScale() or 1) - base) < 0.001, frame:GetScale())
+	end
+
+	local window = ns.MainWindow.Get()
+	-- Each window asks for its own starting size; the numbers here are the ones
+	-- the callers pass, so a caller that stops animating fails too.
+	opens("the messenger", window, ns.UI.Show, ns.UI.Hide, 0.97)
+	ns.SettingsUI.Show()
+	opens("the settings window", ns.SettingsUI.Frame(),
+		ns.SettingsUI.Show, ns.SettingsUI.Hide, 0.98)
+	ns.SettingsUI.Hide()
+	M.RunFrames(2)
+	ns.UI.Show()
+	M.RunFrames(2)
+
+	-- Opened again and again, which is what a player does with a messenger.
+	-- The base scale was read back from a frame the animation had shrunk, so
+	-- every open made the window a little smaller than the last.
+	local before = window:GetScale() or 1
+	for _ = 1, 6 do
+		ns.UI.Hide()
+		M.RunFrames(2)
+		ns.UI.Show()
+		M.RunFrames(2)
+	end
+	check("six opens leave the window the size it started",
+		math.abs((window:GetScale() or 1) - before) < 0.001,
+		("%.4f, started %.4f"):format(window:GetScale() or 1, before))
+
+	-- An open that is cut short -- closed again mid-animation, or the parent
+	-- hidden out from under it -- never reaches OnFinished, so whatever
+	-- OnFinished was going to put right stays wrong: a window that is shown,
+	-- sized, laid out and completely invisible.
+	--
+	-- The mock finishes an animation the instant it starts, so the interruption
+	-- itself cannot be staged here. What can be checked is that the group has
+	-- something to run when it is stopped, and that running it settles the
+	-- window -- which is the whole of the guard.
+	local group = window.__wtwPop
+	check("the open animation has a handler for being cut short",
+		group ~= nil and group:GetScript("OnStop") ~= nil)
+	if group and group:GetScript("OnStop") then
+		window:SetAlpha(0)
+		window:SetScale(before * 0.5)
+		group:GetScript("OnStop")(group)
+		check("and it leaves the window visible",
+			(window:GetAlpha() or 1) > 0.99, window:GetAlpha())
+		check("and at its own size",
+			math.abs((window:GetScale() or 1) - before) < 0.001, window:GetScale())
+	end
+	ns.UI.Hide()
+	M.RunFrames(2)
+end
+
+--------------------------------------------------------------------------------
+
+eq("nothing errored while auditing", #M.errors, 0,
+	table.concat(M.errors, "\n      ", 1, math.min(#M.errors, 6)))
+
+print(("%d passed, %d failed"):format(pass, fail))
+os.exit(fail == 0 and 0 or 1)
