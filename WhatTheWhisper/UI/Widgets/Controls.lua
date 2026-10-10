@@ -626,7 +626,8 @@ function Controls.Segmented(parent, opts)
 				paint(true)
 			end)
 			button:SetScript("OnMouseUp", function(self)
-				if not self:IsMouseOver() or not self.optionValue then return end
+				-- nil is a segment that is not there; false is a choice like any other.
+				if not self:IsMouseOver() or self.optionValue == nil then return end
 				seg:SetValue(self.optionValue, true)
 			end)
 			seg.segments[i] = button
