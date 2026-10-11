@@ -1,0 +1,11 @@
+<Bindings>
+	<Binding name="WHATTHEWHISPER_TOGGLE" header="WHATTHEWHISPER" category="WhatTheWhisper">
+		WhatTheWhisper.BindingToggle()
+	</Binding>
+	<Binding name="WHATTHEWHISPER_REPLY" category="WhatTheWhisper">
+		WhatTheWhisper.BindingReply()
+	</Binding>
+	<Binding name="WHATTHEWHISPER_EXPOSE" category="WhatTheWhisper">
+		WhatTheWhisper.BindingExpose()
+	</Binding>
+</Bindings>

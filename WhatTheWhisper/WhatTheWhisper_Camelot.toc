@@ -1,0 +1,21 @@
+# World of Warcraft: Forever. "Camelot" is Blizzard's own name for this client
+# line in its interface source, and the suffix the loader looks for.
+#
+# 16001 is 1.60.1, the beta build this was verified against (1.60.1.69893). The
+# client accepts an addon whose interface matches its own, so if Forever ships
+# on a later 1.60.x this number has to move with it -- Tools/test/check_structure.py
+# holds it to the 1.60+ range but cannot know which build is live.
+## Interface: 16001
+## Title: WhatTheWhisper
+## Notes: A modern messenger for whispers: one thread per player, with history, search, popouts and notifications.
+## Notes-deDE: Ein moderner Messenger für Flüsternachrichten: ein Verlauf pro Spieler, mit History, Suche, Popouts und Benachrichtigungen.
+## Author: WhatTheWhisper
+## Version: 1.0.0
+## X-Flavor: Camelot
+## X-Category: Chat & Communication
+## IconTexture: Interface\AddOns\WhatTheWhisper\Art\Logo
+## X-Embeds: LibStub, CallbackHandler-1.0, AceAddon-3.0, AceConsole-3.0, AceEvent-3.0, AceDB-3.0
+## SavedVariables: WhatTheWhisperDB, WhatTheWhisperHistoryDB, WhatTheWhisperExportDB
+
+Libs\Libs.xml
+WhatTheWhisper.xml
