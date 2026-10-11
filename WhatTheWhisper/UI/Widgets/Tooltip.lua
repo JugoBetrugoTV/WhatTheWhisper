@@ -21,6 +21,7 @@ local currentOwner
 local function build()
 	if frame then return end
 	frame = CreateFrame("Frame", "WhatTheWhisperTooltip", UIParent)
+	W.BindUIScale(frame)
 	frame:SetFrameStrata("TOOLTIP")
 	frame:SetClampedToScreen(true)
 	frame:Hide()

@@ -642,6 +642,8 @@ function UI.Relocalize()
 end
 
 function UI.ApplyTheme()
+	-- First: everything below measures against the size the windows now are.
+	ns.Widgets.ApplyUIScale()
 	local window = existing()
 	if window then window:ApplyTheme() end
 	ns.Popout.ApplyTheme()

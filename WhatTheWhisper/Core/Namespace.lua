@@ -298,6 +298,11 @@ ns.T = {
 -- Message text is read in paragraphs, so it is set looser than a label. iOS body
 -- is 17 over a 22 line box; 5px of leading on a 17px face lands there.
 ns.LINE_SPACING = 5
+
+-- How far the player may scale every window of the addon. Below 60 % the type
+-- is smaller than the eye can use; above 150 % the main window is wider than a
+-- 1080p screen.
+ns.UI_SCALE_MIN, ns.UI_SCALE_MAX = 0.6, 1.5
 -- And a description under a label, which is short and read once: tighter than a
 -- message, but not set solid -- two lines of 13px with nothing between them
 -- read as one smudge.

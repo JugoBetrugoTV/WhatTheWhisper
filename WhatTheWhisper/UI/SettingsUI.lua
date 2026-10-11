@@ -271,6 +271,18 @@ local MIN_LABEL_W = 120
 -- against a column sized for a slider.
 local function controlWidthFor(spec, cardInner)
 	local base = controlWidth()
+	if spec.type == "button" then
+		-- A button is as wide as its words, which in German or at a large font is
+		-- more than the standard column: "Delete all conversations" wrapped onto
+		-- a second line there and ran into the button under it.
+		local measure = Theme.Measure("BODY")
+		measure:SetWordWrap(false)
+		measure:SetWidth(0)
+		measure:SetText(spec.buttonText or spec.label or "")
+		local need = math.ceil((measure:GetStringWidth() or 0) + ns.S.MD * 2)
+		local ceiling = min(cardInner - MIN_LABEL_W - ns.S.LG, floor(cardInner * 0.6))
+		return max(base, min(ceiling, need))
+	end
 	if spec.type ~= "dropdown" then return base end
 	local ceiling = min(cardInner - MIN_LABEL_W - ns.S.LG, floor(cardInner * 0.55))
 	if ceiling <= base or not suitsSegments(spec, ceiling) then return base end
@@ -409,6 +421,7 @@ local function buildControl(spec, parent, width)
 		control:SetOptions(spec.options)
 		control:SetValue(readValue(spec), false)
 	elseif spec.type == "button" then
+		control:SetWidth(width)
 		control:SetText(spec.buttonText or spec.label)
 		control:SetVariant(spec.danger and "danger" or "subtle")
 	elseif spec.type == "input" then
@@ -435,6 +448,7 @@ local function build()
 	if frame then return frame end
 
 	frame = CreateFrame("Frame", "WhatTheWhisperSettings", UIParent)
+	W.BindUIScale(frame)
 	frame:SetSize(ns.SZ.SETTINGS_W, ns.SZ.SETTINGS_H)
 	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
 	frame:SetFrameStrata("HIGH")

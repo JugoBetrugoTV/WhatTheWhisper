@@ -91,6 +91,7 @@ local function create(conv)
 	for k, v in pairs(P) do win[k] = v end
 	win.convID = conv.id
 
+	W.BindUIScale(win, true)
 	win:SetFrameStrata("HIGH")
 	win:SetToplevel(true)
 	win:SetMovable(true)
@@ -204,7 +205,7 @@ function P:RestoreGeometry()
 	self:ClearAllPoints()
 	if saved and saved.left and saved.top then
 		local left, top = W.ClampToScreen(saved.left, saved.top,
-			self:GetWidth(), self:GetHeight())
+			self:GetWidth(), self:GetHeight(), self:GetScale())
 		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
 	else
 		-- Cascade new windows so they never land exactly on top of each other.

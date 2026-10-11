@@ -30,6 +30,7 @@ local copyDialog, confirmDialog
 
 local function makeDialog(globalName, width, height)
 	local d = CreateFrame("Frame", globalName, UIParent)
+	W.BindUIScale(d)
 	d:SetSize(width, height)
 	d:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
 	d:SetFrameStrata("FULLSCREEN_DIALOG")

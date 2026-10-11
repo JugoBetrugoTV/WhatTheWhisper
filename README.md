@@ -187,6 +187,14 @@ regular. Korean and Chinese keep the client's own font, since Inter has no
 glyphs for them, and Settings › Appearance › Font switches back to the game's
 chat font for anyone who wants the window to match the rest of their UI.
 
+**Size.** Settings › Appearance › Interface scale makes every window — messenger,
+windows of their own, settings, dialogs, menus, the emoji picker — 60 to 150 % of
+what it was designed at, text included, by scaling the frames themselves, so the
+audited layout is the one that is drawn. A window keeps the corner or the centre it
+was placed by. Font size is separate (-4 to +6 steps, nothing under 8 px), a window
+can still be resized by its corner, and the font can be Inter, the game's chat font
+or any other the client has.
+
 Six skins ship, each a complete token set rather than a background colour:
 Midnight, Messenger, Dark, Minimal, Glass and Classic. A skin that omits a role
 inherits it from Midnight, so a partial skin cannot render broken.

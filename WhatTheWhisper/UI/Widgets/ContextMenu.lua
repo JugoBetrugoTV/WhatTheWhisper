@@ -209,6 +209,7 @@ local function build()
 	catcher:SetScript("OnMouseDown", function() Menu.Close() end)
 
 	frame = CreateFrame("Frame", "WhatTheWhisperContextMenu", UIParent)
+	W.BindUIScale(frame)
 	frame:SetFrameStrata("FULLSCREEN_DIALOG")
 	frame:SetFrameLevel(60)
 	frame:SetClampedToScreen(true)
@@ -327,7 +328,8 @@ function Menu.Open(entries, opts)
 		frame:SetPoint(opts.point or "TOPLEFT", opts.anchorTo,
 			opts.relPoint or "BOTTOMLEFT", opts.x or 0, opts.y or -ns.S.XS)
 	else
-		local scale = UIParent:GetEffectiveScale()
+		-- The cursor is in screen pixels; the menu's own offsets are in its scale.
+		local scale = UIParent:GetEffectiveScale() * (frame:GetScale() or 1)
 		local cx, cy = GetCursorPosition()
 		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
 	end

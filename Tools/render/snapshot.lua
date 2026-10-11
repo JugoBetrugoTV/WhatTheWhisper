@@ -212,6 +212,7 @@ elseif scene == "empty" then
 	focus = ns.MainWindow.Get()
 elseif scene == "settings" then
 	ns.SettingsUI.Show()
+	if os.getenv("WTW_CATEGORY") then ns.SettingsUI.SelectCategory(os.getenv("WTW_CATEGORY")) end
 	M.RunFrames(30)
 	focus = ns.SettingsUI.Frame()
 elseif scene == "toast" then

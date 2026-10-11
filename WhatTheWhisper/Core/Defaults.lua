@@ -40,7 +40,10 @@ ns.defaults = {
 			locale         = "enUS",
 			skin           = "midnight",
 			font           = false,      -- false = the addon's own typeface, "game" = the chat font
-			fontScale      = 0,          -- -2 .. +4, applied to the whole type scale
+			fontScale      = 0,          -- -4 .. +6, applied to the whole type scale
+			-- The size of every window, text and all: a multiplier on the frames
+			-- themselves, so the layout is the one that was designed, smaller.
+			uiScale        = 1,
 			opacity        = 0.97,
 			bubbleOpacity  = 1,
 			radius         = 1,          -- 0 square, 1 normal, 2 round

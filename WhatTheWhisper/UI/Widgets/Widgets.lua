@@ -412,9 +412,13 @@ local ONSCREEN_MARGIN = 48
 -- Corrects a remembered TOPLEFT, in UIParent's bottom-left coordinates, so that
 -- this much of the window is on screen. Returns the position unchanged when it
 -- already is, which is the normal case.
-function W.ClampToScreen(left, top, width, height)
-	local screenW = (UIParent and UIParent:GetWidth()) or 0
-	local screenH = (UIParent and UIParent:GetHeight()) or 0
+-- `left` and `top` are in the window's own units, which at an interface scale
+-- other than 100 % are not the screen's: a window at 60 % is 1/0.6 as many of its
+-- own units across the screen.
+function W.ClampToScreen(left, top, width, height, scale)
+	scale = (scale and scale > 0) and scale or 1
+	local screenW = ((UIParent and UIParent:GetWidth()) or 0) / scale
+	local screenH = ((UIParent and UIParent:GetHeight()) or 0) / scale
 	if screenW <= 0 or screenH <= 0 then return left, top end
 	width, height = width or 0, height or 0
 
@@ -424,6 +428,46 @@ function W.ClampToScreen(left, top, width, height)
 	-- reachable: above the bottom of the screen, and not pushed off the top.
 	top = math.max(math.min(ONSCREEN_MARGIN, height), math.min(top, screenH))
 	return left, top
+end
+
+--------------------------------------------------------------------------------
+-- Interface scale
+--------------------------------------------------------------------------------
+
+-- Every window and panel of the addon is scaled together, by scaling the frames
+-- and not by rebuilding them: the layout that was designed and audited is the
+-- one that is drawn, only smaller or larger, and nothing has to be told a new
+-- size for each of its parts. The notification cards have a size setting of
+-- their own and are left out.
+local scaled = setmetatable({}, { __mode = "k" })
+
+-- `remembersPosition`: the window saves where it is, and has to save again once
+-- the scale has moved its numbers.
+function W.BindUIScale(frame, remembersPosition)
+	scaled[frame] = remembersPosition and "remembers" or true
+	frame:SetScale(Theme.UIScale())
+end
+
+-- A frame's anchor offsets are in its own scale, so changing the scale moves a
+-- window unless the offsets are changed with it. Only the single anchor to the
+-- screen that every window here has is rescaled: the corner or the centre it was
+-- placed by stays where it was and the window grows or shrinks from it.
+function W.ApplyUIScale()
+	local scale = Theme.UIScale()
+	for frame, kind in pairs(scaled) do
+		local old = frame:GetScale() or 1
+		if math.abs(old - scale) > 0.0005 then
+			local point, relTo, relPoint, x, y
+			if frame:GetNumPoints() == 1 then point, relTo, relPoint, x, y = frame:GetPoint(1) end
+			frame:SetScale(scale)
+			if point and (relTo == nil or relTo == UIParent) then
+				frame:ClearAllPoints()
+				frame:SetPoint(point, UIParent, relPoint or point,
+					(x or 0) * old / scale, (y or 0) * old / scale)
+			end
+			if kind == "remembers" then ns.Guard("W.ApplyUIScale", frame.SaveGeometry, frame) end
+		end
+	end
 end
 
 function W.SetTooltip(frame, text, subtext)

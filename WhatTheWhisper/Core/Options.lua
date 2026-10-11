@@ -194,7 +194,7 @@ end
 function Options.FontOptions()
 	-- Automatic is the addon's own typeface; the game's chat font is offered by
 	-- name for anyone who prefers the window to match the rest of their UI.
-	local out = { { value = false, label = L["Automatic"] },
+	local out = { { value = false, label = L["Automatic (Inter)"] },
 		{ value = "game", label = L["The game's chat font"] } }
 	local candidates = {
 		{ "Fonts\\FRIZQT__.TTF", "Friz Quadrata" },
@@ -367,10 +367,18 @@ function Options.BuildSchema()
 					},
 				},
 				{
+					title = L["Size"],
+					rows = {
+						slider("appearance.uiScale", L["Interface scale"],
+							ns.UI_SCALE_MIN, ns.UI_SCALE_MAX, 0.05, percent,
+							L["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."]),
+					},
+				},
+				{
 					title = L["Typography"],
 					rows = {
 						dropdown("appearance.font", L["Font"], Options.FontOptions()),
-						slider("appearance.fontScale", L["Font size"], -2, 4, 1, function(v)
+						slider("appearance.fontScale", L["Font size"], -4, 6, 1, function(v)
 							return v >= 0 and ("+" .. plain(v)) or plain(v)
 						end),
 					},

@@ -35,6 +35,7 @@ function MainWindow.Get()
 	frame = CreateFrame("Frame", "WhatTheWhisperFrame", UIParent)
 	for k, v in pairs(M) do frame[k] = v end
 
+	W.BindUIScale(frame, true)
 	frame:SetFrameStrata("HIGH")
 	frame:SetToplevel(true)
 	frame:SetMovable(true)
@@ -339,7 +340,7 @@ function M:RestoreGeometry()
 	local point = layout.point
 	if point and point.left and point.top then
 		local left, top = W.ClampToScreen(point.left, point.top,
-			self:GetWidth(), self:GetHeight())
+			self:GetWidth(), self:GetHeight(), self:GetScale())
 		self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
 	else
 		self:SetPoint("CENTER", UIParent, "CENTER", 0, 40)

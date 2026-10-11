@@ -198,6 +198,9 @@ Strong is for **names and titles only** — a conversation's name in the list, i
 header and on a notification card, window and dialog titles, empty-state headlines, and
 the day in a time marker. Everything a person reads at length stays regular.
 
+* **Interface scale** (60–150 %, `Widgets.BindUIScale`) multiplies every window and
+  panel; everything in this document is stated at 100 %. Font size (-4 … +6) moves
+  the type ramp alone, and no step is drawn under 8 px.
 * Line spacing for message bodies: **5 px** — iOS body is 17 over a 22 line box.
   Descriptions that wrap (settings captions, empty-state bodies, a card's preview):
   **3 px** (`CAPTION_SPACING`). Single lines: none.

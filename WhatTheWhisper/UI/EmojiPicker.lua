@@ -69,6 +69,7 @@ local function build()
 	catcher:SetScript("OnMouseDown", function() Picker.Close() end)
 
 	frame = CreateFrame("Frame", "WhatTheWhisperEmojiPicker", UIParent)
+	W.BindUIScale(frame)
 	frame:SetFrameStrata("FULLSCREEN_DIALOG")
 	frame:SetFrameLevel(30)
 	frame:SetClampedToScreen(true)

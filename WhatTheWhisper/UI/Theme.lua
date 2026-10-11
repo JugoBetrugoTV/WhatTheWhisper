@@ -128,6 +128,12 @@ local function buildFonts()
 	end
 end
 
+-- The player's interface scale, held to what the addon can lay out.
+function Theme.UIScale()
+	local value = tonumber(appearance().uiScale) or 1
+	return min(ns.UI_SCALE_MAX, max(ns.UI_SCALE_MIN, value))
+end
+
 function Theme.Font(token)
 	return Theme.fonts[token] or Theme.fonts.BODY
 end

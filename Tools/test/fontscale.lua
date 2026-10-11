@@ -204,7 +204,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local SCALES = { -2, 0, 2, 4, 6 }
+local SCALES = { -4, -2, 0, 2, 4, 6 }
 local window = ns.MainWindow.Get()
 
 for _, scale in ipairs(SCALES) do
