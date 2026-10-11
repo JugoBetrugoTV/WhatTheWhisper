@@ -1496,6 +1496,11 @@ local CONTRAST_PAIRS = {
 	{ "textMuted", "bg1", 2.2, "muted text on the window" },
 	{ "bubbleInText", "bubbleIn", 4.5, "incoming bubble text" },
 	{ "bubbleOutText", "bubbleOut", 4.5, "outgoing bubble text" },
+	-- A gradient is two colours, and the words have to read on both ends of it.
+	{ "bubbleOutText", "bubbleOutTo", 4.5, "outgoing bubble text at the bottom of the gradient" },
+	{ "onAccent", "accentTo", 3.0, "text on the far end of the accent gradient" },
+	{ "textPrimary", "bg2To", 4.5, "body text at the bottom of the thread" },
+	{ "textSecondary", "bg2To", 3.0, "secondary text at the bottom of the thread" },
 	{ "onAccent", "accent", 3.0, "text on an accent button" },
 	{ "link", "bg1", 3.0, "links on the window" },
 	{ "link", "bubbleIn", 3.0, "links in an incoming bubble" },

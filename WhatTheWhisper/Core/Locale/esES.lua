@@ -139,7 +139,7 @@ ns.RegisterLocale("esES", {
 	["Size"] = "Tamaño",
 	["Interface scale"] = "Escala de la interfaz",
 	["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."] = "Hace más grandes o más pequeñas todas las ventanas del addon, texto incluido. Para cambiar solo una, arrastra su esquina.",
-	["Automatic (Inter)"] = "Automática (Inter)",
+	["Automatic (Manrope)"] = "Automática (Manrope)",
 	["Quick replies"] = "Respuestas rápidas",
 	["On my way"] = "Voy de camino",
 	["One moment, please"] = "Un momento, por favor",

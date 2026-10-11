@@ -504,7 +504,7 @@ function textureMethods:SetTexture(path)
 	self._texture = path
 end
 function textureMethods:GetTexture() return self._texture end
-function textureMethods:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
+function textureMethods:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } self._gradient = nil end
 -- Recorded rather than discarded: an icon moving between a cell of a sheet and a
 -- whole file has to reset these, and a mock that forgot them could not tell the
 -- difference between "reset" and "never set".
@@ -515,7 +515,9 @@ function textureMethods:GetTexCoord()
 	local c = self._coord or { 0, 1, 0, 1 }
 	return c[1], c[2], c[3], c[4]
 end
-function textureMethods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a } end
+-- The vertex colour and a gradient are the same four corners' colours in the
+-- client: setting one replaces the other.
+function textureMethods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a } self._gradient = nil end
 function textureMethods:GetVertexColor()
 	local v = self._vertex or { 1, 1, 1, 1 }
 	return v[1], v[2], v[3], v[4]
@@ -544,6 +546,7 @@ function textureMethods:SetGradient(orientation, a, b)
 	assert(type(orientation) == "string", "SetGradient orientation must be a string")
 	assert(type(a) == "table" and type(b) == "table", "SetGradient needs colour objects")
 	self._gradient = { orientation, colourOf(a), colourOf(b) }
+	self._vertex = nil
 end
 function textureMethods:SetHorizTile() end
 function textureMethods:SetVertTile() end
@@ -552,6 +555,7 @@ function textureMethods:SetGradientAlpha(orientation, r1, g1, b1, a1, r2, g2, b2
 	assert(type(orientation) == "string", "SetGradientAlpha orientation must be a string")
 	assert(type(a2) == "number", "SetGradientAlpha needs eight colour components")
 	self._gradient = { orientation, { r1, g1, b1, a1 }, { r2, g2, b2, a2 } }
+	self._vertex = nil
 end
 
 local texProto, texMT = makeObject("Texture", textureMethods)

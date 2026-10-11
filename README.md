@@ -180,10 +180,10 @@ spacing scale, type scale, colour roles, per-component specs, motion, and the
 per-client parity table. Every number in it exists as a named constant in
 `Core/Namespace.lua`; nothing else is allowed to invent a spacing or a size.
 
-The text is set in **Inter**, a typeface drawn for screens, which ships with the
+The text is set in **Manrope**, a modern geometric typeface drawn for screens, which ships with the
 addon in regular and semibold (`Media/Fonts`, SIL Open Font License, licence
 beside the files). Names and titles are semibold, everything read at length is
-regular. Korean and Chinese keep the client's own font, since Inter has no
+regular. Korean and Chinese keep the client's own font, since Manrope has no
 glyphs for them, and Settings › Appearance › Font switches back to the game's
 chat font for anyone who wants the window to match the rest of their UI.
 
@@ -192,11 +192,12 @@ windows of their own, settings, dialogs, menus, the emoji picker — 60 to 150 %
 what it was designed at, text included, by scaling the frames themselves, so the
 audited layout is the one that is drawn. A window keeps the corner or the centre it
 was placed by. Font size is separate (-4 to +6 steps, nothing under 8 px), a window
-can still be resized by its corner, and the font can be Inter, the game's chat font
+can still be resized by its corner, and the font can be Manrope, the game's chat font
 or any other the client has.
 
-Six skins ship, each a complete token set rather than a background colour:
-Midnight, Messenger, Dark, Minimal, Glass and Classic. A skin that omits a role
+Seven skins ship, each a complete token set rather than a background colour:
+Aurora (the default: ink violet, a violet-to-blue gradient for your own messages, and
+each conversation's header washed with the person's colour), Midnight, Messenger, Dark, Minimal, Glass and Classic. A skin that omits a role
 inherits it from Midnight, so a partial skin cannot render broken.
 
 The chrome is drawn, not borrowed. Rounded rectangles are assembled from a
@@ -222,9 +223,9 @@ Modules/               conversation model, history, chat events, player info,
                        combat, search
 UI/                    theme, drawing primitives, motion, widget toolkit,
                        and the views built from them
-Skins/                 six complete token sets
+Skins/                 seven complete token sets
 Art/                   generated .tga atlases and geometry
-Media/Fonts/           Inter, regular and semibold, and its licence
+Media/Fonts/           Manrope, regular and semibold, and its licence
 Media/Icons/           drop-in replacements for any glyph (docs/ICON-REPLACEMENT.md)
 ```
 

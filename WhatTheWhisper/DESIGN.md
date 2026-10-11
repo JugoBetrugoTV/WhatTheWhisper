@@ -175,7 +175,7 @@ and truncates at every step above it.
 Apple's text ramp, by the names Apple gives the steps, because using the real numbers
 rather than numbers near them is most of the difference between "iOS-ish" and iOS.
 
-The face is the addon's own: **Inter**, a screen typeface drawn for interfaces, shipped in
+The face is the addon's own: **Manrope**, a modern geometric sans drawn for screens, shipped in
 `Media/Fonts` in regular and semibold under the SIL Open Font License (the licence is
 beside the files). It covers Latin, Cyrillic and Greek. Korean and Chinese are drawn with
 the client's own font for them, whatever is chosen, because no Latin face has those
@@ -193,7 +193,7 @@ face a player picks is validated before use.
 | `T.display` | 24 | title 2    | empty-state headline |
 
 Every token also comes in a strong weight, asked for as `BODY_STRONG`, `TITLE_STRONG`
-and so on: the semibold cut with Inter, the same face with any font that has only one.
+and so on: the semibold cut with Manrope, the same face with any font that has only one.
 Strong is for **names and titles only** — a conversation's name in the list, in the
 header and on a notification card, window and dialog titles, empty-state headlines, and
 the day in a time marker. Everything a person reads at length stays regular.
@@ -521,7 +521,8 @@ A skin is a **complete token set**, not a background colour.
 
 | Skin | Character |
 |------|-----------|
-| **Midnight** (default) | iOS Dark: Apple's system greys with systemBlue. The skin this document describes. |
+| **Aurora** (default) | Ink violet. A violet-to-blue gradient for what is yours — your bubbles, the send button, the unread count — lavender-white text, and each conversation's header washed with the person's own colour. |
+| **Midnight** | iOS Dark: Apple's system greys with systemBlue. The sober one; the proportions in this document were drawn on it. |
 | **Messenger** | Warm charcoal canvas, green accent, deep teal outgoing bubbles. |
 | **Dark** | Pure neutral greys for people who do not want a colour. |
 | **Minimal** | One flat surface, hairlines barely there, generous spacing. |
@@ -529,7 +530,17 @@ A skin is a **complete token set**, not a background colour.
 | **Classic** | Warm dark parchment with gold, in a modern layout. |
 
 Every skin defines all 35 roles; missing roles inherit from Midnight, so a partial skin can
-never render broken. Two more — `trackBg` and `thumbBg` — are derived from `bg3` rather
+never render broken. Three more are gradient *ends* — `bubbleOutTo`, `accentTo`, `bg2To` —
+and are optional: a skin that does not say has the colour it fades from, so the gradient is
+a flat fill and nothing has to ask whether there is one. A gradient is seven small ones
+(a rounded shape is seven textures, each given the colours at its own edges), falls back to
+the average colour on a client with neither gradient call, and the text on it has to clear
+its contrast on *both* ends. One skin metric is new, `headerWash`: the strength of the
+person's colour behind the conversation header (0 is none).
+
+Also in the Aurora identity, available to any skin: a ring of the person's colour round
+their avatar (every avatar from 28 px up), the day in a time marker set on a soft chip,
+and the send button lit in the accent gradient. Two more — `trackBg` and `thumbBg` — are derived from `bg3` rather
 than written down, so a skin cannot define a control groove nobody can see. Users override
 background opacity, font, font size, spacing density, corner radius, class colours,
 timestamps and sidebar width on top of any skin.

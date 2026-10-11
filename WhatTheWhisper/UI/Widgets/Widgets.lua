@@ -32,6 +32,7 @@ function W.Surface(frame, opts)
 	local s = setmetatable({
 		frame = frame,
 		colorRole = opts.color,
+		gradientRole = opts.gradient,
 		borderRole = opts.border,
 		borderWidth = opts.borderWidth or 1,
 		baseRadius = opts.radius or 0,
@@ -53,6 +54,15 @@ end
 function SurfaceMT:SetColorRole(role)
 	self.colorRole = role
 	self:ApplyTheme()
+	return self
+end
+
+-- The colour the surface fades to at its bottom edge, or nil for a flat fill. A
+-- role that resolves to the same colour as the fill is a flat fill, so a skin
+-- without a gradient costs nothing and a skin with one needs no special case.
+function SurfaceMT:SetGradientRole(role)
+	self.gradientRole = role
+	self:ApplyColor()
 	return self
 end
 
@@ -88,6 +98,14 @@ function SurfaceMT:ApplyColor()
 			return
 		end
 		c = Theme.Get(self.colorRole)
+		local to = self.gradientRole and Theme.Get(self.gradientRole)
+		if to and (to[1] ~= c[1] or to[2] ~= c[2] or to[3] ~= c[3] or (to[4] or 1) ~= (c[4] or 1))
+			and self.rect.SetGradient then
+			local scale = self.alphaScale
+			self.rect:SetGradient({ c[1], c[2], c[3], (c[4] or 1) * scale },
+				{ to[1], to[2], to[3], (to[4] or 1) * scale })
+			return
+		end
 	end
 	self.rect:SetColor(c[1], c[2], c[3], (c[4] or 1) * self.alphaScale)
 end

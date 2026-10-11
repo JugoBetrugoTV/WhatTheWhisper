@@ -51,6 +51,7 @@
 
 	<!-- Skins and the resolved theme -->
 	<Script file="Skins\Skins.lua"/>
+	<Script file="Skins\Aurora.lua"/>
 	<Script file="Skins\Midnight.lua"/>
 	<Script file="Skins\WhatsApp.lua"/>
 	<Script file="Skins\Dark.lua"/>

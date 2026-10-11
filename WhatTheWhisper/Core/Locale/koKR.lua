@@ -139,7 +139,7 @@ ns.RegisterLocale("koKR", {
 	["Size"] = "크기",
 	["Interface scale"] = "인터페이스 크기",
 	["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."] = "애드온의 모든 창을 글자까지 함께 키우거나 줄입니다. 한 창만 바꾸려면 모서리를 끌어 조절하세요.",
-	["Automatic (Inter)"] = "자동 (Inter)",
+	["Automatic (Manrope)"] = "자동 (Manrope)",
 	["Quick replies"] = "빠른 답장",
 	["On my way"] = "가는 중이에요",
 	["One moment, please"] = "잠시만요",

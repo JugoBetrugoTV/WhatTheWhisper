@@ -33,12 +33,19 @@ function Avatar.New(parent, size)
 
 	local masked = Draw.MaskCircle(a, a.image)
 	a.masked = masked
-	if not masked then
-		-- No mask support: the image is inset and the disc shows as a ring, so
-		-- the footprint and palette stay identical to the masked version.
-		a.image:SetPoint("TOPLEFT", a, "TOPLEFT", 2, -2)
-		a.image:SetPoint("BOTTOMRIGHT", a, "BOTTOMRIGHT", -2, 2)
+	-- The picture sits inside a ring of the person's own colour: their class, or
+	-- the colour their name came to. With masks the image is circular and the
+	-- ring is the disc behind it; without them the same inset square leaves the
+	-- same ring, so the footprint and palette are one thing on every client.
+	-- Left off the smallest avatars, where two pixels of it would be most of the
+	-- picture.
+	function a:LayoutImage()
+		local inset = (self.size or size) >= 28 and 2 or 0
+		self.image:ClearAllPoints()
+		self.image:SetPoint("TOPLEFT", self, "TOPLEFT", inset, -inset)
+		self.image:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -inset, inset)
 	end
+	a:LayoutImage()
 
 	a.initials = W.Text(a, size >= 36 and "BODY" or "MICRO", "onAccent", "OVERLAY")
 	a.initials:ClearAllPoints()
@@ -69,6 +76,7 @@ end
 function Avatar:SetAvatarSize(size)
 	self.size = size
 	self:SetSize(size, size)
+	self:LayoutImage()
 	self.initials:SetFontObject(Theme.Font(size >= 36 and "BODY" or "MICRO"))
 	self.initials.__wtwToken = size >= 36 and "BODY" or "MICRO"
 end

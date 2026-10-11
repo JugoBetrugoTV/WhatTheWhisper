@@ -71,6 +71,7 @@ suite "deleting conversations" Tools/test/delete.lua
 suite "links, drafts, quick"   Tools/test/composing.lua
 suite "every choice, clicked"  Tools/test/choices.lua
 suite "interface scale"        Tools/test/uiscale.lua
+suite "gradients and Aurora"   Tools/test/gradient.lua
 suite "history"               Tools/test/history.lua
 suite "leaks and churn"       Tools/test/perf.lua
 suite "combat lockdown"       Tools/test/combat.lua

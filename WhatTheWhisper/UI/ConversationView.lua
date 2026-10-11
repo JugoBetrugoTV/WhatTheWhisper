@@ -23,7 +23,7 @@ function ConversationView.New(parent, opts)
 	for k, value in pairs(V) do v[k] = value end
 	v.opts = opts
 
-	v.surface = W.Surface(v, { color = "bg2" })
+	v.surface = W.Surface(v, { color = "bg2", gradient = "bg2To" })
 
 	------------------------------------------------------------------- header
 	local header = CreateFrame("Frame", nil, v)
@@ -34,6 +34,9 @@ function ConversationView.New(parent, opts)
 	-- thread below it, and one separation is enough: a shade change *and* a line
 	-- is how an interface ends up looking like it was assembled from parts.
 	header.surface = W.Surface(header, { color = "headerBg" })
+	header.wash = header:CreateTexture(nil, "BACKGROUND", nil, 3)
+	header.wash:SetColorTexture(1, 1, 1, 1)
+	header.wash:SetAllPoints(header)
 	v.header = header
 
 	-- A detached window is narrower and shorter, so its header takes the smaller
@@ -299,6 +302,15 @@ function V:RefreshHeader()
 	header.avatar:SetConversation(conv)
 
 	local nameColor = Theme.ClassColor(conv.class, "headerBg")
+	-- Each conversation has a little weather of its own: their colour, strongest
+	-- by their name and gone by the middle of the bar.
+	do
+		local tint = nameColor or Theme.Get("accent")
+		local alpha = Theme.m.headerWash or 0.2
+		header.wash:SetShown(alpha > 0)
+		ns.Compat.SetGradient(header.wash, "HORIZONTAL",
+			tint[1], tint[2], tint[3], alpha, tint[1], tint[2], tint[3], 0)
+	end
 	local displayName = ns.ConversationManager.DisplayName(conv)
 	header.name:SetText(displayName)
 	if nameColor then

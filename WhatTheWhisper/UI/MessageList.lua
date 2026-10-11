@@ -160,6 +160,12 @@ local function createSeparator(list)
 	f.clock:ClearAllPoints()
 	f.clock:SetJustifyH("LEFT")
 	f.clock:SetWordWrap(false)
+	-- A soft chip behind it, wider than the words by a margin on each side. A
+	-- texture of the marker's own frame, so it is drawn under its text and not
+	-- over it, whatever the frame levels are.
+	f.pill = Draw.NewRounded(f, "BACKGROUND", 0)
+	f.pill:SetRadius(ns.R.PILL)
+	f.pill:SetInsets(-ns.S.MD, -ns.S.MD, 2, 2)
 	return f
 end
 
@@ -579,6 +585,9 @@ function ML:RenderSeparator(entry)
 	f.clock:SetShown(clockW > 0)
 
 	f:SetSize(max(16, dayW + gap + clockW), entry.h)
+	local chip = Theme.Get("bg3")
+	f.pill:SetColor(chip[1], chip[2], chip[3], 0.9 * (chip[4] or 1))
+	f.pill:SetShown(dayW + clockW > 0)
 	self:PositionElement(f, entry)
 	f:Show()
 	return f
@@ -632,6 +641,8 @@ function ML:RenderBubble(entry)
 
 	if ap.bubbles then
 		f.surface:SetColorRole(fillRole)
+		-- Yours fade from the accent's top to its bottom; theirs are flat.
+		f.surface:SetGradientRole(entry.dir == ns.DIR_OUT and "bubbleOutTo" or nil)
 		if self.flashIndex == entry.index then
 			-- Search jump highlight: blend the bubble towards the accent so the
 			-- match is obvious without moving anything.

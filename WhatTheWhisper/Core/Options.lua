@@ -194,7 +194,7 @@ end
 function Options.FontOptions()
 	-- Automatic is the addon's own typeface; the game's chat font is offered by
 	-- name for anyone who prefers the window to match the rest of their UI.
-	local out = { { value = false, label = L["Automatic (Inter)"] },
+	local out = { { value = false, label = L["Automatic (Manrope)"] },
 		{ value = "game", label = L["The game's chat font"] } }
 	local candidates = {
 		{ "Fonts\\FRIZQT__.TTF", "Friz Quadrata" },

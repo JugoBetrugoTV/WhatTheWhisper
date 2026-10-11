@@ -134,7 +134,7 @@ ns.RegisterLocale("zhCN", {
 	["Size"] = "大小",
 	["Interface scale"] = "界面缩放",
 	["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."] = "放大或缩小插件的所有窗口（包括文字）。若只想调整某个窗口，请拖动它的边角。",
-	["Automatic (Inter)"] = "自动（Inter）",
+	["Automatic (Manrope)"] = "自动（Manrope）",
 	["Quick replies"] = "快捷回复",
 	["On my way"] = "我在路上",
 	["One moment, please"] = "请稍等",

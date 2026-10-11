@@ -38,7 +38,7 @@ ns.defaults = {
 			-- strings do not live in AceLocale, which keeps only the client's
 			-- own language and discards the rest at load.
 			locale         = "enUS",
-			skin           = "midnight",
+			skin           = "aurora",
 			font           = false,      -- false = the addon's own typeface, "game" = the chat font
 			fontScale      = 0,          -- -4 .. +6, applied to the whole type scale
 			-- The size of every window, text and all: a multiplier on the frames

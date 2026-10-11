@@ -139,7 +139,7 @@ ns.RegisterLocale("ruRU", {
 	["Size"] = "Размер",
 	["Interface scale"] = "Масштаб интерфейса",
 	["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."] = "Увеличивает или уменьшает все окна аддона вместе с текстом. Чтобы изменить только одно окно, потяните за его угол.",
-	["Automatic (Inter)"] = "Автоматически (Inter)",
+	["Automatic (Manrope)"] = "Автоматически (Manrope)",
 	["Quick replies"] = "Быстрые ответы",
 	["On my way"] = "Уже иду",
 	["One moment, please"] = "Минутку, пожалуйста",

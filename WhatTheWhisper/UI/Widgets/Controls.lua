@@ -44,6 +44,7 @@ function Controls.Badge(parent, opts)
 		b:SetWidth(width)
 		b.surface:SetRadius(h / 2)
 		b.surface:SetColorRole(muted and "textMuted" or "accent")
+		b.surface:SetGradientRole(not muted and "accentTo" or nil)
 		W.SetTextRole(b.label, muted and "bg1" or "onAccent")
 		b:Show()
 		if wasZero then

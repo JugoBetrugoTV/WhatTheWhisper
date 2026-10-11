@@ -18,7 +18,7 @@ local min, max = math.min, math.max
 
 -- Surfaces are affected by the opacity slider; content colours never are.
 local SURFACE_ROLES = {
-	bg0 = 1, bg1 = 1, bg2 = 1, headerBg = 1, composerBg = 1,
+	bg0 = 1, bg1 = 1, bg2 = 1, bg2To = 1, headerBg = 1, composerBg = 1,
 }
 -- Raised surfaces stay more opaque than the window so menus stay readable.
 local RAISED_ROLES = {
@@ -282,6 +282,14 @@ function Theme.Refresh()
 				c[4] = (c[4] or 1) * raisedAlpha
 			end
 			Theme.c[role] = c
+		end
+	end
+
+	-- A gradient's far end, for a skin that has none: the colour it fades from,
+	-- so the gradient is a flat fill and nothing has to ask whether there is one.
+	for toRole, fromRole in pairs(Skins.GRADIENT_FROM) do
+		if not Theme.c[toRole] and Theme.c[fromRole] then
+			Theme.c[toRole] = Color.Copy(Theme.c[fromRole])
 		end
 	end
 

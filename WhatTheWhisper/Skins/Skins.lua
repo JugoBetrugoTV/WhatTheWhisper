@@ -22,7 +22,13 @@ Skins.ROLES = {
 	"online", "away", "busy",
 	"link", "scrim", "shadow", "scrollbar", "focusRing",
 	"headerBg", "composerBg", "inputBg",
+	-- Where a gradient ends. Optional in every skin: one that does not say is
+	-- flat, because Theme fills each of these in from the colour it fades from.
+	"bubbleOutTo", "accentTo", "bg2To",
 }
+
+-- Which role each gradient end fades *from*.
+Skins.GRADIENT_FROM = { bubbleOutTo = "bubbleOut", accentTo = "accent", bg2To = "bg2" }
 
 local function parse(value)
 	if type(value) == "table" then
@@ -78,5 +84,8 @@ Skins.DEFAULT_METRICS = {
 	-- keeps them exact; a warm or low-chroma skin raises this so a cyan mage
 	-- name does not tear a hole in the palette.
 	classColorBlend = 0,
+	-- How strongly the conversation header is washed with the person's colour.
+	-- 0 is none; a skin built on flat greys leaves it low.
+	headerWash    = 0.12,
 	sortIndex     = 50,
 }

@@ -122,7 +122,7 @@ ns.RegisterLocale("enUS", {
 	["Size"] = true,
 	["Interface scale"] = true,
 	["Makes every window of the addon larger or smaller, text included. To change only one window, drag its corner."] = true,
-	["Automatic (Inter)"] = true,
+	["Automatic (Manrope)"] = true,
 	["Delete conversation"] = true,
 	["Delete this conversation?"] = true,
 	["This removes the conversation with %s and its %d stored messages. It cannot be undone."] = true,

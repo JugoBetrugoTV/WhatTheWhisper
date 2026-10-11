@@ -129,10 +129,50 @@ function RoundedMT:SetCorners(tl, tr, bl, br)
 	return self
 end
 
+-- A vertical gradient across the whole shape, `top` to `bottom`.
+--
+-- The shape is seven textures, so a gradient is seven small ones: each piece is
+-- given the colours the gradient has at its own top and bottom edge, and the
+-- pieces line up into one. Where the client has no gradient call each piece is
+-- its middle colour, which is a few flat bands rather than none at all.
+local function colourAt(g, t)
+	local a, b = g.top, g.bottom
+	return a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t,
+		a[3] + (b[3] - a[3]) * t, (a[4] or 1) + ((b[4] or 1) - (a[4] or 1)) * t
+end
+
+local function paintGradient(self, h, r)
+	local g = self.gradient
+	if not g or h <= 0 then return end
+	local extents
+	if r > 0 then
+		extents = { tl = { 0, r }, tr = { 0, r }, top = { 0, r }, mid = { r, h - r },
+			bl = { h - r, h }, br = { h - r, h }, bottom = { h - r, h } }
+	else
+		extents = { mid = { 0, h } }
+	end
+	for key, span in pairs(extents) do
+		local piece = self[key]
+		local r1, g1, b1, a1 = colourAt(g, span[2] / h)   -- the piece's bottom edge
+		local r2, g2, b2, a2 = colourAt(g, span[1] / h)   -- and its top edge
+		Compat.SetGradient(piece, "VERTICAL", r1, g1, b1, a1, r2, g2, b2, a2)
+	end
+end
+
+function RoundedMT:SetGradient(top, bottom)
+	self.gradient = { top = top, bottom = bottom }
+	self.color[1], self.color[2], self.color[3], self.color[4] =
+		(top[1] + bottom[1]) / 2, (top[2] + bottom[2]) / 2, (top[3] + bottom[3]) / 2, (top[4] or 1)
+	for i = 1, 7 do self.pieces[i]:SetVertexColor(1, 1, 1, 1) end
+	self:Layout()
+	return self
+end
+
 function RoundedMT:SetColor(r, g, b, a)
 	if type(r) == "table" then
 		r, g, b, a = r[1], r[2], r[3], r[4]
 	end
+	self.gradient = nil
 	self.color[1], self.color[2], self.color[3], self.color[4] = r, g, b, a == nil and 1 or a
 	for i = 1, 7 do
 		self.pieces[i]:SetVertexColor(r, g, b, self.color[4])
@@ -232,6 +272,8 @@ function RoundedMT:Layout()
 		self.top:Hide()
 		self.bottom:Hide()
 	end
+
+	paintGradient(self, h, r)
 end
 
 --------------------------------------------------------------------------------
@@ -287,6 +329,11 @@ end
 
 function OutlinedMT:SetColor(...)
 	self.fill:SetColor(...)
+	return self
+end
+
+function OutlinedMT:SetGradient(top, bottom)
+	self.fill:SetGradient(top, bottom)
 	return self
 end
 

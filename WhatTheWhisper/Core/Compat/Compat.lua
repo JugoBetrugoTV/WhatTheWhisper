@@ -123,6 +123,9 @@ if has(probeTex, "SetGradient") and type(_G.CreateColor) == "function" then
 end
 local hasOldGradient = has(probeTex, "SetGradientAlpha")
 Compat.hasGradient = hasNewGradient or hasOldGradient
+-- Which of the two a client has, read each time a gradient is set so a test can
+-- play out the other one.
+Compat.gradientAPI = (hasNewGradient and "new") or (hasOldGradient and "old") or nil
 
 -- Recorded at load, before any setting exists, so the ring buffer already holds
 -- the client's real capabilities by the time anyone types /wtw debug.
@@ -136,6 +139,29 @@ ns.Debug.Log("compat",
 --------------------------------------------------------------------------------
 -- Drawing helpers that differ between clients
 --------------------------------------------------------------------------------
+
+-- A two-colour gradient on a texture. `orientation` is "VERTICAL" (the first
+-- colour at the bottom, the second at the top) or "HORIZONTAL" (left, then
+-- right), whichever of the client's two calls is there. With neither, the texture
+-- is left the average of the two: flat, but the right colour, so a gradient is
+-- always an improvement and never a requirement.
+function Compat.SetGradient(texture, orientation, r1, g1, b1, a1, r2, g2, b2, a2)
+	local api = Compat.gradientAPI
+	if api == "new" then
+		local ok = pcall(texture.SetGradient, texture, orientation,
+			_G.CreateColor(r1, g1, b1, a1), _G.CreateColor(r2, g2, b2, a2))
+		if ok then
+			-- The call replaces the vertex colour; a colour a caller set before
+			-- would otherwise be multiplied in by clients that keep it.
+			return true
+		end
+	elseif api == "old" then
+		if pcall(texture.SetGradientAlpha, texture, orientation,
+			r1, g1, b1, a1, r2, g2, b2, a2) then return true end
+	end
+	texture:SetVertexColor((r1 + r2) / 2, (g1 + g2) / 2, (b1 + b2) / 2, (a1 + a2) / 2)
+	return false
+end
 
 function Compat.SetClipsChildren(frame, enabled)
 	if Compat.hasClipsChildren then
@@ -1702,10 +1728,10 @@ end
 
 ns.ART = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Art\\"
 
--- The addon's own typeface. Inter, under the SIL Open Font License (the licence
+-- The addon's own typeface. Manrope, under the SIL Open Font License (the licence
 -- is beside the files): a screen face drawn for interfaces, in the two weights
 -- a messenger needs, and with Latin, Cyrillic and Greek. Korean and Chinese are
 -- not in it and keep the client's own fonts -- see Theme.
 ns.FONTS = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Media\\Fonts\\"
-ns.FONT_REGULAR = ns.FONTS .. "Inter-Regular.ttf"
-ns.FONT_STRONG = ns.FONTS .. "Inter-SemiBold.ttf"
+ns.FONT_REGULAR = ns.FONTS .. "Manrope-Regular.ttf"
+ns.FONT_STRONG = ns.FONTS .. "Manrope-SemiBold.ttf"

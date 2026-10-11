@@ -223,7 +223,7 @@ for _, option in ipairs(Options.FontOptions()) do
 	if option.value == false then automatic = option end
 end
 eq = function(label, got, want) check(label, got == want, ("got %s, want %s"):format(tostring(got), tostring(want))) end
-eq("the font choice says what Automatic is", automatic and automatic.label, L["Automatic (Inter)"])
+eq("the font choice says what Automatic is", automatic and automatic.label, L["Automatic (Manrope)"])
 
 --------------------------------------------------------------------------------
 

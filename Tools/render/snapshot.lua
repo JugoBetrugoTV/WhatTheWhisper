@@ -133,6 +133,13 @@ M.FireEvent("ADDON_LOADED", "WhatTheWhisper")
 M.FireEvent("PLAYER_LOGIN")
 M.RunFrames(2)
 
+-- A typeface to look at before it is the addon's: WTW_FACE=Nunito uses
+-- Media/Fonts/Nunito-Regular.ttf and -SemiBold.ttf for this picture only.
+if os.getenv("WTW_FACE") then
+	ns.FONT_REGULAR = ns.FONTS .. os.getenv("WTW_FACE") .. "-Regular.ttf"
+	ns.FONT_STRONG = ns.FONTS .. os.getenv("WTW_FACE") .. "-SemiBold.ttf"
+	ns.Theme.Refresh()
+end
 ns.Options.Set("appearance.skin", skin)
 ns.Options.Set("messages.openOnWhisper", false)
 ns.Options.Set("sounds.enabled", false)

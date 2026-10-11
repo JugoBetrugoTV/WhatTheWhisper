@@ -217,7 +217,11 @@ function Button.Send(parent, opts)
 	btn.variant = "primary"
 	btn.active = false
 
-	btn.surface = W.Surface(btn, { radius = size / 2, layer = "BACKGROUND" })
+	-- Lit, it is the accent fading to its far colour; hovered or pressed it is a
+	-- flat step of the accent, and inert it is the groove. The colour override is
+	-- what says which, so with none the surface shows its own gradient.
+	btn.surface = W.Surface(btn, { radius = size / 2, layer = "BACKGROUND",
+		color = "accent", gradient = "accentTo" })
 	btn.icon = W.Icon(btn, "send", ns.SZ.ICON_GLYPH_LG, "onAccent")
 	btn.icon:SetPoint("CENTER")
 
@@ -237,7 +241,9 @@ function Button.Send(parent, opts)
 			fill, fg = Theme.Get("accent"), Theme.Get("onAccent")
 		end
 		local duration = instant and 0 or Theme.Duration("FAST")
-		if duration <= 0 then
+		if btn.active and state ~= "pressed" and state ~= "hover" then
+			btn.surface:SetColorOverride(nil)
+		elseif duration <= 0 then
 			btn.surface:SetColorOverride(fill[1], fill[2], fill[3], fill[4] or 1)
 		else
 			local r, g, b, a = btn.surface.rect:GetColor()

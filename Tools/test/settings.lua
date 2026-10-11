@@ -551,9 +551,9 @@ ns.Options.Set("appearance.skin", "glass")
 ns.Options.Set("appearance.fontScale", 4)
 ns.db:ResetProfile()
 M.RunFrames(3)
-eq("reset restores the default skin", ns.db.profile.appearance.skin, "midnight")
+eq("reset restores the default skin", ns.db.profile.appearance.skin, "aurora")
 eq("reset restores the default font scale", ns.db.profile.appearance.fontScale, 0)
-eq("reset reaches the theme", ns.Theme.skinID, "midnight")
+eq("reset reaches the theme", ns.Theme.skinID, "aurora")
 check("history survived the profile reset",
 	#ns.ConversationManager.Get("Thrall-Blackrock").messages >= 20)
 
